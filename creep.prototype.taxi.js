@@ -1,5 +1,5 @@
 /**
- * Роль: Taxi (Такси)
+ * Прототип для роли Taxi (Такси)
  * Особенности: Доставка майнеров на место работы, имеет ноги для перемещения
  */
 
@@ -8,32 +8,32 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления такси
  */
-function run(creep) {
+Creep.prototype.runTaxi = function() {
     // Если такси не имеет задачи, ищем доставку майнера
-    if (!creep.hasTask()) {
-        assignTaxiTask(creep);
+    if (!this.hasTask()) {
+        this.assignTaxiTask();
     }
     
     // Выполняем основную логику
-    if (creep.hasTask()) {
-        performDelivery(creep);
+    if (this.hasTask()) {
+        this.performDelivery();
     } else {
         // Если нет задачи, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение задачи такси
  */
-function assignTaxiTask(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignTaxiTask = function() {
+    const availableTasks = this.getAvailableTasks();
     const deliveryTasks = availableTasks.filter(task => task.type === taskManager.TASK_TYPE.DELIVER_MINER);
     
     if (deliveryTasks.length > 0) {
         const task = deliveryTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
+        if (this.assignTask(task.id)) {
             // Задача назначена
         }
     }
@@ -42,11 +42,11 @@ function assignTaxiTask(creep) {
 /**
  * Выполнение доставки майнера
  */
-function performDelivery(creep) {
-    const task = creep.getTask();
+Creep.prototype.performDelivery = function() {
+    const task = this.getTask();
     
     if (!task) {
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
@@ -54,32 +54,32 @@ function performDelivery(creep) {
     
     if (!source) {
         // Источник не существует
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     // Ищем майнера для доставки
-    const miner = findMinerForDelivery(creep, source);
+    const miner = this.findMinerForDelivery(source);
     
     if (miner) {
         // Найден майнер для доставки
-        if (creep.pos.isEqualTo(source.pos)) {
+        if (this.pos.isEqualTo(source.pos)) {
             // Майнер доставлен, завершаем задачу
-            creep.completeTask();
+            this.completeTask();
         } else {
             // Двигаемся к источнику с майнером
-            creep.moveTo(source);
+            this.moveTo(source);
         }
     } else {
         // Нет майнера для доставки
-        creep.releaseTask();
+        this.releaseTask();
     }
 }
 
 /**
  * Поиск майнера для доставки
  */
-function findMinerForDelivery(taxi, source) {
+Creep.prototype.findMinerForDelivery = function(taxi, source) {
     // Ищем майнера, который не привязан к источнику и находится рядом с такси
     const miners = taxi.pos.findInRange(FIND_MY_CREEPS, 1, {
         filter: (creep) => 
@@ -94,13 +94,13 @@ function findMinerForDelivery(taxi, source) {
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -108,22 +108,22 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния такси
  */
-function checkTaxiStatus(creep) {
+Creep.prototype.checkTaxiStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
+            this.releaseTask();
         }
     }
     
@@ -133,7 +133,7 @@ function checkTaxiStatus(creep) {
 /**
  * Доставка майнера к источнику
  */
-function deliverMinerToSource(taxi, miner, source) {
+Creep.prototype.deliverMinerToSource = function(taxi, miner, source) {
     if (!taxi || !miner || !source) {
         return false;
     }
@@ -158,7 +158,7 @@ function deliverMinerToSource(taxi, miner, source) {
 /**
  * Выгрузка майнера у источника
  */
-function unloadMinerAtSource(taxi, source) {
+Creep.prototype.unloadMinerAtSource = function(taxi, source) {
     if (!taxi || !source) {
         return false;
     }
@@ -173,13 +173,4 @@ function unloadMinerAtSource(taxi, source) {
     }
 }
 
-module.exports = {
-    run,
-    assignTaxiTask,
-    performDelivery,
-    findMinerForDelivery,
-    findAndAssignTask,
-    checkTaxiStatus,
-    deliverMinerToSource,
-    unloadMinerAtSource
-};
+module.exports = {};

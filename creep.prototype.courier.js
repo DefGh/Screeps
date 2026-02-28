@@ -1,5 +1,5 @@
 /**
- * Роль: Courier (Курьер)
+ * Прототип для роли Courier (Курьер)
  * Особенности: Транспортировка ресурсов из куч, имеет CARRY части для переноски
  */
 
@@ -8,26 +8,26 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления курьером
  */
-function run(creep) {
+Creep.prototype.runCourier = function() {
     // Если курьер не имеет задачи, ищем задачу сбора из кучи
-    if (!creep.hasTask()) {
-        assignCourierTask(creep);
+    if (!this.hasTask()) {
+        this.assignCourierTask();
     }
     
     // Выполняем основную логику
-    if (creep.hasTask()) {
-        performCollection(creep);
+    if (this.hasTask()) {
+        this.performCollection();
     } else {
         // Если нет задачи, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение задачи курьеру
  */
-function assignCourierTask(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignCourierTask = function() {
+    const availableTasks = this.getAvailableTasks();
     const collectTasks = availableTasks.filter(task => 
         task.type === taskManager.TASK_TYPE.COLLECT_FROM_PILE ||
         task.type === taskManager.TASK_TYPE.TRANSPORT
@@ -36,7 +36,7 @@ function assignCourierTask(creep) {
     if (collectTasks.length > 0) {
         const task = collectTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
+        if (this.assignTask(task.id)) {
             // Задача назначена
         }
     }
@@ -45,23 +45,23 @@ function assignCourierTask(creep) {
 /**
  * Выполнение сбора ресурсов
  */
-function performCollection(creep) {
-    const task = creep.getTask();
+Creep.prototype.performCollection = function() {
+    const task = this.getTask();
     
     if (!task) {
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     switch (task.type) {
         case taskManager.TASK_TYPE.COLLECT_FROM_PILE:
-            performCollectFromPile(creep, task);
+            this.performCollectFromPile(task);
             break;
         case taskManager.TASK_TYPE.TRANSPORT:
-            performTransport(creep, task);
+            this.performTransport(task);
             break;
         default:
-            creep.releaseTask();
+            this.releaseTask();
             break;
     }
 }
@@ -69,73 +69,73 @@ function performCollection(creep) {
 /**
  * Сбор из кучи
  */
-function performCollectFromPile(creep, task) {
+Creep.prototype.performCollectFromPile = function(task) {
     const pile = Game.getObjectById(task.target);
     
     if (!pile) {
         // Куча не существует
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     // Проверяем, заполнен ли крип
-    if (creep.carry.energy >= creep.carryCapacity) {
+    if (this.carry.energy >= this.carryCapacity) {
         // Крип полон, идем выгружать
-        performUnload(creep);
+        this.performUnload();
         return;
     }
     
     // Собираем ресурсы из кучи
-    const result = creep.pickup(pile);
+    const result = this.pickup(pile);
     
     if (result === OK) {
         // Успешно подобрали ресурс
-        creep.updateTaskProgress(creep.carry.energy);
+        this.updateTaskProgress(this.carry.energy);
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к куче
-        creep.moveTo(pile);
+        this.moveTo(pile);
     } else if (result === ERR_FULL) {
         // Крип полон, идем выгружать
-        performUnload(creep);
+        this.performUnload();
     }
 }
 
 /**
  * Транспортировка ресурсов
  */
-function performTransport(creep, task) {
+Creep.prototype.performTransport = function(task) {
     // Логика транспортировки между точками
     // Пока оставим заглушку
-    if (creep.carry.energy === 0) {
+    if (this.carry.energy === 0) {
         // Нужно загрузиться
-        performLoad(creep, task);
+        this.performLoad(task);
     } else {
         // Нужно выгрузиться
-        performUnload(creep);
+        this.performUnload();
     }
 }
 
 /**
  * Загрузка ресурсов
  */
-function performLoad(creep, task) {
+Creep.prototype.performLoad = function(task) {
     const source = Game.getObjectById(task.source);
     
     if (!source) {
         return;
     }
     
-    if (creep.withdraw(source, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(source);
+    if (this.withdraw(source, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+        this.moveTo(source);
     }
 }
 
 /**
  * Выгрузка ресурсов
  */
-function performUnload(creep) {
+Creep.prototype.performUnload = function() {
     // Ищем место для выгрузки
-    const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+    const targets = this.pos.findInRange(FIND_STRUCTURES, 1, {
         filter: (structure) => {
             return (structure.structureType === STRUCTURE_EXTENSION ||
                     structure.structureType === STRUCTURE_SPAWN ||
@@ -146,12 +146,12 @@ function performUnload(creep) {
     
     if (targets.length > 0) {
         // Найдено место для выгрузки
-        if (creep.transfer(targets[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(targets[0]);
+        if (this.transfer(targets[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+            this.moveTo(targets[0]);
         }
     } else {
         // Ищем другие структуры для выгрузки
-        const containers = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+        const containers = this.pos.findInRange(FIND_STRUCTURES, 1, {
             filter: (structure) => {
                 return structure.structureType === STRUCTURE_CONTAINER &&
                        structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
@@ -159,8 +159,8 @@ function performUnload(creep) {
         });
         
         if (containers.length > 0) {
-            if (creep.transfer(containers[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(containers[0]);
+            if (this.transfer(containers[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(containers[0]);
             }
         }
     }
@@ -169,13 +169,13 @@ function performUnload(creep) {
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -183,22 +183,22 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния курьера
  */
-function checkCourierStatus(creep) {
+Creep.prototype.checkCourierStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
+            this.releaseTask();
         }
     }
     
@@ -208,20 +208,9 @@ function checkCourierStatus(creep) {
 /**
  * Оптимизация маршрута для сбора
  */
-function optimizeCollectionRoute(creep) {
+Creep.prototype.optimizeCollectionRoute = function() {
     // Логика оптимизации маршрута сбора
     // Пока оставим заглушку
 }
 
-module.exports = {
-    run,
-    assignCourierTask,
-    performCollection,
-    performCollectFromPile,
-    performTransport,
-    performLoad,
-    performUnload,
-    findAndAssignTask,
-    checkCourierStatus,
-    optimizeCollectionRoute
-};
+module.exports = {};

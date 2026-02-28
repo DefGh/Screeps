@@ -1,5 +1,5 @@
 /**
- * Роль: Miner (Майнер)
+ * Прототип для роли Miner (Майнер)
  * Особенности: Копает энергию под себя, не имеет ног, привязан к источнику
  */
 
@@ -8,34 +8,34 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления майнером
  */
-function run(creep) {
+Creep.prototype.runMiner = function() {
     // Если майнер не имеет привязанного источника, ищем задачу
-    if (!creep.memory.sourceId) {
-        assignMinerToSource(creep);
+    if (!this.memory.sourceId) {
+        this.assignMinerToSource();
     }
     
     // Выполняем основную логику
-    if (creep.memory.sourceId) {
-        performMining(creep);
+    if (this.memory.sourceId) {
+        this.performMining();
     } else {
         // Если нет источника, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение майнера на источник
  */
-function assignMinerToSource(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignMinerToSource = function() {
+    const availableTasks = this.getAvailableTasks();
     const mineTasks = availableTasks.filter(task => task.type === taskManager.TASK_TYPE.MINE_SOURCE);
     
     if (mineTasks.length > 0) {
         const task = mineTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
-            creep.memory.sourceId = task.target;
-            creep.memory.role = taskManager.ROLE.MINER;
+        if (this.assignTask(task.id)) {
+            this.memory.sourceId = task.target;
+            this.memory.role = taskManager.ROLE.MINER;
         }
     }
 }
@@ -43,50 +43,50 @@ function assignMinerToSource(creep) {
 /**
  * Выполнение добычи энергии
  */
-function performMining(creep) {
-    const source = Game.getObjectById(creep.memory.sourceId);
+Creep.prototype.performMining = function() {
+    const source = Game.getObjectById(this.memory.sourceId);
     
     if (!source) {
         // Источник не существует, сбрасываем привязку
-        creep.memory.sourceId = null;
-        creep.releaseTask();
+        this.memory.sourceId = null;
+        this.releaseTask();
         return;
     }
     
     // Проверяем, находится ли майнер на месте
-    if (!creep.pos.isEqualTo(source.pos)) {
+    if (!this.pos.isEqualTo(source.pos)) {
         // Майнер не на месте, но он не может ходить (без ног)
         // Ждем, пока такси доставит его
         return;
     }
     
     // Добываем энергию
-    const result = creep.harvest(source);
+    const result = this.harvest(source);
     
     if (result === OK) {
         // Успешно добываем энергию
         // Проверяем, нужно ли обновить прогресс задачи
-        const task = creep.getTask();
+        const task = this.getTask();
         if (task) {
-            creep.updateTaskProgress(task.progress + 1);
+            this.updateTaskProgress(task.progress + 1);
         }
     } else if (result === ERR_NOT_ENOUGH_ENERGY) {
         // Источник пуст, задача завершена
-        creep.completeTask();
-        creep.memory.sourceId = null;
+        this.completeTask();
+        this.memory.sourceId = null;
     }
 }
 
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -94,23 +94,23 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния майнера
  */
-function checkMinerStatus(creep) {
+Creep.prototype.checkMinerStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
-            creep.memory.sourceId = null;
+            this.releaseTask();
+            this.memory.sourceId = null;
         }
     }
     
@@ -120,16 +120,9 @@ function checkMinerStatus(creep) {
 /**
  * Логика доставки майнером (если майнер используется для доставки)
  */
-function deliverMiner(creep) {
+Creep.prototype.deliverMiner = function() {
     // Эта функция может быть использована, если майнеру нужно доставить что-то
     // Пока оставим заглушку
 }
 
-module.exports = {
-    run,
-    assignMinerToSource,
-    performMining,
-    findAndAssignTask,
-    checkMinerStatus,
-    deliverMiner
-};
+module.exports = {};

@@ -1,5 +1,5 @@
 /**
- * Роль: Upgrader (Апгрейдер)
+ * Прототип для роли Upgrader (Апгрейдер)
  * Особенности: Апгрейд контроллера, имеет WORK и CARRY части
  */
 
@@ -8,32 +8,32 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления апгрейдером
  */
-function run(creep) {
+Creep.prototype.runUpgrader = function() {
     // Если апгрейдер не имеет задачи, ищем задачу апгрейда
-    if (!creep.hasTask()) {
-        assignUpgraderTask(creep);
+    if (!this.hasTask()) {
+        this.assignUpgraderTask();
     }
     
     // Выполняем основную логику
-    if (creep.hasTask()) {
-        performUpgrade(creep);
+    if (this.hasTask()) {
+        this.performUpgrade();
     } else {
         // Если нет задачи, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение задачи апгрейдеру
  */
-function assignUpgraderTask(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignUpgraderTask = function() {
+    const availableTasks = this.getAvailableTasks();
     const upgradeTasks = availableTasks.filter(task => task.type === taskManager.TASK_TYPE.UPGRADE);
     
     if (upgradeTasks.length > 0) {
         const task = upgradeTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
+        if (this.assignTask(task.id)) {
             // Задача назначена
         }
     }
@@ -42,11 +42,11 @@ function assignUpgraderTask(creep) {
 /**
  * Выполнение апгрейда контроллера
  */
-function performUpgrade(creep) {
-    const task = creep.getTask();
+Creep.prototype.performUpgrade = function() {
+    const task = this.getTask();
     
     if (!task) {
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
@@ -54,38 +54,38 @@ function performUpgrade(creep) {
     
     if (!controller) {
         // Контроллер не существует
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     // Проверяем, заполнен ли крип энергией
-    if (creep.carry.energy === 0) {
+    if (this.carry.energy === 0) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
         return;
     }
     
     // Апгрейдим контроллер
-    const result = creep.upgradeController(controller);
+    const result = this.upgradeController(controller);
     
     if (result === OK) {
         // Успешно апгрейднули
-        creep.updateTaskProgress(creep.carry.energy);
+        this.updateTaskProgress(this.carry.energy);
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к контроллеру
-        creep.moveTo(controller);
+        this.moveTo(controller);
     } else if (result === ERR_NOT_ENOUGH_ENERGY) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
     }
 }
 
 /**
  * Заполнение энергии
  */
-function performRefill(creep) {
+Creep.prototype.performRefill = function() {
     // Ищем источник энергии для заполнения
-    const storage = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+    const storage = this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (structure) => {
             return (structure.structureType === STRUCTURE_STORAGE ||
                     structure.structureType === STRUCTURE_CONTAINER) &&
@@ -94,18 +94,18 @@ function performRefill(creep) {
     });
     
     if (storage) {
-        if (creep.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(storage);
+        if (this.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+            this.moveTo(storage);
         }
     } else {
         // Ищем спавнеры или экстеншены
-        const spawns = creep.pos.findClosestByRange(FIND_MY_SPAWNS, {
+        const spawns = this.pos.findClosestByRange(FIND_MY_SPAWNS, {
             filter: (spawn) => spawn.energy > 0
         });
         
         if (spawns) {
-            if (creep.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(spawns);
+            if (this.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(spawns);
             }
         }
     }
@@ -114,13 +114,13 @@ function performRefill(creep) {
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -128,22 +128,22 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния апгрейдера
  */
-function checkUpgraderStatus(creep) {
+Creep.prototype.checkUpgraderStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
+            this.releaseTask();
         }
     }
     
@@ -153,8 +153,8 @@ function checkUpgraderStatus(creep) {
 /**
  * Поиск контроллера для апгрейда
  */
-function findController(creep) {
-    return creep.pos.findClosestByRange(FIND_STRUCTURES, {
+Creep.prototype.findController = function() {
+    return this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (structure) => structure.structureType === STRUCTURE_CONTROLLER
     });
 }
@@ -162,7 +162,7 @@ function findController(creep) {
 /**
  * Оптимизация апгрейда (работа в группе)
  */
-function optimizeUpgrade(creep) {
+Creep.prototype.optimizeUpgrade = function() {
     // Логика оптимизации группового апгрейда
     // Пока оставим заглушку
 }
@@ -170,8 +170,8 @@ function optimizeUpgrade(creep) {
 /**
  * Проверка прогресса апгрейда
  */
-function checkUpgradeProgress(creep) {
-    const task = creep.getTask();
+Creep.prototype.checkUpgradeProgress = function() {
+    const task = this.getTask();
     
     if (!task) {
         return 0;
@@ -189,8 +189,8 @@ function checkUpgradeProgress(creep) {
 /**
  * Проверка уровня контроллера
  */
-function checkControllerLevel(creep) {
-    const controller = findController(creep);
+Creep.prototype.checkControllerLevel = function() {
+    const controller = this.findController();
     
     if (!controller) {
         return 0;
@@ -199,15 +199,4 @@ function checkControllerLevel(creep) {
     return controller.level;
 }
 
-module.exports = {
-    run,
-    assignUpgraderTask,
-    performUpgrade,
-    performRefill,
-    findAndAssignTask,
-    checkUpgraderStatus,
-    findController,
-    optimizeUpgrade,
-    checkUpgradeProgress,
-    checkControllerLevel
-};
+module.exports = {};

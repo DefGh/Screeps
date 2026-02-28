@@ -1,5 +1,5 @@
 /**
- * Роль: Repairer (Ремонтник)
+ * Прототип для роли Repairer (Ремонтник)
  * Особенности: Ремонт структур, имеет WORK и CARRY части
  */
 
@@ -8,32 +8,32 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления ремонтником
  */
-function run(creep) {
+Creep.prototype.runRepairer = function() {
     // Если ремонтник не имеет задачи, ищем задачу ремонта
-    if (!creep.hasTask()) {
-        assignRepairerTask(creep);
+    if (!this.hasTask()) {
+        this.assignRepairerTask();
     }
     
     // Выполняем основную логику
-    if (creep.hasTask()) {
-        performRepair(creep);
+    if (this.hasTask()) {
+        this.performRepair();
     } else {
         // Если нет задачи, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение задачи ремонтнику
  */
-function assignRepairerTask(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignRepairerTask = function() {
+    const availableTasks = this.getAvailableTasks();
     const repairTasks = availableTasks.filter(task => task.type === taskManager.TASK_TYPE.REPAIR);
     
     if (repairTasks.length > 0) {
         const task = repairTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
+        if (this.assignTask(task.id)) {
             // Задача назначена
         }
     }
@@ -42,11 +42,11 @@ function assignRepairerTask(creep) {
 /**
  * Выполнение ремонта
  */
-function performRepair(creep) {
-    const task = creep.getTask();
+Creep.prototype.performRepair = function() {
+    const task = this.getTask();
     
     if (!task) {
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
@@ -54,43 +54,43 @@ function performRepair(creep) {
     
     if (!structure) {
         // Структура не существует
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     // Проверяем, заполнен ли крип энергией
-    if (creep.carry.energy === 0) {
+    if (this.carry.energy === 0) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
         return;
     }
     
     // Ремонтируем структуру
-    const result = creep.repair(structure);
+    const result = this.repair(structure);
     
     if (result === OK) {
         // Успешно отремонтировали
-        creep.updateTaskProgress(creep.carry.energy);
+        this.updateTaskProgress(this.carry.energy);
         
         // Проверяем, завершен ли ремонт
         if (structure.hits >= structure.hitsMax) {
-            creep.completeTask();
+            this.completeTask();
         }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к структуре
-        creep.moveTo(structure);
+        this.moveTo(structure);
     } else if (result === ERR_NOT_ENOUGH_ENERGY) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
     }
 }
 
 /**
  * Заполнение энергии
  */
-function performRefill(creep) {
+Creep.prototype.performRefill = function() {
     // Ищем источник энергии для заполнения
-    const storage = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+    const storage = this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (structure) => {
             return (structure.structureType === STRUCTURE_STORAGE ||
                     structure.structureType === STRUCTURE_CONTAINER) &&
@@ -99,18 +99,18 @@ function performRefill(creep) {
     });
     
     if (storage) {
-        if (creep.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(storage);
+        if (this.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+            this.moveTo(storage);
         }
     } else {
         // Ищем спавнеры или экстеншены
-        const spawns = creep.pos.findClosestByRange(FIND_MY_SPAWNS, {
+        const spawns = this.pos.findClosestByRange(FIND_MY_SPAWNS, {
             filter: (spawn) => spawn.energy > 0
         });
         
         if (spawns) {
-            if (creep.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(spawns);
+            if (this.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(spawns);
             }
         }
     }
@@ -119,13 +119,13 @@ function performRefill(creep) {
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -133,22 +133,22 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния ремонтника
  */
-function checkRepairerStatus(creep) {
+Creep.prototype.checkRepairerStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
+            this.releaseTask();
         }
     }
     
@@ -158,8 +158,8 @@ function checkRepairerStatus(creep) {
 /**
  * Поиск ближайшей структуры для ремонта
  */
-function findNearestRepairableStructure(creep) {
-    return creep.pos.findClosestByRange(FIND_STRUCTURES, {
+Creep.prototype.findNearestRepairableStructure = function() {
+    return this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (structure) => {
             return structure.hits < structure.hitsMax &&
                    (structure.structureType === STRUCTURE_ROAD ||
@@ -173,9 +173,9 @@ function findNearestRepairableStructure(creep) {
 /**
  * Приоритетный ремонт (по важности структур)
  */
-function prioritizeRepair(creep) {
+Creep.prototype.prioritizeRepair = function() {
     // Сначала ремонтируем дороги и контейнеры
-    const priorityStructures = creep.pos.findInRange(FIND_STRUCTURES, 3, {
+    const priorityStructures = this.pos.findInRange(FIND_STRUCTURES, 3, {
         filter: (structure) => {
             return structure.hits < structure.hitsMax &&
                    (structure.structureType === STRUCTURE_ROAD ||
@@ -188,7 +188,7 @@ function prioritizeRepair(creep) {
     }
     
     // Затем стены и бастионы
-    const defensiveStructures = creep.pos.findInRange(FIND_STRUCTURES, 3, {
+    const defensiveStructures = this.pos.findInRange(FIND_STRUCTURES, 3, {
         filter: (structure) => {
             return structure.hits < structure.hitsMax &&
                    (structure.structureType === STRUCTURE_WALL ||
@@ -202,8 +202,8 @@ function prioritizeRepair(creep) {
 /**
  * Проверка прогресса ремонта
  */
-function checkRepairProgress(creep) {
-    const task = creep.getTask();
+Creep.prototype.checkRepairProgress = function() {
+    const task = this.getTask();
     
     if (!task) {
         return 0;
@@ -218,14 +218,4 @@ function checkRepairProgress(creep) {
     return structure.hits / structure.hitsMax;
 }
 
-module.exports = {
-    run,
-    assignRepairerTask,
-    performRepair,
-    performRefill,
-    findAndAssignTask,
-    checkRepairerStatus,
-    findNearestRepairableStructure,
-    prioritizeRepair,
-    checkRepairProgress
-};
+module.exports = {};

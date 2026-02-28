@@ -33,7 +33,7 @@ function spawnCreep(spawner) {
         const result = spawner.spawnCreep(body, creepName, {
             memory: {
                 role: creepType,
-                task: null
+                taskId: null
             }
         });
         
@@ -171,15 +171,13 @@ function createMinerBody(energy) {
     const parts = [];
     const maxWorkParts = Math.floor(energy / 100); // WORK стоит 100
     
-    // Максимум WORK частей
+    // Максимум WORK частей (майнеры без ног)
     for (let i = 0; i < maxWorkParts; i++) {
         parts.push(WORK);
     }
     
-    // Добавляем одну MOVE часть
-    if (parts.length > 0) {
-        parts.push(MOVE);
-    }
+    // Майнеры не имеют ног, поэтому не добавляем MOVE части
+    // Они будут доставляться такси
     
     return parts;
 }
@@ -196,9 +194,8 @@ function createTaxiBody(energy) {
         parts.push(CARRY);
     }
     
-    // Добавляем MOVE части (1 MOVE на 2 CARRY)
-    const moveParts = Math.floor(parts.length / 2);
-    for (let i = 0; i < moveParts; i++) {
+    // Добавляем MOVE части (1 MOVE на 1 CARRY для быстрой доставки)
+    for (let i = 0; i < maxCarryParts; i++) {
         parts.push(MOVE);
     }
     

@@ -1,15 +1,16 @@
 const taskManager = require('./taskManager');
 const roomScanner = require('./roomScanner');
 const creepPrototype = require('./creepPrototype');
-const spawnerManager = require('./spawnerManager');
 
-// Подключаем роли
-const minerRole = require('./roles/miner');
-const taxiRole = require('./roles/taxi');
-const courierRole = require('./roles/courier');
-const builderRole = require('./roles/builder');
-const repairerRole = require('./roles/repairer');
-const upgraderRole = require('./roles/upgrader');
+// Подключаем прототипы ролей
+require('./creep.prototype.miner');
+require('./creep.prototype.taxi');
+require('./creep.prototype.courier');
+require('./creep.prototype.builder');
+require('./creep.prototype.repairer');
+require('./creep.prototype.upgrader');
+
+const spawnerManager = require('./spawnerManager');
 
 module.exports.loop = function () {
     // Инициализация системы задач
@@ -76,25 +77,25 @@ function manageCreeps() {
             return;
         }
         
-        // Обработка в зависимости от роли
+        // Обработка в зависимости от роли через прототипы
         switch (creep.memory.role) {
             case taskManager.ROLE.MINER:
-                minerRole.run(creep);
+                creep.runMiner();
                 break;
             case taskManager.ROLE.TAXI:
-                taxiRole.run(creep);
+                creep.runTaxi();
                 break;
             case taskManager.ROLE.COURIER:
-                courierRole.run(creep);
+                creep.runCourier();
                 break;
             case taskManager.ROLE.BUILDER:
-                builderRole.run(creep);
+                creep.runBuilder();
                 break;
             case taskManager.ROLE.REPAIRER:
-                repairerRole.run(creep);
+                creep.runRepairer();
                 break;
             case taskManager.ROLE.UPGRADER:
-                upgraderRole.run(creep);
+                creep.runUpgrader();
                 break;
         }
     });

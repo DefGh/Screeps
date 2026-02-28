@@ -1,5 +1,5 @@
 /**
- * Роль: Builder (Строитель)
+ * Прототип для роли Builder (Строитель)
  * Особенности: Строительство конструкций, имеет WORK и CARRY части
  */
 
@@ -8,32 +8,32 @@ const taskManager = require('../taskManager');
 /**
  * Основная функция управления строителем
  */
-function run(creep) {
+Creep.prototype.runBuilder = function() {
     // Если строитель не имеет задачи, ищем задачу строительства
-    if (!creep.hasTask()) {
-        assignBuilderTask(creep);
+    if (!this.hasTask()) {
+        this.assignBuilderTask();
     }
     
     // Выполняем основную логику
-    if (creep.hasTask()) {
-        performBuilding(creep);
+    if (this.hasTask()) {
+        this.performBuilding();
     } else {
         // Если нет задачи, ищем свободную задачу
-        findAndAssignTask(creep);
+        this.findAndAssignTask();
     }
 }
 
 /**
  * Назначение задачи строителю
  */
-function assignBuilderTask(creep) {
-    const availableTasks = creep.getAvailableTasks();
+Creep.prototype.assignBuilderTask = function() {
+    const availableTasks = this.getAvailableTasks();
     const buildTasks = availableTasks.filter(task => task.type === taskManager.TASK_TYPE.BUILD);
     
     if (buildTasks.length > 0) {
         const task = buildTasks[0]; // Берем первую доступную задачу
         
-        if (creep.assignTask(task.id)) {
+        if (this.assignTask(task.id)) {
             // Задача назначена
         }
     }
@@ -42,11 +42,11 @@ function assignBuilderTask(creep) {
 /**
  * Выполнение строительства
  */
-function performBuilding(creep) {
-    const task = creep.getTask();
+Creep.prototype.performBuilding = function() {
+    const task = this.getTask();
     
     if (!task) {
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
@@ -54,43 +54,43 @@ function performBuilding(creep) {
     
     if (!site) {
         // Строительная площадка не существует
-        creep.releaseTask();
+        this.releaseTask();
         return;
     }
     
     // Проверяем, заполнен ли крип энергией
-    if (creep.carry.energy === 0) {
+    if (this.carry.energy === 0) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
         return;
     }
     
     // Строим конструкцию
-    const result = creep.build(site);
+    const result = this.build(site);
     
     if (result === OK) {
         // Успешно построили
-        creep.updateTaskProgress(creep.carry.energy);
+        this.updateTaskProgress(this.carry.energy);
         
         // Проверяем, завершена ли постройка
         if (site.progress >= site.progressTotal) {
-            creep.completeTask();
+            this.completeTask();
         }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к строительной площадке
-        creep.moveTo(site);
+        this.moveTo(site);
     } else if (result === ERR_NOT_ENOUGH_ENERGY) {
         // Нужно заполниться энергией
-        performRefill(creep);
+        this.performRefill();
     }
 }
 
 /**
  * Заполнение энергии
  */
-function performRefill(creep) {
+Creep.prototype.performRefill = function() {
     // Ищем источник энергии для заполнения
-    const storage = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+    const storage = this.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (structure) => {
             return (structure.structureType === STRUCTURE_STORAGE ||
                     structure.structureType === STRUCTURE_CONTAINER) &&
@@ -99,18 +99,18 @@ function performRefill(creep) {
     });
     
     if (storage) {
-        if (creep.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(storage);
+        if (this.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+            this.moveTo(storage);
         }
     } else {
         // Ищем спавнеры или экстеншены
-        const spawns = creep.pos.findClosestByRange(FIND_MY_SPAWNS, {
+        const spawns = this.pos.findClosestByRange(FIND_MY_SPAWNS, {
             filter: (spawn) => spawn.energy > 0
         });
         
         if (spawns) {
-            if (creep.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(spawns);
+            if (this.withdraw(spawns, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                this.moveTo(spawns);
             }
         }
     }
@@ -119,13 +119,13 @@ function performRefill(creep) {
 /**
  * Поиск и назначение задачи
  */
-function findAndAssignTask(creep) {
-    const bestTask = creep.findBestTask();
+Creep.prototype.findAndAssignTask = function() {
+    const bestTask = this.findBestTask();
     
     if (bestTask) {
-        if (creep.assignTask(bestTask.id)) {
+        if (this.assignTask(bestTask.id)) {
             // Задача назначена, начинаем выполнение
-            creep.performTask();
+            this.performTask();
         }
     }
 }
@@ -133,22 +133,22 @@ function findAndAssignTask(creep) {
 /**
  * Проверка состояния строителя
  */
-function checkBuilderStatus(creep) {
+Creep.prototype.checkBuilderStatus = function() {
     // Проверяем, жив ли крип
-    if (!creep) {
+    if (!this) {
         return false;
     }
     
     // Проверяем, не умер ли крип
-    if (creep.spawning) {
+    if (this.spawning) {
         return true;
     }
     
     // Проверяем, есть ли задача
-    if (creep.hasTask()) {
-        const task = creep.getTask();
+    if (this.hasTask()) {
+        const task = this.getTask();
         if (!task || task.state === 'COMPLETED') {
-            creep.releaseTask();
+            this.releaseTask();
         }
     }
     
@@ -158,14 +158,14 @@ function checkBuilderStatus(creep) {
 /**
  * Поиск ближайшей строительной площадки
  */
-function findNearestConstructionSite(creep) {
-    return creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+Creep.prototype.findNearestConstructionSite = function() {
+    return this.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
 }
 
 /**
  * Оптимизация строительства (групповая работа)
  */
-function optimizeBuilding(creep) {
+Creep.prototype.optimizeBuilding = function() {
     // Логика оптимизации группового строительства
     // Пока оставим заглушку
 }
@@ -173,8 +173,8 @@ function optimizeBuilding(creep) {
 /**
  * Проверка прогресса строительства
  */
-function checkBuildingProgress(creep) {
-    const task = creep.getTask();
+Creep.prototype.checkBuildingProgress = function() {
+    const task = this.getTask();
     
     if (!task) {
         return 0;
@@ -189,14 +189,4 @@ function checkBuildingProgress(creep) {
     return site.progress / site.progressTotal;
 }
 
-module.exports = {
-    run,
-    assignBuilderTask,
-    performBuilding,
-    performRefill,
-    findAndAssignTask,
-    checkBuilderStatus,
-    findNearestConstructionSite,
-    optimizeBuilding,
-    checkBuildingProgress
-};
+module.exports = {};
