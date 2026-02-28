@@ -3,7 +3,7 @@
  * Особенности: Копает энергию под себя, не имеет ног, привязан к источнику
  */
 
-const taskManager = require('../taskManager');
+const taskManager = require('./taskManager');
 
 /**
  * Основная функция управления майнером

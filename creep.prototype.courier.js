@@ -3,7 +3,7 @@
  * Особенности: Транспортировка ресурсов из куч, имеет CARRY части для переноски
  */
 
-const taskManager = require('../taskManager');
+const taskManager = require('./taskManager');
 
 /**
  * Основная функция управления курьером

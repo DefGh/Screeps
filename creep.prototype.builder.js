@@ -3,7 +3,7 @@
  * Особенности: Строительство конструкций, имеет WORK и CARRY части
  */
 
-const taskManager = require('../taskManager');
+const taskManager = require('./taskManager');
 
 /**
  * Основная функция управления строителем

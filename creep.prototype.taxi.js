@@ -3,7 +3,7 @@
  * Особенности: Доставка майнеров на место работы, имеет ноги для перемещения
  */
 
-const taskManager = require('../taskManager');
+const taskManager = require('./taskManager');
 
 /**
  * Основная функция управления такси
