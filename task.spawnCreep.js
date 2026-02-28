@@ -38,9 +38,43 @@ module.exports = {
             return;
         }
 
+        // Convert body part strings to constants
+        let bodyParts = [];
+        for (let part of task.data.body) {
+            switch (part) {
+                case 'MOVE':
+                    bodyParts.push(MOVE);
+                    break;
+                case 'WORK':
+                    bodyParts.push(WORK);
+                    break;
+                case 'CARRY':
+                    bodyParts.push(CARRY);
+                    break;
+                case 'ATTACK':
+                    bodyParts.push(ATTACK);
+                    break;
+                case 'RANGED_ATTACK':
+                    bodyParts.push(RANGED_ATTACK);
+                    break;
+                case 'HEAL':
+                    bodyParts.push(HEAL);
+                    break;
+                case 'TOUGH':
+                    bodyParts.push(TOUGH);
+                    break;
+                case 'CLAIM':
+                    bodyParts.push(CLAIM);
+                    break;
+                default:
+                    console.log('WARNING: Unknown body part:', part);
+                    bodyParts.push(MOVE); // Default to MOVE
+            }
+        }
+
         // Attempt to spawn the creep
         let spawnResult = executer.spawnCreep(
-            task.data.body,
+            bodyParts,
             this.generateCreepName(task.data.role),
             {
                 memory: { role: task.data.role }
@@ -70,7 +104,7 @@ module.exports = {
                 // Generate alternative name and retry
                 let alternativeName = this.generateCreepName(task.data.role) + '_' + Game.time;
                 let retryResult = executer.spawnCreep(
-                    task.data.body,
+                    bodyParts,
                     alternativeName,
                     { memory: { role: task.data.role } }
                 );
