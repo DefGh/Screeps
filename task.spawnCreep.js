@@ -14,7 +14,7 @@ module.exports = {
         }
 
         // Check if executer is a spawn
-        if (!executer || !executer.spawning) {
+        if (!executer || !executer.spawnCreep) {
             console.log('ERROR: Executer is not a spawn structure');
             this.completeTask(task, false, 'Invalid executer type');
             return;
