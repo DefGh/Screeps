@@ -24,7 +24,7 @@ runCreep = function (creep) {
     let task = creep.memory.task;
     if (task) {
         console.log('Creep', creep.name, 'has existing task:', task.type);
-        runTask(task);
+        runTask(creep, task);
     } else {
         console.log('Creep', creep.name, 'has no task, searching for available tasks...');
         let newTask = taskManager.getTask(creep.memory.role);
@@ -44,7 +44,7 @@ runSpawn = function (spawn) {
     let task = spawn.memory.task;
     if (task) {
         console.log('Spawn', spawn.name, 'has existing task:', task.type);
-        runTask(task);
+        runTask(spawn, task);
     } else {
         console.log('Spawn', spawn.name, 'has no task, searching for available tasks...');
         let newTask = taskManager.getTask(role);
@@ -59,8 +59,11 @@ runSpawn = function (spawn) {
     }
 }
 
-runTask = function (task) {
+runTask = function (executer, task) {
     console.log('Running task:', task.type, 'Status:', task.status);
-    // Task execution logic would go here
+    
+    taskProcessor = require('task.' + task.type);
+    taskProcessor.run(executer, task);
+
     return;
 }
