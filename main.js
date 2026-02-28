@@ -19,7 +19,7 @@ runCreep = function (creep) {
     if (task) {
         runTask(task);
     } else {
-        creep.memory.task = getTask(creep.memory.role);
+        creep.memory.task = taskManager.getTask(creep.memory.role);
     }
 }
 runSpawn = function (spawn) {
@@ -28,7 +28,7 @@ runSpawn = function (spawn) {
     if (task) {
         runTask(task);
     } else {
-        spawn.memory.task = getTask(role);
+        spawn.memory.task = taskManager.getTask(role);
     }
 }
 
