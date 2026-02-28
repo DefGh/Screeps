@@ -1,6 +1,6 @@
-Creep.prototype.run = function() {
-    let role = this.memory.role;
+Creep.prototype.run = function(creep) {
+    let role = creep.memory.role;
     roleRunner = require('role.' + role);
-    roleRunner.run(this);
+    roleRunner.run(creep);
 }
 

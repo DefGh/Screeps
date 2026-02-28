@@ -6,8 +6,9 @@ module.exorts = {
         CARRY: 50
     },
        
-    CreepRole: {
-        UNIVERSAL: 'universal'
+    roles: {
+        UNIVERSAL: 'universal',
+        SPAWNER: 'spawner'
     },
 
     buildBody: function(role) {

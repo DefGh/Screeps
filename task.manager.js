@@ -2,10 +2,7 @@ common = require('common');
 
 module.exorts = {
 
-    roles: {
-        SPAWNER: 'spawner',
-        UNIVERSAL: 'universal',
-    },
+    roles: common.roles,
 
     taskTyeps: {
         SPAWN_CREEP: 'spawnCreep',
