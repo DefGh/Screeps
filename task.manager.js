@@ -18,19 +18,15 @@ module.exports = {
     getTask: function (role) {
         console.log('Getting task for role:', role);
         
-        if (!Game.memory) {
-            console.log('Initializing Game.memory');
-            Game.memory = {};
-        }
-        if (!Game.memory.tasks) {
-            console.log('Initializing Game.memory.tasks');
-            Game.memory.tasks = {};
+        if (!Memory.tasks) {
+            console.log('Initializing Memory.tasks');
+            Memory.tasks = {};
         }
 
         this.generateTasks();
         
         // Search for existing tasks that match this role
-        let tasks = Game.memory.tasks;
+        let tasks = Memory.tasks;
         for (let taskId in tasks) {
             let task = tasks[taskId];
             console.log('Checking task:', taskId, 'Type:', task.type, 'Data:', task.data);
@@ -48,13 +44,13 @@ module.exports = {
     generateTasks: function () {
         console.log('Generating tasks...');
         
-        if (!Game.memory) {
-            Game.memory = {};
+        if (!Memory) {
+            Memory = {};
         }
-        if (!Game.memory.tasks) {
-            Game.memory.tasks = {};
+        if (!Memory.tasks) {
+            Memory.tasks = {};
         }
-        let tasks = Game.memory.tasks;
+        let tasks = Memory.tasks;
         console.log('Current number of tasks:', Object.keys(tasks).length);
         console.log('Current number of creeps:', Object.keys(Game.creeps).length);
 
@@ -92,7 +88,7 @@ module.exports = {
         let newTaskId = 'spawnCreep' + role + Game.time;
         console.log('New task ID:', newTaskId);
         
-        let tasks = Game.memory.tasks;
+        let tasks = Memory.tasks;
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
             this.taskTyeps.SPAWN_CREEP,
@@ -101,7 +97,7 @@ module.exports = {
                 body: body,
             }, 
             [this.roles.SPAWNER], 
-            true, 
+            false, 
             1
         );
         console.log('Spawn task created successfully');
