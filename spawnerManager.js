@@ -69,7 +69,21 @@ function determineCreepType(spawner) {
     // Проверяем наличие задач для каждой специализированной роли
     const availableTasks = taskManager.getAvailableTasksForRole;
     
-    // Приоритет 1: Майнеры (если есть задачи на добычу)
+    // Приоритет 1: Универсальные крипы (максимальный приоритет, но вариативная необходимость)
+    // Универсальный крип нужен, если нет майнера И нет курьера
+    if (counts[taskManager.ROLE.UNIVERSAL] < 1) {
+        const allTasks = taskManager.getAllTasks();
+        const pendingTasks = allTasks.filter(task => task.state === 'PENDING');
+        
+        // Универсальный крип нужен, если есть задачи И нет майнера И нет курьера
+        if (pendingTasks.length > 0 && 
+            counts[taskManager.ROLE.MINER] === 0 && 
+            counts[taskManager.ROLE.COURIER] === 0) {
+            return taskManager.ROLE.UNIVERSAL;
+        }
+    }
+    
+    // Приоритет 2: Майнеры (если есть задачи на добычу)
     if (counts[taskManager.ROLE.MINER] < 2) { // Максимум 2 майнера
         const minerTasks = availableTasks(taskManager.ROLE.MINER);
         if (minerTasks.length > 0) {
@@ -77,7 +91,7 @@ function determineCreepType(spawner) {
         }
     }
     
-    // Приоритет 2: Курьеры (если есть задачи на сбор)
+    // Приоритет 3: Курьеры (если есть задачи на сбор)
     if (counts[taskManager.ROLE.COURIER] < 2) {
         const courierTasks = availableTasks(taskManager.ROLE.COURIER);
         if (courierTasks.length > 0) {
@@ -85,7 +99,7 @@ function determineCreepType(spawner) {
         }
     }
     
-    // Приоритет 3: Строители (если есть задачи на строительство)
+    // Приоритет 4: Строители (если есть задачи на строительство)
     if (counts[taskManager.ROLE.BUILDER] < 1) {
         const builderTasks = availableTasks(taskManager.ROLE.BUILDER);
         if (builderTasks.length > 0) {
@@ -93,7 +107,7 @@ function determineCreepType(spawner) {
         }
     }
     
-    // Приоритет 4: Ремонтники (если есть задачи на ремонт)
+    // Приоритет 5: Ремонтники (если есть задачи на ремонт)
     if (counts[taskManager.ROLE.REPAIRER] < 1) {
         const repairerTasks = availableTasks(taskManager.ROLE.REPAIRER);
         if (repairerTasks.length > 0) {
@@ -101,22 +115,11 @@ function determineCreepType(spawner) {
         }
     }
     
-    // Приоритет 5: Апгрейдеры (если есть задачи на апгрейд)
+    // Приоритет 6: Апгрейдеры (если есть задачи на апгрейд)
     if (counts[taskManager.ROLE.UPGRADER] < 2) {
         const upgraderTasks = availableTasks(taskManager.ROLE.UPGRADER);
         if (upgraderTasks.length > 0) {
             return taskManager.ROLE.UPGRADER;
-        }
-    }
-    
-    // Приоритет 6: Универсальные крипы (только если нет задач для специализированных)
-    // Универсальные крипы спавнятся только если есть вообще какие-либо задачи
-    if (counts[taskManager.ROLE.UNIVERSAL] < 1) {
-        const allTasks = taskManager.getAllTasks();
-        const pendingTasks = allTasks.filter(task => task.state === 'PENDING');
-        
-        if (pendingTasks.length > 0) {
-            return taskManager.ROLE.UNIVERSAL;
         }
     }
     
