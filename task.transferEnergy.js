@@ -1,9 +1,6 @@
 module.exports = {
 
     run: function (creep, task) {
-        console.log('=== Transfer Energy Task Processor ===');
-        console.log('Creep:', creep.name, 'Task:', task.id);
-
         // Initialize creep memory for transfer state if not exists
         if (!creep.memory.transferState) {
             creep.memory.transferState = {
@@ -12,11 +9,10 @@ module.exports = {
                 destinationId: null,
                 lastAction: null
             };
-            console.log('Initialized transfer state for', creep.name);
+            creep.say('🔄 Init');
         }
 
         let state = creep.memory.transferState;
-        console.log('Current phase:', state.phase, 'Source:', state.sourceId, 'Destination:', state.destinationId);
 
         switch (state.phase) {
             case 'findSource':
@@ -35,7 +31,7 @@ module.exports = {
     },
 
     findEnergySource: function (creep, state) {
-        console.log('Finding energy source for', creep.name);
+        creep.say('🔎 Finding source');
 
         // 1. Check for dropped energy on ground (highest priority)
         let droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
@@ -43,7 +39,7 @@ module.exports = {
         });
 
         if (droppedEnergy) {
-            console.log('Found dropped energy at', droppedEnergy.pos);
+            creep.say('💎 Found dropped');
             state.sourceId = droppedEnergy.id;
             state.phase = 'transferring';
             state.lastAction = 'pickup';
@@ -60,7 +56,7 @@ module.exports = {
         });
 
         if (containers) {
-            console.log('Found container with energy at', containers.pos);
+            creep.say('📦 Found container');
             state.sourceId = containers.id;
             state.phase = 'transferring';
             state.lastAction = 'withdraw';
@@ -73,14 +69,14 @@ module.exports = {
         });
 
         if (sources) {
-            console.log('Found energy source at', sources.pos);
+            creep.say('⛏️ Found source');
             state.sourceId = sources.id;
             state.phase = 'transferring';
             state.lastAction = 'harvest';
             return;
         }
 
-        console.log('No energy source found, waiting...');
+        creep.say('⏳ Waiting...');
         // Stay in findSource phase, will retry next tick
     },
 
@@ -88,7 +84,7 @@ module.exports = {
         let source = Game.getObjectById(state.sourceId);
         
         if (!source) {
-            console.log('Source no longer exists, returning to findSource');
+            creep.say('❓ Source lost');
             state.phase = 'findSource';
             state.sourceId = null;
             return;
@@ -98,7 +94,7 @@ module.exports = {
         let moveResult = creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
         
         if (moveResult !== OK) {
-            console.log('Move failed:', moveResult);
+            creep.say('❌ Move fail');
             return;
         }
 
@@ -120,8 +116,6 @@ module.exports = {
                     break;
             }
 
-            console.log('Transfer action result:', result);
-
             if (result === OK) {
                 // Check if creep is full or source is empty
                 if (creep.store.getFreeCapacity() === 0 || 
@@ -129,25 +123,28 @@ module.exports = {
                     (state.lastAction === 'withdraw' && source.store[RESOURCE_ENERGY] === 0) ||
                     (state.lastAction === 'harvest' && source.energy === 0)) {
                     
-                    console.log('Source depleted or creep full, finding destination');
+                    creep.say('🔋 Full/Empty');
                     state.phase = 'findDestination';
                     state.sourceId = null;
+                } else {
+                    creep.say('🔄 Collecting');
                 }
-                // Continue transferring if not full and source has energy
             } else if (result === ERR_NOT_ENOUGH_RESOURCES || result === ERR_INVALID_TARGET) {
-                console.log('Source depleted, finding new source');
+                creep.say('❌ Source empty');
                 state.phase = 'findSource';
                 state.sourceId = null;
             }
+        } else {
+            creep.say('🚶 Moving...');
         }
     },
 
     findEnergyDestination: function (creep, state) {
-        console.log('Finding energy destination for', creep.name);
+        creep.say('🎯 Finding dest');
 
         // Only proceed if creep has energy
         if (creep.store[RESOURCE_ENERGY] === 0) {
-            console.log('Creep has no energy, returning to findSource');
+            creep.say('🔋 Empty');
             state.phase = 'findSource';
             return;
         }
@@ -162,7 +159,7 @@ module.exports = {
         });
 
         if (spawns) {
-            console.log('Found spawn/extension needing energy at', spawns.pos);
+            creep.say('🏗️ Found spawn');
             state.destinationId = spawns.id;
             state.phase = 'delivering';
             return;
@@ -177,7 +174,7 @@ module.exports = {
         });
 
         if (storage) {
-            console.log('Found storage needing energy at', storage.pos);
+            creep.say('📦 Found storage');
             state.destinationId = storage.id;
             state.phase = 'delivering';
             return;
@@ -186,13 +183,13 @@ module.exports = {
         // 3. Check for controller that needs energy (upgrading)
         let controller = creep.room.controller;
         if (controller && controller.my && creep.pos.isNearTo(controller)) {
-            console.log('Found controller to upgrade');
+            creep.say('👑 Found controller');
             state.destinationId = controller.id;
             state.phase = 'delivering';
             return;
         }
 
-        console.log('No destination found, waiting...');
+        creep.say('⏳ Waiting...');
         // Stay in findDestination phase, will retry next tick
     },
 
@@ -200,7 +197,7 @@ module.exports = {
         let destination = Game.getObjectById(state.destinationId);
         
         if (!destination) {
-            console.log('Destination no longer exists, returning to findDestination');
+            creep.say('❓ Dest lost');
             state.phase = 'findDestination';
             state.destinationId = null;
             return;
@@ -210,7 +207,7 @@ module.exports = {
         let moveResult = creep.moveTo(destination, { visualizePathStyle: { stroke: '#ffffff' } });
         
         if (moveResult !== OK) {
-            console.log('Move failed:', moveResult);
+            creep.say('❌ Move fail');
             return;
         }
 
@@ -231,23 +228,24 @@ module.exports = {
                 result = creep.transfer(destination, RESOURCE_ENERGY);
             }
 
-            console.log('Delivery action result:', result);
-
             if (result === OK) {
                 // Check if creep is empty or destination is full
                 if (creep.store[RESOURCE_ENERGY] === 0 || 
                     destination.store && destination.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
                     
-                    console.log('Delivery complete, returning to findSource');
+                    creep.say('✅ Delivered');
                     state.phase = 'findSource';
                     state.destinationId = null;
+                } else {
+                    creep.say('🔄 Delivering');
                 }
-                // Continue delivering if creep has energy and destination can accept more
             } else if (result === ERR_FULL || result === ERR_INVALID_TARGET) {
-                console.log('Destination full or invalid, finding new destination');
+                creep.say('❌ Dest full');
                 state.phase = 'findDestination';
                 state.destinationId = null;
             }
+        } else {
+            creep.say('🚶 Moving...');
         }
     }
 };
