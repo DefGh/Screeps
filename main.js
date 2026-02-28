@@ -26,13 +26,15 @@ runCreep = function (creep) {
         console.log('Creep', creep.name, 'has existing task:', task.type);
         runTask(task);
     } else {
-        console.log('Creep', creep.name, 'has no task, getting new task...');
+        console.log('Creep', creep.name, 'has no task, searching for available tasks...');
         let newTask = taskManager.getTask(creep.memory.role);
         if (newTask) {
-            console.log('Assigned new task to', creep.name, ':', newTask.type);
+            console.log('Found available task for', creep.name, ':', newTask.type);
             creep.memory.task = newTask;
+            // Mark task as in progress
+            newTask.status = 'inProgress';
         } else {
-            console.log('No task available for', creep.name);
+            console.log('No available tasks for', creep.name, '- creep is idle');
         }
     }
 }
@@ -44,13 +46,15 @@ runSpawn = function (spawn) {
         console.log('Spawn', spawn.name, 'has existing task:', task.type);
         runTask(task);
     } else {
-        console.log('Spawn', spawn.name, 'has no task, getting new task...');
+        console.log('Spawn', spawn.name, 'has no task, searching for available tasks...');
         let newTask = taskManager.getTask(role);
         if (newTask) {
-            console.log('Assigned new task to spawn', spawn.name, ':', newTask.type);
+            console.log('Found available task for spawn', spawn.name, ':', newTask.type);
             spawn.memory.task = newTask;
+            // Mark task as in progress
+            newTask.status = 'inProgress';
         } else {
-            console.log('No task available for spawn', spawn.name);
+            console.log('No available tasks for spawn', spawn.name, '- spawn is idle');
         }
     }
 }

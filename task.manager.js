@@ -29,14 +29,21 @@ module.exports = {
 
         this.generateTasks();
         
-        // Return a simple task object for now
-        let task = {
-            type: 'idle',
-            status: 'pending',
-            data: { role: role }
-        };
-        console.log('Returning task:', task.type);
-        return task;
+        // Search for existing tasks that match this role
+        let tasks = Game.memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            console.log('Checking task:', taskId, 'Type:', task.type, 'Data:', task.data);
+            
+            // Look for tasks that can be executed by this role
+            if (task.canExecute && task.canExecute.includes(role) && task.status === 'pending') {
+                console.log('Found matching task:', taskId, 'Type:', task.type);
+                return task;
+            }
+        }
+        
+        console.log('No matching task found for role:', role);
+        return null;
     },
     generateTasks: function () {
         console.log('Generating tasks...');
