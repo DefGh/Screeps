@@ -1,4 +1,4 @@
-ный файлюconst taskManager = require('./taskManager');
+const taskManager = require('./taskManager');
 const roomScanner = require('./roomScanner');
 const creepManager = require('./creepManager');
 const spawnerManager = require('./spawnerManager');
