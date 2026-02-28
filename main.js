@@ -5,7 +5,7 @@ module.exports.loop = function () {
 
     for (let name in Game.creeps) {
         let creep = Game.creeps[name];
-        creep_proto.run(creep);
+        this.runCreep.run(creep);
     }
 
     for (let name in Game.spawns) {
