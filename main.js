@@ -1,35 +1,37 @@
-module.exports.taskManager = require('task.manager');;
-module.exports.common = require('common');
+taskManager = require('task.manager');;
+common = require('common');
 
 module.exports.loop = function () {
 
     for (let name in Game.creeps) {
         let creep = Game.creeps[name];
-        this.runCreep.run(creep);
+        runCreep(creep);
     }
 
     for (let name in Game.spawns) {
         let spawn = Game.spawns[name];
-        this.runSpawn(spawn);
+        runSpawn(spawn);
     }    
 }
 
-module.exports.runCreep = function (creep) {
+runCreep = function (creep) {
     let task = creep.memory.task;
     if (task) {
-        this.runTask(task);
+        runTask(task);
     } else {
-        creep.memory.task = this.getTask(creep.memory.role);
+        creep.memory.task = getTask(creep.memory.role);
     }
 }
-
-module.exports.runSpawn = function (spawn) {
-    let role = this.common.roles.SPAWNER;
+runSpawn = function (spawn) {
+    let role = common.roles.SPAWNER;
     let task = spawn.memory.task;
     if (task) {
-        this.runTask(task);
+        runTask(task);
     } else {
-        spawn.memory.task = this.getTask(role);
+        spawn.memory.task = getTask(role);
     }
 }
 
+runTask = function (task) {
+    return;
+}
