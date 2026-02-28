@@ -234,8 +234,8 @@ module.exports = {
                     destination.store && destination.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
                     
                     creep.say('✅ Delivered');
-                    state.phase = 'findSource';
-                    state.destinationId = null;
+                    // Clear transfer state after task completion
+                    this.clearTransferState(creep);
                 } else {
                     creep.say('🔄 Delivering');
                 }
@@ -246,6 +246,14 @@ module.exports = {
             }
         } else {
             creep.say('🚶 Moving...');
+        }
+    },
+
+    clearTransferState: function (creep) {
+        // Clear all transfer-related memory
+        if (creep.memory.transferState) {
+            delete creep.memory.transferState;
+            creep.say('🧹 Cleared');
         }
     }
 };
