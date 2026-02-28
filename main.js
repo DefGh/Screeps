@@ -4,11 +4,11 @@ const creepPrototype = require('./creepPrototype');
 
 // Подключаем прототипы ролей
 require('./creep.prototype.miner');
-require('./creep.prototype.taxi');
 require('./creep.prototype.courier');
 require('./creep.prototype.builder');
 require('./creep.prototype.repairer');
 require('./creep.prototype.upgrader');
+require('./creep.prototype.universal');
 
 const spawnerManager = require('./spawnerManager');
 
@@ -82,9 +82,6 @@ function manageCreeps() {
             case taskManager.ROLE.MINER:
                 creep.runMiner();
                 break;
-            case taskManager.ROLE.TAXI:
-                creep.runTaxi();
-                break;
             case taskManager.ROLE.COURIER:
                 creep.runCourier();
                 break;
@@ -96,6 +93,9 @@ function manageCreeps() {
                 break;
             case taskManager.ROLE.UPGRADER:
                 creep.runUpgrader();
+                break;
+            case taskManager.ROLE.UNIVERSAL:
+                creep.runUniversal();
                 break;
         }
     });

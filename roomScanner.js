@@ -54,15 +54,6 @@ function scanSources(room) {
                 [taskManager.ROLE.MINER],
                 true // Бесконечная задача
             );
-            
-            // Создаем задачу доставки майнера
-            taskManager.createTask(
-                taskManager.TASK_TYPE.DELIVER_MINER,
-                source.id, // Цель - источник, куда доставить майнера
-                room.name,
-                taskManager.PRIORITY.HIGH,
-                [taskManager.ROLE.TAXI]
-            );
         }
     });
 }
@@ -82,7 +73,7 @@ function scanConstructionSites(room) {
                 site.id,
                 room.name,
                 taskManager.PRIORITY.MEDIUM,
-                [taskManager.ROLE.BUILDER, taskManager.ROLE.REPAIRER]
+                [taskManager.ROLE.BUILDER, taskManager.ROLE.REPAIRER, taskManager.ROLE.UNIVERSAL]
             );
         }
     });
@@ -117,7 +108,7 @@ function scanStructures(room) {
                 structure.id,
                 room.name,
                 priority,
-                [taskManager.ROLE.REPAIRER]
+                [taskManager.ROLE.REPAIRER, taskManager.ROLE.UNIVERSAL]
             );
         }
     });
@@ -137,7 +128,7 @@ function scanController(room) {
                 room.controller.id,
                 room.name,
                 taskManager.PRIORITY.MEDIUM,
-                [taskManager.ROLE.UPGRADER],
+                [taskManager.ROLE.UPGRADER, taskManager.ROLE.UNIVERSAL],
                 true // Бесконечная задача
             );
         }
@@ -186,7 +177,7 @@ function scanResourcePiles(room) {
                 pile.id,
                 room.name,
                 taskManager.PRIORITY.MEDIUM,
-                [taskManager.ROLE.COURIER, taskManager.ROLE.BUILDER, taskManager.ROLE.REPAIRER]
+                [taskManager.ROLE.COURIER, taskManager.ROLE.BUILDER, taskManager.ROLE.REPAIRER, taskManager.ROLE.UNIVERSAL]
             );
         }
     });

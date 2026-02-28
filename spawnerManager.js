@@ -49,13 +49,9 @@ function spawnCreep(spawner) {
  * Определение типа крипа для спавна
  */
 function determineCreepType(spawner) {
-    // Приоритеты спавна:
-    // 1. Майнеры (для каждого источника)
-    // 2. Такси (для доставки майнеров)
-    // 3. Курьеры (для транспортировки)
-    // 4. Строители (для строительства)
-    // 5. Ремонтники (для ремонта)
-    // 6. Апгрейдеры (для апгрейда)
+    // Новая система приоритетов:
+    // 1. Сначала спавним специализированных крипов (если есть для них задачи)
+    // 2. Только если нет задач для специализированных - спавним универсальных
     
     const room = spawner.room;
     const creepsInRoom = Object.values(Game.creeps).filter(creep => creep.room.name === room.name);
@@ -63,60 +59,68 @@ function determineCreepType(spawner) {
     // Считаем количество крипов каждой роли
     const counts = {
         [taskManager.ROLE.MINER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.MINER).length,
-        [taskManager.ROLE.TAXI]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.TAXI).length,
         [taskManager.ROLE.COURIER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.COURIER).length,
         [taskManager.ROLE.BUILDER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.BUILDER).length,
         [taskManager.ROLE.REPAIRER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.REPAIRER).length,
-        [taskManager.ROLE.UPGRADER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.UPGRADER).length
+        [taskManager.ROLE.UPGRADER]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.UPGRADER).length,
+        [taskManager.ROLE.UNIVERSAL]: creepsInRoom.filter(c => c.memory.role === taskManager.ROLE.UNIVERSAL).length
     };
     
-    // Получаем задачи для каждой роли
-    const tasks = {
-        [taskManager.ROLE.MINER]: taskManager.getTasksByType(taskManager.TASK_TYPE.MINE_SOURCE).length,
-        [taskManager.ROLE.TAXI]: taskManager.getTasksByType(taskManager.TASK_TYPE.DELIVER_MINER).length,
-        [taskManager.ROLE.COURIER]: taskManager.getTasksByType(taskManager.TASK_TYPE.COLLECT_FROM_PILE).length,
-        [taskManager.ROLE.BUILDER]: taskManager.getTasksByType(taskManager.TASK_TYPE.BUILD).length,
-        [taskManager.ROLE.REPAIRER]: taskManager.getTasksByType(taskManager.TASK_TYPE.REPAIR).length,
-        [taskManager.ROLE.UPGRADER]: taskManager.getTasksByType(taskManager.TASK_TYPE.UPGRADE).length
-    };
+    // Проверяем наличие задач для каждой специализированной роли
+    const availableTasks = taskManager.getAvailableTasksForRole;
     
-    // Определяем потребность в крипах
-    const needs = {};
-    
-    // Майнеры: по одному на каждый источник
-    needs[taskManager.ROLE.MINER] = Math.max(0, tasks[taskManager.ROLE.MINER] - counts[taskManager.ROLE.MINER]);
-    
-    // Такси: 1-2 на комнату
-    needs[taskManager.ROLE.TAXI] = Math.max(0, Math.min(2, tasks[taskManager.ROLE.TAXI]) - counts[taskManager.ROLE.TAXI]);
-    
-    // Курьеры: 2-3 на комнату
-    needs[taskManager.ROLE.COURIER] = Math.max(0, Math.min(3, tasks[taskManager.ROLE.COURIER]) - counts[taskManager.ROLE.COURIER]);
-    
-    // Строители: 1-2 на комнату
-    needs[taskManager.ROLE.BUILDER] = Math.max(0, Math.min(2, tasks[taskManager.ROLE.BUILDER]) - counts[taskManager.ROLE.BUILDER]);
-    
-    // Ремонтники: 1 на комнату
-    needs[taskManager.ROLE.REPAIRER] = Math.max(0, Math.min(1, tasks[taskManager.ROLE.REPAIRER]) - counts[taskManager.ROLE.REPAIRER]);
-    
-    // Апгрейдеры: 1-2 на комнату
-    needs[taskManager.ROLE.UPGRADER] = Math.max(0, Math.min(2, tasks[taskManager.ROLE.UPGRADER]) - counts[taskManager.ROLE.UPGRADER]);
-    
-    // Выбираем роль с наибольшей потребностью
-    let maxNeed = 0;
-    let selectedRole = null;
-    
-    Object.keys(needs).forEach(role => {
-        if (needs[role] > maxNeed) {
-            maxNeed = needs[role];
-            selectedRole = role;
+    // Приоритет 1: Майнеры (если есть задачи на добычу)
+    if (counts[taskManager.ROLE.MINER] < 2) { // Максимум 2 майнера
+        const minerTasks = availableTasks(taskManager.ROLE.MINER);
+        if (minerTasks.length > 0) {
+            return taskManager.ROLE.MINER;
         }
-    });
-    
-    // Проверяем энергию для спавна
-    if (selectedRole && spawner.energy >= getCreepCost(getCreepBody(selectedRole))) {
-        return selectedRole;
     }
     
+    // Приоритет 2: Курьеры (если есть задачи на сбор)
+    if (counts[taskManager.ROLE.COURIER] < 2) {
+        const courierTasks = availableTasks(taskManager.ROLE.COURIER);
+        if (courierTasks.length > 0) {
+            return taskManager.ROLE.COURIER;
+        }
+    }
+    
+    // Приоритет 3: Строители (если есть задачи на строительство)
+    if (counts[taskManager.ROLE.BUILDER] < 1) {
+        const builderTasks = availableTasks(taskManager.ROLE.BUILDER);
+        if (builderTasks.length > 0) {
+            return taskManager.ROLE.BUILDER;
+        }
+    }
+    
+    // Приоритет 4: Ремонтники (если есть задачи на ремонт)
+    if (counts[taskManager.ROLE.REPAIRER] < 1) {
+        const repairerTasks = availableTasks(taskManager.ROLE.REPAIRER);
+        if (repairerTasks.length > 0) {
+            return taskManager.ROLE.REPAIRER;
+        }
+    }
+    
+    // Приоритет 5: Апгрейдеры (если есть задачи на апгрейд)
+    if (counts[taskManager.ROLE.UPGRADER] < 2) {
+        const upgraderTasks = availableTasks(taskManager.ROLE.UPGRADER);
+        if (upgraderTasks.length > 0) {
+            return taskManager.ROLE.UPGRADER;
+        }
+    }
+    
+    // Приоритет 6: Универсальные крипы (только если нет задач для специализированных)
+    // Универсальные крипы спавнятся только если есть вообще какие-либо задачи
+    if (counts[taskManager.ROLE.UNIVERSAL] < 1) {
+        const allTasks = taskManager.getAllTasks();
+        const pendingTasks = allTasks.filter(task => task.state === 'PENDING');
+        
+        if (pendingTasks.length > 0) {
+            return taskManager.ROLE.UNIVERSAL;
+        }
+    }
+    
+    // Если нет задач вообще, не спавним ничего
     return null;
 }
 
@@ -158,6 +162,10 @@ function getCreepBody(role) {
         case taskManager.ROLE.UPGRADER:
             // Апгрейдер: WORK для апгрейда, CARRY для переноски, MOVE для перемещения
             return createUpgraderBody(energyAvailable);
+            
+        case taskManager.ROLE.UNIVERSAL:
+            // Универсальный: сбалансированное тело для всех задач
+            return createUniversalBody(energyAvailable);
             
         default:
             return [WORK, CARRY, MOVE];
@@ -271,6 +279,23 @@ function createUpgraderBody(energy) {
     
     // Добавляем MOVE части
     const moveParts = Math.floor((workParts + carryParts) / 2);
+    for (let i = 0; i < moveParts; i++) parts.push(MOVE);
+    
+    return parts;
+}
+
+/**
+ * Создание тела универсального крипа
+ */
+function createUniversalBody(energy) {
+    const parts = [];
+    const workParts = Math.floor(energy / 3 / 100); // WORK стоит 100
+    const carryParts = Math.floor(energy / 3 / 50);  // CARRY стоит 50
+    const moveParts = Math.floor(energy / 3 / 50);   // MOVE стоит 50
+    
+    // Сбалансированное тело для всех задач
+    for (let i = 0; i < workParts; i++) parts.push(WORK);
+    for (let i = 0; i < carryParts; i++) parts.push(CARRY);
     for (let i = 0; i < moveParts; i++) parts.push(MOVE);
     
     return parts;

@@ -23,11 +23,11 @@ const TASK_TYPE = {
 
 const ROLE = {
     MINER: 'Miner',
-    TAXI: 'Taxi',
     COURIER: 'Courier',
     BUILDER: 'Builder',
     REPAIRER: 'Repairer',
     UPGRADER: 'Upgrader',
+    UNIVERSAL: 'Universal',
     DEFENDER: 'Defender',
     SPAWNER: 'Spawner'
 };
