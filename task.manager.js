@@ -6,6 +6,7 @@ module.exports = {
 
     taskTyeps: {
         SPAWN_CREEP: 'spawnCreep',
+        TRANSFER_ENERGY: 'transferEnergy',
     },
 
     taskStatuse: {
@@ -74,10 +75,44 @@ module.exports = {
             console.log('Creeps exist, skipping spawn task generation');
         }
 
+        // Always generate transfer energy task (low priority, repeatable)
+        this.generateTransferEnergyTask();
+
+    },
+
+    generateTransferEnergyTask: function () {
+        console.log('Generating transfer energy task...');
         
-
-
-
+        let tasks = Memory.tasks;
+        let hasTransferTask = false;
+        
+        // Check if transfer energy task already exists
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === this.taskTyeps.TRANSFER_ENERGY) {
+                console.log('Transfer energy task already exists:', taskId);
+                hasTransferTask = true;
+                break;
+            }
+        }
+        
+        if (!hasTransferTask) {
+            console.log('Creating new transfer energy task...');
+            let newTaskId = 'transferEnergy' + Game.time;
+            
+            tasks[newTaskId] = this.baseTask(
+                newTaskId,
+                this.taskTyeps.TRANSFER_ENERGY,
+                {
+                    // No specific data needed - creeps will find sources/destinations dynamically
+                },
+                [this.roles.UNIVERSAL], // Universal role can handle transfer tasks
+                true, // Repeatable - always available
+                999 // Many creeps can do this simultaneously
+            );
+            
+            console.log('Transfer energy task created successfully');
+        }
     },
 
     spawnCreepTask: function (role) {
