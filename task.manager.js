@@ -17,8 +17,6 @@ module.exports = {
 
 
     getTask: function (role) {
-        console.log('Getting task for role:', role);
-        
         if (!Memory.tasks) {
             console.log('Initializing Memory.tasks');
             Memory.tasks = {};
@@ -30,16 +28,14 @@ module.exports = {
         let tasks = Memory.tasks;
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            console.log('Checking task:', taskId, 'Type:', task.type, 'Data:', task.data);
             
             // Look for tasks that can be executed by this role
             if (task.canExecute && task.canExecute.includes(role) && task.status === 'pending') {
-                console.log('Found matching task:', taskId, 'Type:', task.type);
+                console.log('Task assigned to role:', role, 'Type:', task.type);
                 return task;
             }
         }
         
-        console.log('No matching task found for role:', role);
         return null;
     },
     generateTasks: function () {

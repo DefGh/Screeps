@@ -1,28 +1,21 @@
 module.exports = {
 
     run: function (executer, task) {
-        console.log('=== Spawn Creep Task Processor ===');
-        console.log('Executer:', executer.name, 'Type:', executer.constructor.name);
-        console.log('Task ID:', task.id, 'Status:', task.status);
-        console.log('Task Data:', JSON.stringify(task.data));
 
         // Validate task data
         if (!task.data || !task.data.role || !task.data.body) {
-            console.log('ERROR: Invalid task data - missing role or body');
             this.completeTask(task, false, 'Invalid task data');
             return;
         }
 
         // Check if executer is a spawn
         if (!executer || !executer.spawnCreep) {
-            console.log('ERROR: Executer is not a spawn structure');
             this.completeTask(task, false, 'Invalid executer type');
             return;
         }
 
         // Check if spawn is currently busy
         if (executer.spawning) {
-            console.log('Spawn is busy with:', executer.spawning.name);
             return; // Task remains in progress, will retry next tick
         }
 
@@ -30,10 +23,7 @@ module.exports = {
         let bodyCost = this.calculateBodyCost(task.data.body);
         let availableEnergy = executer.room.energyAvailable;
         
-        console.log('Required energy:', bodyCost, 'Available energy:', availableEnergy);
-
         if (availableEnergy < bodyCost) {
-            console.log('ERROR: Insufficient energy for spawning');
             this.completeTask(task, false, 'Insufficient energy: ' + availableEnergy + '/' + bodyCost);
             return;
         }
@@ -67,7 +57,6 @@ module.exports = {
                     bodyParts.push(CLAIM);
                     break;
                 default:
-                    console.log('WARNING: Unknown body part:', part);
                     bodyParts.push(MOVE); // Default to MOVE
             }
         }
@@ -81,26 +70,20 @@ module.exports = {
             }
         );
 
-        console.log('Spawn result:', spawnResult);
-
         switch (spawnResult) {
             case OK:
-                console.log('SUCCESS: Creep spawned successfully');
                 this.completeTask(task, true, 'Creep spawned: ' + this.generateCreepName(task.data.role));
                 break;
             
             case ERR_BUSY:
-                console.log('Spawn is busy - will retry next tick');
                 // Don't complete task, let it retry
                 break;
             
             case ERR_INVALID_ARGS:
-                console.log('ERROR: Invalid spawn arguments');
                 this.completeTask(task, false, 'Invalid spawn arguments');
                 break;
             
             case ERR_NAME_EXISTS:
-                console.log('ERROR: Creep name already exists');
                 // Generate alternative name and retry
                 let alternativeName = this.generateCreepName(task.data.role) + '_' + Game.time;
                 let retryResult = executer.spawnCreep(
@@ -110,21 +93,17 @@ module.exports = {
                 );
                 
                 if (retryResult === OK) {
-                    console.log('SUCCESS: Creep spawned with alternative name:', alternativeName);
                     this.completeTask(task, true, 'Creep spawned: ' + alternativeName);
                 } else {
-                    console.log('ERROR: Alternative spawn also failed:', retryResult);
                     this.completeTask(task, false, 'Spawn failed with alternative name');
                 }
                 break;
             
             case ERR_NOT_ENOUGH_ENERGY:
-                console.log('ERROR: Not enough energy (race condition)');
                 this.completeTask(task, false, 'Energy insufficient at spawn time');
                 break;
             
             default:
-                console.log('ERROR: Unexpected spawn error:', spawnResult);
                 this.completeTask(task, false, 'Spawn error: ' + spawnResult);
         }
     },
@@ -158,7 +137,6 @@ module.exports = {
                     cost += 600;
                     break;
                 default:
-                    console.log('WARNING: Unknown body part:', part);
                     cost += 50; // Default cost
             }
         }
@@ -177,11 +155,8 @@ module.exports = {
             message: message
         };
         
-        console.log('Task completed:', task.id, 'Success:', success, 'Message:', message);
-        
         // Clean up task memory if it's not repeatable
         if (!task.repeatable) {
-            console.log('Removing non-repeatable task:', task.id);
             delete Memory.tasks[task.id];
         }
     }

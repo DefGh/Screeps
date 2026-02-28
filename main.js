@@ -20,21 +20,20 @@ module.exports.loop = function () {
 }
 
 runCreep = function (creep) {
-    console.log('Processing creep:', creep.name);
     let task = creep.memory.task;
     if (task) {
-        console.log('Creep', creep.name, 'has existing task:', task.type);
+        creep.say('💼 Working: ' + task.type);
         runTask(creep, task);
     } else {
-        console.log('Creep', creep.name, 'has no task, searching for available tasks...');
+        creep.say('❓ Seeking task...');
         let newTask = taskManager.getTask(creep.memory.role);
         if (newTask) {
-            console.log('Found available task for', creep.name, ':', newTask.type);
+            creep.say('✅ Task: ' + newTask.type);
             creep.memory.task = newTask;
             // Mark task as in progress
             newTask.status = 'inProgress';
         } else {
-            console.log('No available tasks for', creep.name, '- creep is idle');
+            creep.say('💤 Idle');
         }
     }
 }
