@@ -1,6 +1,6 @@
 common = require('common');
 
-module.exorts = {
+module.exports = {
 
     roles: common.roles,
 
@@ -23,19 +23,31 @@ module.exorts = {
         }
 
         this.generateTasks();
-
-
+        
+        // Return a simple task object for now
+        return {
+            type: 'idle',
+            status: 'pending',
+            data: { role: role }
+        };
     },
     generateTasks: function () {
         let tasks = Game.memory.tasks;
 
         // if no creeps -> spawn creep task
 
-        if (Game.creeps.length === 0) {
-            if (tasks.any(task => task.type === this.taskTyeps.SPAWN_CREEP && task.data.role === this.roles.UNIVERSAL)) {
-                return;
+        if (Object.keys(Game.creeps).length === 0) {
+            let hasUniversalTask = false;
+            for (let taskId in tasks) {
+                let task = tasks[taskId];
+                if (task.type === this.taskTyeps.SPAWN_CREEP && task.data.role === this.roles.UNIVERSAL) {
+                    hasUniversalTask = true;
+                    break;
+                }
             }
-            this.spawnCreepTask(this.roles.UNIVERSAL);
+            if (!hasUniversalTask) {
+                this.spawnCreepTask(this.roles.UNIVERSAL);
+            }
         }
 
         
@@ -47,8 +59,8 @@ module.exorts = {
     spawnCreepTask: function (role) {
         let body = common.buildBody(role);
 
-        newTaskId = 'spawnCreep' + role + Game.time;
-        tasks = Game.memory.tasks;
+        let newTaskId = 'spawnCreep' + role + Game.time;
+        let tasks = Game.memory.tasks;
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
             this.taskTyeps.SPAWN_CREEP,
