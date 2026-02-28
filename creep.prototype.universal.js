@@ -9,7 +9,7 @@ const taskManager = require('./taskManager');
  * Основная функция управления универсальным крипом
  */
 Creep.prototype.runUniversal = function() {
-    // Если универсальный крип не имеет задачи, ищем любую доступную задачу
+    // Если универсальный крип не имеет задачи, ищем приоритетную задачу
     if (!this.hasTask()) {
         this.findAndAssignTask();
     }
@@ -27,14 +27,47 @@ Creep.prototype.runUniversal = function() {
  * Поиск и назначение задачи
  */
 Creep.prototype.findAndAssignTask = function() {
-    const bestTask = this.findBestTask();
+    // Проверяем, не выполняем ли мы уже задачу
+    if (this.memory.taskId) {
+        return;
+    }
     
-    if (bestTask) {
-        if (this.assignTask(bestTask.id)) {
+    // Ищем приоритетные задачи
+    const priorityTasks = this.findPriorityTasks();
+    
+    if (priorityTasks.length > 0) {
+        // Берем первую приоритетную задачу
+        const task = priorityTasks[0];
+        
+        if (this.assignTask(task.id)) {
             // Задача назначена, начинаем выполнение
             this.performTask();
         }
+    } else {
+        // Нет приоритетных задач, ищем любую доступную
+        this.findAnyTask();
     }
+}
+
+/**
+ * Поиск приоритетных задач
+ */
+Creep.prototype.findPriorityTasks = function() {
+    const availableTasks = this.getAvailableTasks();
+    
+    // Сортируем задачи по приоритету
+    return availableTasks.sort((a, b) => {
+        const priorityOrder = {
+            [taskManager.TASK_TYPE.UPGRADE]: 6,
+            [taskManager.TASK_TYPE.BUILD]: 5,
+            [taskManager.TASK_TYPE.REPAIR]: 4,
+            [taskManager.TASK_TYPE.MINE_SOURCE]: 3,
+            [taskManager.TASK_TYPE.COLLECT_FROM_PILE]: 2,
+            [taskManager.TASK_TYPE.DELIVER_MINER]: 1
+        };
+        
+        return (priorityOrder[b.type] || 0) - (priorityOrder[a.type] || 0);
+    });
 }
 
 /**
@@ -64,7 +97,13 @@ Creep.prototype.performTask = function() {
         return;
     }
     
-    switch (task.type) {
+    // Кэшируем тип задачи для избежания частых переключений
+    if (!this.memory.currentTaskType) {
+        this.memory.currentTaskType = task.type;
+    }
+    
+    // Выполняем текущую задачу до конца
+    switch (this.memory.currentTaskType) {
         case taskManager.TASK_TYPE.MINE_SOURCE:
             this.performUniversalMining(task);
             break;
@@ -138,6 +177,8 @@ Creep.prototype.performUniversalDelivery = function(task) {
         if (this.pos.isEqualTo(source.pos)) {
             // Майнер доставлен, завершаем задачу
             this.completeTask();
+            // Сбрасываем кэшированный тип задачи
+            delete this.memory.currentTaskType;
         } else {
             // Двигаемся к источнику с майнером
             this.moveTo(source);
@@ -172,6 +213,13 @@ Creep.prototype.performUniversalCollection = function(task) {
     if (result === OK) {
         // Успешно подобрали ресурс
         this.updateTaskProgress(this.carry.energy);
+        
+        // Проверяем, пуста ли куча
+        if (pile.amount <= 0) {
+            this.completeTask();
+            // Сбрасываем кэшированный тип задачи
+            delete this.memory.currentTaskType;
+        }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к куче
         this.moveTo(pile);
@@ -209,6 +257,8 @@ Creep.prototype.performUniversalBuilding = function(task) {
         // Проверяем, завершена ли постройка
         if (site.progress >= site.progressTotal) {
             this.completeTask();
+            // Сбрасываем кэшированный тип задачи
+            delete this.memory.currentTaskType;
         }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к строительной площадке
@@ -247,6 +297,8 @@ Creep.prototype.performUniversalRepair = function(task) {
         // Проверяем, завершен ли ремонт
         if (structure.hits >= structure.hitsMax) {
             this.completeTask();
+            // Сбрасываем кэшированный тип задачи
+            delete this.memory.currentTaskType;
         }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к структуре
@@ -281,6 +333,15 @@ Creep.prototype.performUniversalUpgrade = function(task) {
     if (result === OK) {
         // Успешно апгрейднули
         this.updateTaskProgress(this.carry.energy);
+        
+        // Проверяем, завершен ли апгрейд (для бесконечных задач это не нужно)
+        // Но если задача не бесконечная, можно завершить
+        const task = this.getTask();
+        if (task && !task.infinite) {
+            this.completeTask();
+            // Сбрасываем кэшированный тип задачи
+            delete this.memory.currentTaskType;
+        }
     } else if (result === ERR_NOT_IN_RANGE) {
         // Двигаемся к контроллеру
         this.moveTo(controller);
