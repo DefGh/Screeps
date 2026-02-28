@@ -32,25 +32,24 @@ const ROLE = {
     SPAWNER: 'Spawner'
 };
 
-// Инициализация памяти для задач
-function initMemory() {
-    if (!Memory.tasks) {
-        Memory.tasks = {
-            list: [],
-            nextId: 1,
-            lastCleanup: 0
-        };
+// Инициализация задач в Game
+function initGameTasks() {
+    if (!Game.tasks) {
+        Game.tasks = {};
     }
 }
 
 /**
  * Создание новой задачи
  */
-function createTask(type, target, room, priority = PRIORITY.MEDIUM, roles = [], infinite = false) {
-    initMemory();
+function createTask(type, target, room, priority = PRIORITY.MEDIUM, roles = [], infinite = false, groupSize = 1) {
+    initGameTasks();
+    
+    // Генерация уникального ID
+    const taskId = generateTaskId();
     
     const task = {
-        id: 'task_' + Memory.tasks.nextId++,
+        id: taskId,
         type: type,
         target: target,
         room: room,
@@ -61,7 +60,8 @@ function createTask(type, target, room, priority = PRIORITY.MEDIUM, roles = [], 
         maxProgress: 0,
         infinite: infinite,
         createdAt: Game.time,
-        assignedCreep: null
+        assignedCreeps: [],
+        groupSize: groupSize
     };
     
     // Установка maxProgress в зависимости от типа задачи
@@ -82,16 +82,16 @@ function createTask(type, target, room, priority = PRIORITY.MEDIUM, roles = [], 
             task.maxProgress = 100;
     }
     
-    Memory.tasks.list.push(task);
-    return task.id;
+    Game.tasks[taskId] = task;
+    return taskId;
 }
 
 /**
  * Получение всех задач
  */
 function getAllTasks() {
-    initMemory();
-    return Memory.tasks.list;
+    initGameTasks();
+    return Object.values(Game.tasks);
 }
 
 /**
@@ -139,10 +139,10 @@ function sortTasksByPriority(tasks) {
  * Назначение задачи крипу
  */
 function assignTaskToCreep(taskId, creepName) {
-    const task = getAllTasks().find(t => t.id === taskId);
+    const task = Game.tasks[taskId];
     if (task && task.state === 'PENDING') {
         task.state = 'IN_PROGRESS';
-        task.assignedCreep = creepName;
+        task.assignedCreeps.push(creepName);
         return true;
     }
     return false;
@@ -151,11 +151,16 @@ function assignTaskToCreep(taskId, creepName) {
 /**
  * Освобождение задачи (если крип умер или задача не может быть выполнена)
  */
-function releaseTask(taskId) {
-    const task = getAllTasks().find(t => t.id === taskId);
+function releaseTask(taskId, creepName) {
+    const task = Game.tasks[taskId];
     if (task && task.state === 'IN_PROGRESS') {
-        task.state = 'PENDING';
-        task.assignedCreep = null;
+        // Удаляем крипа из списка назначенных
+        task.assignedCreeps = task.assignedCreeps.filter(name => name !== creepName);
+        
+        // Если задача больше никем не выполняется, меняем состояние
+        if (task.assignedCreeps.length === 0) {
+            task.state = 'PENDING';
+        }
         return true;
     }
     return false;
@@ -165,13 +170,13 @@ function releaseTask(taskId) {
  * Завершение задачи
  */
 function completeTask(taskId) {
-    const task = getAllTasks().find(t => t.id === taskId);
+    const task = Game.tasks[taskId];
     if (task) {
         if (task.infinite) {
             // Для бесконечных задач перезапускаем их
             task.state = 'PENDING';
             task.progress = 0;
-            task.assignedCreep = null;
+            task.assignedCreeps = [];
         } else {
             task.state = 'COMPLETED';
         }
@@ -184,7 +189,7 @@ function completeTask(taskId) {
  * Обновление прогресса задачи
  */
 function updateTaskProgress(taskId, progress) {
-    const task = getAllTasks().find(t => t.id === taskId);
+    const task = Game.tasks[taskId];
     if (task && task.state === 'IN_PROGRESS') {
         task.progress = Math.min(progress, task.maxProgress);
         return true;
@@ -196,17 +201,15 @@ function updateTaskProgress(taskId, progress) {
  * Очистка завершенных задач
  */
 function cleanupCompletedTasks() {
-    initMemory();
+    initGameTasks();
     
-    if (Game.time - Memory.tasks.lastCleanup < 100) {
-        return; // Очищаем не чаще чем раз в 100 тиков
-    }
-    
-    Memory.tasks.list = Memory.tasks.list.filter(task => 
-        task.state !== 'COMPLETED' || task.infinite
-    );
-    
-    Memory.tasks.lastCleanup = Game.time;
+    // Удаляем завершенные задачи (не бесконечные)
+    Object.keys(Game.tasks).forEach(taskId => {
+        const task = Game.tasks[taskId];
+        if (task.state === 'COMPLETED' && !task.infinite) {
+            delete Game.tasks[taskId];
+        }
+    });
 }
 
 /**
@@ -215,7 +218,7 @@ function cleanupCompletedTasks() {
 function getAvailableTasksForRole(role) {
     const tasks = getTasksForRole(role);
     return sortTasksByPriority(tasks).filter(task => 
-        task.state === 'PENDING' && !task.assignedCreep
+        task.state === 'PENDING' && task.assignedCreeps.length < task.groupSize
     );
 }
 
@@ -238,7 +241,19 @@ function canCreepPerformTask(creep, task) {
         return false;
     }
     
+    // Проверяем, не заполнена ли группа
+    if (task.assignedCreeps.length >= task.groupSize) {
+        return false;
+    }
+    
     return true;
+}
+
+/**
+ * Генерация уникального ID для задачи
+ */
+function generateTaskId() {
+    return 'task_' + Math.random().toString(36).substr(2, 9) + '_' + Game.time;
 }
 
 module.exports = {
@@ -259,5 +274,6 @@ module.exports = {
     cleanupCompletedTasks,
     getAvailableTasksForRole,
     canCreepPerformTask,
-    initMemory
+    initGameTasks,
+    generateTaskId
 };

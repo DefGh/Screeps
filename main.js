@@ -1,11 +1,19 @@
 const taskManager = require('./taskManager');
 const roomScanner = require('./roomScanner');
-const creepManager = require('./creepManager');
+const creepPrototype = require('./creepPrototype');
 const spawnerManager = require('./spawnerManager');
+
+// Подключаем роли
+const minerRole = require('./roles/miner');
+const taxiRole = require('./roles/taxi');
+const courierRole = require('./roles/courier');
+const builderRole = require('./roles/builder');
+const repairerRole = require('./roles/repairer');
+const upgraderRole = require('./roles/upgrader');
 
 module.exports.loop = function () {
     // Инициализация системы задач
-    taskManager.initMemory();
+    taskManager.initGameTasks();
     
     // Очистка завершенных задач (раз в 100 тиков)
     taskManager.cleanupCompletedTasks();
@@ -28,7 +36,7 @@ function manageGame() {
     spawnerManager.manageSpawners();
     
     // 3. Управление крипами
-    creepManager.manageCreeps();
+    manageCreeps();
     
     // 4. Логирование состояния системы (раз в 100 тиков)
     if (Game.time % 100 === 0) {
@@ -54,6 +62,42 @@ function scanRooms() {
 function validateTasks() {
     console.log('Validating tasks...');
     roomScanner.validateTasks();
+}
+
+/**
+ * Управление крипами
+ */
+function manageCreeps() {
+    const creeps = Object.values(Game.creeps);
+    
+    creeps.forEach(creep => {
+        // Если крип не имеет роли, пропускаем
+        if (!creep.memory.role) {
+            return;
+        }
+        
+        // Обработка в зависимости от роли
+        switch (creep.memory.role) {
+            case taskManager.ROLE.MINER:
+                minerRole.run(creep);
+                break;
+            case taskManager.ROLE.TAXI:
+                taxiRole.run(creep);
+                break;
+            case taskManager.ROLE.COURIER:
+                courierRole.run(creep);
+                break;
+            case taskManager.ROLE.BUILDER:
+                builderRole.run(creep);
+                break;
+            case taskManager.ROLE.REPAIRER:
+                repairerRole.run(creep);
+                break;
+            case taskManager.ROLE.UPGRADER:
+                upgraderRole.run(creep);
+                break;
+        }
+    });
 }
 
 /**
