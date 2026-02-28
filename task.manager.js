@@ -17,8 +17,10 @@ module.exports = {
 
     getTask: function (role) {
 
-        let tasks = Game.memory.tasks;
-        if (!tasks) {
+        if (!Game.memory) {
+            Game.memory = {};
+        }
+        if (!Game.memory.tasks) {
             Game.memory.tasks = {};
         }
 
@@ -32,6 +34,12 @@ module.exports = {
         };
     },
     generateTasks: function () {
+        if (!Game.memory) {
+            Game.memory = {};
+        }
+        if (!Game.memory.tasks) {
+            Game.memory.tasks = {};
+        }
         let tasks = Game.memory.tasks;
 
         // if no creeps -> spawn creep task
