@@ -1,9 +1,9 @@
 module.exports = {
 
     run: function (creep, task) {
-        // Initialize creep memory for transfer state if not exists
-        if (!creep.memory.transferState) {
-            creep.memory.transferState = {
+        // Initialize task execution data if not exists
+        if (!creep.memory.taskExecutionData) {
+            creep.memory.taskExecutionData = {
                 phase: 'findSource', // findSource, transferring, findDestination, delivering
                 sourceId: null,
                 destinationId: null,
@@ -12,7 +12,7 @@ module.exports = {
             creep.say('🔄 Init');
         }
 
-        let state = creep.memory.transferState;
+        let state = creep.memory.taskExecutionData;
 
         switch (state.phase) {
             case 'findSource':
@@ -25,9 +25,15 @@ module.exports = {
                 this.findEnergyDestination(creep, state);
                 break;
             case 'delivering':
-                this.deliverEnergy(creep, state);
+                let deliveryResult = this.deliverEnergy(creep, state);
+                if (deliveryResult) {
+                    return true; // Task completed, will be reassigned
+                }
                 break;
         }
+
+        // Transfer tasks continue until delivery is complete
+        return false; // Task continues
     },
 
     findEnergySource: function (creep, state) {
@@ -236,6 +242,7 @@ module.exports = {
                     creep.say('✅ Delivered');
                     // Clear transfer state after task completion
                     this.clearTransferState(creep);
+                    return true; // Task completed, will be reassigned
                 } else {
                     creep.say('🔄 Delivering');
                 }
@@ -251,8 +258,8 @@ module.exports = {
 
     clearTransferState: function (creep) {
         // Clear all transfer-related memory
-        if (creep.memory.transferState) {
-            delete creep.memory.transferState;
+        if (creep.memory.taskExecutionData) {
+            delete creep.memory.taskExecutionData;
             creep.say('🧹 Cleared');
         }
     }

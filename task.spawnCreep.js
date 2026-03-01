@@ -1,22 +1,23 @@
 module.exports = {
 
     run: function (executer, task) {
+        let taskFinished = false;
 
         // Validate task data
         if (!task.data || !task.data.role || !task.data.body) {
             this.completeTask(task, false, 'Invalid task data');
-            return;
+            return true; // Task is finished (failed)
         }
 
         // Check if executer is a spawn
         if (!executer || !executer.spawnCreep) {
             this.completeTask(task, false, 'Invalid executer type');
-            return;
+            return true; // Task is finished (failed)
         }
 
         // Check if spawn is currently busy
         if (executer.spawning) {
-            return; // Task remains in progress, will retry next tick
+            return false; // Task remains in progress, will retry next tick
         }
 
         // Validate energy availability
@@ -25,7 +26,7 @@ module.exports = {
         
         if (availableEnergy < bodyCost) {
             this.completeTask(task, false, 'Insufficient energy: ' + availableEnergy + '/' + bodyCost);
-            return;
+            return true; // Task is finished (failed)
         }
 
         // Convert body part strings to constants
@@ -73,14 +74,17 @@ module.exports = {
         switch (spawnResult) {
             case OK:
                 this.completeTask(task, true, 'Creep spawned: ' + this.generateCreepName(task.data.role));
+                taskFinished = true;
                 break;
             
             case ERR_BUSY:
                 // Don't complete task, let it retry
+                taskFinished = false;
                 break;
             
             case ERR_INVALID_ARGS:
                 this.completeTask(task, false, 'Invalid spawn arguments');
+                taskFinished = true;
                 break;
             
             case ERR_NAME_EXISTS:
@@ -94,18 +98,24 @@ module.exports = {
                 
                 if (retryResult === OK) {
                     this.completeTask(task, true, 'Creep spawned: ' + alternativeName);
+                    taskFinished = true;
                 } else {
                     this.completeTask(task, false, 'Spawn failed with alternative name');
+                    taskFinished = true;
                 }
                 break;
             
             case ERR_NOT_ENOUGH_ENERGY:
                 this.completeTask(task, false, 'Energy insufficient at spawn time');
+                taskFinished = true;
                 break;
             
             default:
                 this.completeTask(task, false, 'Spawn error: ' + spawnResult);
+                taskFinished = true;
         }
+
+        return taskFinished;
     },
 
     calculateBodyCost: function (bodyParts) {

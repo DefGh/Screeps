@@ -62,7 +62,12 @@ runTask = function (executer, task) {
     console.log('Running task:', task.type, 'Status:', task.status);
     
     taskProcessor = require('task.' + task.type);
-    taskProcessor.run(executer, task);
+    let finished = taskProcessor.run(executer, task);
+
+    if (finished) {
+        delete executer.memory.task;
+        delete executer.memory.taskExecutionData;
+    }
 
     return;
 }
