@@ -161,6 +161,9 @@ module.exports = {
             return;
         }
 
+        // Try to find the best available destination
+        let bestDestination = null;
+        
         // 1. Check for spawns/extensions that need energy (highest priority)
         let spawns = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
             filter: (structure) => {
@@ -171,32 +174,32 @@ module.exports = {
         });
 
         if (spawns) {
+            bestDestination = spawns;
             creep.say('🏗️ Found spawn');
-            state.destinationId = spawns.id;
-            state.phase = 'delivering';
-            return;
-        }
+        } else {
+            // 2. Check for storage that needs energy
+            let storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+                filter: (structure) => {
+                    return structure.structureType === STRUCTURE_STORAGE &&
+                           structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                }
+            });
 
-        // 2. Check for storage that needs energy
-        let storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-            filter: (structure) => {
-                return structure.structureType === STRUCTURE_STORAGE &&
-                       structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            if (storage) {
+                bestDestination = storage;
+                creep.say('📦 Found storage');
+            } else {
+                // 3. Check for controller that needs energy (upgrading)
+                let controller = creep.room.controller;
+                if (controller && controller.my && creep.pos.isNearTo(controller)) {
+                    bestDestination = controller;
+                    creep.say('👑 Found controller');
+                }
             }
-        });
-
-        if (storage) {
-            creep.say('📦 Found storage');
-            state.destinationId = storage.id;
-            state.phase = 'delivering';
-            return;
         }
 
-        // 3. Check for controller that needs energy (upgrading)
-        let controller = creep.room.controller;
-        if (controller && controller.my && creep.pos.isNearTo(controller)) {
-            creep.say('👑 Found controller');
-            state.destinationId = controller.id;
+        if (bestDestination) {
+            state.destinationId = bestDestination.id;
             state.phase = 'delivering';
             return;
         }
