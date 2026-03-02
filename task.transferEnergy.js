@@ -274,10 +274,20 @@ module.exports = {
                     return false;
                 }
             } else if (result === ERR_FULL || result === ERR_INVALID_TARGET) {
-                creep.say('❌ Dest full');
-                state.phase = 'findDestination';
-                state.destinationId = null;
-                return false;
+                creep.say('❌ Dest full - switching to controller');
+                // Instead of going back to findDestination, directly switch to controller
+                let controller = creep.room.controller;
+                if (controller && controller.my && creep.pos.isNearTo(controller)) {
+                    creep.say('👑 Switching to controller');
+                    state.destinationId = controller.id;
+                    // Try again with controller
+                    return this.deliverEnergy(creep, state);
+                } else {
+                    // No controller available, complete the task
+                    creep.say('⏳ No controller available - completing task');
+                    this.clearTransferState(creep);
+                    return true; // Task completed, will be reassigned
+                }
             }
         } else {
             creep.say('🚶 Moving...');
