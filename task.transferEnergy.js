@@ -250,6 +250,7 @@ module.exports = {
                 destination.structureType === STRUCTURE_STORAGE) {
                 result = creep.transfer(destination, RESOURCE_ENERGY);
             } else if (destination === creep.room.controller) {
+                // Always try to upgrade controller if it's the destination
                 result = creep.upgradeController(destination);
             } else {
                 result = creep.transfer(destination, RESOURCE_ENERGY);
