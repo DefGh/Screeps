@@ -191,7 +191,7 @@ module.exports = {
             } else {
                 // 3. Check for controller that needs energy (upgrading)
                 let controller = creep.room.controller;
-                if (controller && controller.my && creep.pos.isNearTo(controller)) {
+                if (controller && controller.my) {
                     bestDestination = controller;
                     creep.say('👑 Found controller');
                 }
