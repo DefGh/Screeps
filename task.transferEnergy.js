@@ -93,6 +93,8 @@ module.exports = {
             creep.say('❓ Source lost');
             state.phase = 'findSource';
             state.sourceId = null;
+            // Clear destination when source is lost to start fresh
+            state.destinationId = null;
             return;
         }
 
@@ -200,6 +202,14 @@ module.exports = {
     },
 
     deliverEnergy: function (creep, state) {
+        // Safety check: if creep has no energy, go back to find source
+        if (creep.store[RESOURCE_ENERGY] === 0) {
+            creep.say('🔋 No energy, finding source');
+            state.phase = 'findSource';
+            state.destinationId = null;
+            return;
+        }
+
         let destination = Game.getObjectById(state.destinationId);
         
         if (!destination) {
@@ -245,14 +255,18 @@ module.exports = {
                     return true; // Task completed, will be reassigned
                 } else {
                     creep.say('🔄 Delivering');
+                    // If still delivering, continue the cycle
+                    return false;
                 }
             } else if (result === ERR_FULL || result === ERR_INVALID_TARGET) {
                 creep.say('❌ Dest full');
                 state.phase = 'findDestination';
                 state.destinationId = null;
+                return false;
             }
         } else {
             creep.say('🚶 Moving...');
+            return false;
         }
     },
 
