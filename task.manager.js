@@ -23,7 +23,7 @@ module.exports = {
 
     getTask: function (role) {
         if (!Memory.tasks) {
-            console.log('Initializing Memory.tasks');
+            //console.log('Initializing Memory.tasks');
             Memory.tasks = {};
         }
 
@@ -47,14 +47,14 @@ module.exports = {
         // Return the highest priority task
         if (availableTasks.length > 0) {
             let selectedTask = availableTasks[0];
-            console.log('Task assigned to role:', role, 'Type:', selectedTask.type, 'Priority:', selectedTask.priority);
+            //console.log('Task assigned to role:', role, 'Type:', selectedTask.type, 'Priority:', selectedTask.priority);
             return selectedTask;
         }
         
         return null;
     },
     generateTasks: function () {
-        console.log('Generating tasks...');
+        //console.log('Generating tasks...');
         
         if (!Memory) {
             Memory = {};
@@ -63,27 +63,27 @@ module.exports = {
             Memory.tasks = {};
         }
         let tasks = Memory.tasks;
-        console.log('Current number of tasks:', Object.keys(tasks).length);
-        console.log('Current number of creeps:', Object.keys(Game.creeps).length);
+        //console.log('Current number of tasks:', Object.keys(tasks).length);
+        //console.log('Current number of creeps:', Object.keys(Game.creeps).length);
 
         // if no creeps -> spawn creep task
         if (Object.keys(Game.creeps).length === 0) {
-            console.log('No creeps found, checking for universal spawn task...');
+            //console.log('No creeps found, checking for universal spawn task...');
             let hasUniversalTask = false;
             for (let taskId in tasks) {
                 let task = tasks[taskId];
                 if (task.type === this.taskTyeps.SPAWN_CREEP && task.data.role === this.roles.UNIVERSAL) {
-                    console.log('Found existing universal spawn task:', taskId);
+                    //console.log('Found existing universal spawn task:', taskId);
                     hasUniversalTask = true;
                     break;
                 }
             }
             if (!hasUniversalTask) {
-                console.log('No universal spawn task found, creating new one...');
+                //console.log('No universal spawn task found, creating new one...');
                 this.spawnCreepTask(this.roles.UNIVERSAL);
             }
         } else {
-            console.log('Creeps exist, skipping spawn task generation');
+            //console.log('Creeps exist, skipping spawn task generation');
         }
 
         // Always generate transfer energy task (low priority, repeatable)
@@ -92,7 +92,7 @@ module.exports = {
     },
 
     generateTransferEnergyTask: function () {
-        console.log('Generating transfer energy task...');
+        //console.log('Generating transfer energy task...');
         
         let tasks = Memory.tasks;
         let hasTransferTask = false;
@@ -101,14 +101,14 @@ module.exports = {
         for (let taskId in tasks) {
             let task = tasks[taskId];
             if (task.type === this.taskTyeps.TRANSFER_ENERGY) {
-                console.log('Transfer energy task already exists:', taskId);
+                //console.log('Transfer energy task already exists:', taskId);
                 hasTransferTask = true;
                 break;
             }
         }
         
         if (!hasTransferTask) {
-            console.log('Creating new transfer energy task...');
+            //console.log('Creating new transfer energy task...');
             let newTaskId = 'transferEnergy' + Game.time;
             
             tasks[newTaskId] = this.baseTask(
@@ -122,17 +122,17 @@ module.exports = {
                 999 // Many creeps can do this simultaneously
             );
             
-            console.log('Transfer energy task created successfully');
+            //console.log('Transfer energy task created successfully');
         }
     },
 
     spawnCreepTask: function (role) {
-        console.log('Creating spawn creep task for role:', role);
+        //console.log('Creating spawn creep task for role:', role);
         let body = common.buildBody(role);
-        console.log('Generated body parts:', body);
+        //console.log('Generated body parts:', body);
 
         let newTaskId = 'spawnCreep' + role + Game.time;
-        console.log('New task ID:', newTaskId);
+        //console.log('New task ID:', newTaskId);
         
         let tasks = Memory.tasks;
         tasks[newTaskId] = this.baseTask(
@@ -146,7 +146,7 @@ module.exports = {
             false, 
             1
         );
-        console.log('Spawn task created successfully');
+        //console.log('Spawn task created successfully');
     },
 
     baseTask: function (id, type, data, canExecute, repeatable, maxExecuters) {

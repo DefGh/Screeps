@@ -99,7 +99,10 @@ module.exports = {
         }
 
         // Move to source
-        let moveResult = creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
+        let moveResult = creep.moveTo(source, { 
+            visualizePathStyle: { stroke: '#ffaa00' },
+            reusePath: 5
+        });
         
         if (moveResult !== OK) {
             creep.say('❌ Move fail');
@@ -220,7 +223,10 @@ module.exports = {
         }
 
         // Move to destination
-        let moveResult = creep.moveTo(destination, { visualizePathStyle: { stroke: '#ffffff' } });
+        let moveResult = creep.moveTo(destination, { 
+            visualizePathStyle: { stroke: '#ffffff' },
+            reusePath: 25
+        });
         
         if (moveResult !== OK) {
             creep.say('❌ Move fail');
