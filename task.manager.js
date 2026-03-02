@@ -9,6 +9,11 @@ module.exports = {
         TRANSFER_ENERGY: 'transferEnergy',
     },
 
+    taskPriorities: {
+        SPAWN_CREEP: 10,    // High priority
+        TRANSFER_ENERGY: 1, // Low priority
+    },
+
     taskStatuse: {
         PENDING: 'pending',
         IN_PROGRESS: 'inProgress',
@@ -24,16 +29,26 @@ module.exports = {
 
         this.generateTasks();
         
-        // Search for existing tasks that match this role
+        // Search for existing tasks that match this role, sorted by priority
         let tasks = Memory.tasks;
+        let availableTasks = [];
+        
+        // Collect all available tasks for this role
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            
-            // Look for tasks that can be executed by this role
             if (task.canExecute && task.canExecute.includes(role) && task.status === 'pending') {
-                console.log('Task assigned to role:', role, 'Type:', task.type);
-                return task;
+                availableTasks.push(task);
             }
+        }
+        
+        // Sort by priority (highest first)
+        availableTasks.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        
+        // Return the highest priority task
+        if (availableTasks.length > 0) {
+            let selectedTask = availableTasks[0];
+            console.log('Task assigned to role:', role, 'Type:', selectedTask.type, 'Priority:', selectedTask.priority);
+            return selectedTask;
         }
         
         return null;
@@ -143,6 +158,7 @@ module.exports = {
             canExecute: canExecute,
             repeatable: repeatable,
             maxExecuters: maxExecuters,
+            priority: this.taskPriorities[type] || 5, // Default priority if not defined
             data: data
         };
     }

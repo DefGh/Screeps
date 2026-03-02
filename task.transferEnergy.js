@@ -27,13 +27,13 @@ module.exports = {
             case 'delivering':
                 let deliveryResult = this.deliverEnergy(creep, state);
                 if (deliveryResult) {
-                    return true; // Task completed, will be reassigned
+                    return true; // Cycle completed, executer treats as finished
                 }
                 break;
         }
 
-        // Transfer tasks continue until delivery is complete
-        return false; // Task continues
+        // Transfer tasks continue until delivery cycle is complete
+        return false; // Task continues within cycle
     },
 
     findEnergySource: function (creep, state) {
