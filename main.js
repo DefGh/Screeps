@@ -32,8 +32,11 @@ runCreep = function (creep) {
             if (newTask) {
                 creep.say('✅ New task: ' + newTask.type);
                 creep.memory.task = newTask;
-                // Mark task as in progress
-                newTask.status = 'inProgress';
+                // Only mark non-repeatable tasks as inProgress
+                if (!newTask.repeatable) {
+                    newTask.status = 'inProgress';
+                }
+                // Repeatable tasks stay as 'pending' in global memory
             } else {
                 creep.say('💤 Idle');
             }
@@ -44,8 +47,11 @@ runCreep = function (creep) {
         if (newTask) {
             creep.say('✅ Task: ' + newTask.type);
             creep.memory.task = newTask;
-            // Mark task as in progress
-            newTask.status = 'inProgress';
+            // Only mark non-repeatable tasks as inProgress
+            if (!newTask.repeatable) {
+                newTask.status = 'inProgress';
+            }
+            // Repeatable tasks stay as 'pending' in global memory
         } else {
             creep.say('💤 Idle');
         }
@@ -64,8 +70,11 @@ runSpawn = function (spawn) {
         if (newTask) {
             console.log('Found available task for spawn', spawn.name, ':', newTask.type);
             spawn.memory.task = newTask;
-            // Mark task as in progress
-            newTask.status = 'inProgress';
+            // Only mark non-repeatable tasks as inProgress
+            if (!newTask.repeatable) {
+                newTask.status = 'inProgress';
+            }
+            // Repeatable tasks stay as 'pending' in global memory
         } else {
             console.log('No available tasks for spawn', spawn.name, '- spawn is idle');
         }
