@@ -155,8 +155,9 @@ module.exports = {
 
         // Only proceed if creep has energy
         if (creep.store[RESOURCE_ENERGY] === 0) {
-            creep.say('🔋 Empty');
+            creep.say('🔋 Empty - going back to find source');
             state.phase = 'findSource';
+            state.destinationId = null; // Clear destination when going back to source
             return;
         }
 
