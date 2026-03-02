@@ -201,8 +201,12 @@ module.exports = {
             return;
         }
 
-        creep.say('⏳ Waiting...');
-        // Stay in findDestination phase, will retry next tick
+        // 4. If no destination found but creep has energy, just complete the task
+        // This prevents infinite loops when no valid destinations are available
+        creep.say('⏳ No destination found - completing task');
+        // Clear transfer state and complete the task
+        this.clearTransferState(creep);
+        return true; // Task completed, will be reassigned
     },
 
     deliverEnergy: function (creep, state) {
