@@ -407,7 +407,8 @@ module.exports = {
     },
     handleTaskCompletion: function (task, executer) {
         // Handle task completion for a specific executer
-        
+        console.log('Task with id: ', task.id, ' finished by ', executer.name)
+
         // Remove executer from task
         let index = task.executers.indexOf(executer.id);
         if (index !== -1) {

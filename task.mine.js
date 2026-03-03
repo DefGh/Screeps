@@ -51,10 +51,8 @@ module.exports = {
                     }
                 });
             }
-            console.log(1);
             
-            res = creep.moveTo(position.x, position.y); 
-            console.log('miner', res);
+            creep.moveTo(position.x, position.y); 
             return false; // Task not finished, still moving
         }
     }
