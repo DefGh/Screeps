@@ -33,7 +33,7 @@ module.exports = {
             executers: [] // New field for assigned executers
         };
         // Add task to memory
-        Memory.tasks[newTaskId] = completeTask;
+        Memory.tasks[id] = completeTask;
         return true;
     },
     areTaskDataEqual: function (data1, data2) {
