@@ -610,7 +610,7 @@ module.exports = {
         }
 
         if (!task.repeatable) {
-            delete task[task.id];
+            delete Memory.tasks[task.id];
         }
     },
 
