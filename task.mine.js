@@ -35,7 +35,7 @@ module.exports = {
                     whom: creep.id,
                     where: position
                 }
-            });
+            }, 'taxi' + creep.id);
             
             return false; // Task not finished, still moving
         }

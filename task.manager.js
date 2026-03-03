@@ -1,6 +1,6 @@
 constants = require('constants');
 module.exports = {
-    tryAddTask: function (task) {
+    tryAddTask: function (task, id) {
         // Validate task structure
         if (!task || !task.type || !task.data) {
             return false;
@@ -21,10 +21,8 @@ module.exports = {
             }
         }
         // Generate unique task ID
-        let newTaskId = task.type + '_' + Game.time;
-        // Create complete task object with default values if not provided
         let completeTask = {
-            id: task.id || newTaskId,
+            id: id,
             type: task.type,
             status: 'pending',
             canExecute: task.canExecute || [],

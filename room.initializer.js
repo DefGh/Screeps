@@ -129,7 +129,7 @@ module.exports = {
             }
         };
 
-        let success = taskManager.tryAddTask(taskData);
+        let success = taskManager.tryAddTask(taskData, id);
         if (success) {
             Memory.sourceTasks[sourceId] = true;
         } else {
