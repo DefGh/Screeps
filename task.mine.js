@@ -3,7 +3,6 @@ const taskManager = require("task.manager")
 module.exports = {
     run : function(creep, task) {
         // 1 - init
-        console.log(1);
         let sourceId = task.data.sourceId;
         let source = Game.getObjectById(sourceId);
         let position = task.data.position;
@@ -52,8 +51,10 @@ module.exports = {
                     }
                 });
             }
+            console.log(1);
             
-            creep.moveTo(position.x, position.y);
+            res = creep.moveTo(position.x, position.y); 
+            console.log('miner', res);
             return false; // Task not finished, still moving
         }
     }
