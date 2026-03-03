@@ -14,8 +14,10 @@ module.exports = {
         switch (role) {
             case constants.roles.UNIVERSAL:
                 pattern = [constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK,constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORKconstants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK]  
+                break;
             case constants.roles.MINER:
                 pattern = [constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK]
+                break;
             default:
                 //console.log('Unknown role, returning empty body');
                 return [];
