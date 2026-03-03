@@ -128,23 +128,30 @@ module.exports = {
         }
         let tasks = Memory.tasks;
        
-        // if no creeps -> spawn creep task
-        if (Object.keys(Game.creeps).length === 0) {
-            //console.log('No creeps found, checking for universal spawn task...');
-            let hasUniversalTask = false;
-            for (let taskId in tasks) {
-                let task = tasks[taskId];
-                if (task.type === constants.taskTypes.SPAWN_CREEP && task.data.role === constants.roles.UNIVERSAL) {
-                    //console.log('Found existing universal spawn task:', taskId);
-                    hasUniversalTask = true;
-                    break;
-                }
+        // Ensure we always have 3 universal creeps
+        let universalCreeps = 0;
+        for (let name in Game.creeps) {
+            let creep = Game.creeps[name];
+            if (creep.memory.role === constants.roles.UNIVERSAL) {
+                universalCreeps++;
             }
-            if (!hasUniversalTask) {
-                //console.log('No universal spawn task found, creating new one...');
-                this.spawnCreepTask(constants.roles.UNIVERSAL, 1);
+        }
+        
+        // Check how many universal spawn tasks already exist
+        let existingUniversalTasks = 0;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === constants.taskTypes.SPAWN_CREEP && task.data.role === constants.roles.UNIVERSAL) {
+                existingUniversalTasks++;
             }
-        } else {
+        }
+        
+        // Calculate how many more universal creeps we need
+        let neededUniversalCreeps = Math.max(0, 3 - universalCreeps - existingUniversalTasks);
+        
+        // Create spawn tasks for the needed universal creeps
+        for (let i = 0; i < neededUniversalCreeps; i++) {
+            this.spawnCreepTask(constants.roles.UNIVERSAL, 1);
         }
 
         // Always generate transfer energy task (low priority, repeatable)
