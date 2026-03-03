@@ -487,8 +487,8 @@ module.exports = {
     assignExecutersToTasks: function() {
         // Check all pending tasks and assign available executers
         let tasks = Memory.tasks;
-        
-        for (let taskId in tasks) {
+        tasksSorted = tasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+        for (let taskId in tasksSorted) {
             let task = tasks[taskId];
             if (task.status === 'pending' && task.executers.length < task.maxExecuters) {
                 this.assignExecuterToTask(task);

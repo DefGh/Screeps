@@ -37,32 +37,12 @@ module.exports = {
 
         switch (spawnResult) {
             case OK:
-                taskFinished = true;
-                break;
-            
-            case ERR_BUSY:
-                // Don't complete task, let it retry
-                taskFinished = false;
-                break;
-            
             case ERR_INVALID_ARGS:
+            case ERR_NAME_EXISTS:        
                 taskFinished = true;
-                break;
-            case ERR_NAME_EXISTS:
-                // Generate alternative name and retry
-                let alternativeName = this.generateCreepName(task.data.role) + '_' + Game.time;
-                let retryResult = executer.spawnCreep(
-                    bodyParts,
-                    alternativeName,
-                    { memory: { role: task.data.role } }
-                );          
-                taskFinished = true;
-                break;
-            case ERR_NOT_ENOUGH_ENERGY:
-                taskFinished = false;
                 break;
             default:
-               taskFinished = true;
+               taskFinished = false;
         }
 
         return taskFinished;
