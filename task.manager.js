@@ -341,6 +341,8 @@ module.exports = {
         console.log('Miner task created successfully for source', sourceId);
     },
 
-
+    checkAndGenerateMineTasks: function() {
+        
+    }
 
 }
