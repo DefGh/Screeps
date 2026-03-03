@@ -1,15 +1,6 @@
+constants = require('constants');
+
 module.exports = {
-    
-    BodyPartCosts: {
-        MOVE: 50,
-        WORK: 100,
-        CARRY: 50
-    },
-       
-    roles: {
-        UNIVERSAL: 'universal',
-        SPAWNER: 'spawner'
-    },
 
     buildBody: function(role) {
         //console.log('Building body for role:', role);
@@ -19,17 +10,17 @@ module.exports = {
         //console.log('Max energy available:', maxEnergy);
         
         switch (role) {
-            case this.roles.UNIVERSAL:
+            case constants.roles.UNIVERSAL:
                 var aval = maxEnergy;
                 let parts = [];    
                 //console.log('Building universal body with', aval, 'energy');
 
                 while (aval > 0) {
-                    for (let part in this.BodyPartCosts) {
-                        if (aval >= this.BodyPartCosts[part]) {
-                            aval -= this.BodyPartCosts[part];
+                    for (let part in constants.BodyPartCosts) {
+                        if (aval >= constants.BodyPartCosts[part]) {
+                            aval -= constants.BodyPartCosts[part];
                             parts.push(part);
-                            //console.log('Added part:', part, 'Cost:', this.BodyPartCosts[part], 'Remaining energy:', aval);
+                            //console.log('Added part:', part, 'Cost:', constants.BodyPartCosts[part], 'Remaining energy:', aval);
                         }
                     }
                 }
