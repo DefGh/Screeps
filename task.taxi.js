@@ -20,9 +20,18 @@ module.exports = {
             return true; // Task completed successfully
         }
         
-        // 3 - move to target and escort
-        res = creep.moveTo(targetCreep.pos); 
-        console.log('taxi', res);
+        if(creep.pull(targetCreep) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(targetCreep);
+        } else {
+            targetCreep.move(creep);
+
+            if(creep.pos.x === where.x && creep.pos.y === where.y) {
+                creep.move(creep.pos.getDirectionTo(targetCreep));
+            } else {
+                creep.moveTo(where.x, where.y);
+            }
+        }
+
         return false; // Task not finished yet
     }
 }
