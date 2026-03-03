@@ -12,6 +12,8 @@ module.exports = {
         }
         let state = creep.memory.taskExecutionData;
         switch (state.phase) {
+            case 'done':
+                return true;
             case 'findSource':
                 this.findEnergySource(creep, state);
                 break;
@@ -201,7 +203,7 @@ module.exports = {
         // Safety check: if creep has no energy, go back to find source
         if (creep.store[RESOURCE_ENERGY] === 0) {
             creep.say('🔋 No energy, finding source');
-            state.phase = 'findSource';
+            state.phase = 'done';
             state.destinationId = null;
             return;
         }
