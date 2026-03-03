@@ -10,6 +10,15 @@ module.exports = {
 
         this.generateTasks();
         
+        // Special handling for miners - they should get mine tasks first
+        if (role === constants.roles.MINER) {
+            let mineTask = this.getMineTaskForMiner();
+            if (mineTask) {
+                //console.log('Miner assigned mine task:', mineTask.id);
+                return mineTask;
+            }
+        }
+        
         // Search for existing tasks that match this role, sorted by priority
         let tasks = Memory.tasks;
         let availableTasks = [];
@@ -23,7 +32,7 @@ module.exports = {
         }
         
         // Sort by priority (lowest first)
-        availableTasks.sort((a, b) => (b.priority || 0) + (a.priority || 0));
+        availableTasks.sort((a, b) => (b.priority || 0) - (a.priority || 0));
         
         // Return the highest priority task
         if (availableTasks.length > 0) {
@@ -159,8 +168,6 @@ module.exports = {
 
         // Add miner spawn task if needed
         this.checkAndAddMinerTask();
-
-        this.checkAndGenerateMineTasks();
 
     },
 
@@ -495,5 +502,17 @@ module.exports = {
             1,
             5 // Medium priority
         );
+    },
+
+    getMineTaskForMiner: function() {
+        // Ищем доступную задачу на добычу
+        let tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === constants.taskTypes.MINE && task.status === 'pending') {
+                return task;
+            }
+        }
+        return null;
     }
 }

@@ -7,9 +7,10 @@ module.exports = {
         // 1 - init
         let sourceId = task.data.sourceId;
         let source = Game.getObjectById(sourceId);
+        let position = task.data.position;
 
         // 2 - if on destination coord - mine
-        if (creep.pos.x === task.position.x && creep.pos.y === task.position.y) {
+        if (creep.pos.x === position.x && creep.pos.y === position.y) {
             // Mine energy from source
             let result = creep.harvest(source);
             if (result === ERR_NOT_ENOUGH_RESOURCES) {
@@ -17,26 +18,25 @@ module.exports = {
                 creep.say('waiting');
             } else if (result !== OK) {
                 // Other error, try to move to correct position
-                creep.moveTo(task.position);
+                creep.moveTo(position);
             }
         }
         // 3 - else - try create taxi task and move to coord
         else {
             // Create taxi task to move to mining position
-            taskManager.tryAddTask(taskManager.baseTask(
-                'taxi'+Game.time, 
-                constants.taskTypes.TAXI, 
-                {
+            taskManager.tryAddTask({
+                type: constants.taskTypes.TAXI,
+                canExecute: [constants.roles.UNIVERSAL],
+                repeatable: false,
+                maxExecuters: 1,
+                priority: 1,
+                data: {
                     whom: creep.id,
-                    where: task.position
-                }, 
-                [constants.roles.UNIVERSAL], 
-                false, 
-                1, 
-                1
-            ));
+                    where: position
+                }
+            });
 
-            creep.moveTo(task.position);
+            creep.moveTo(position);
         }
     }
-} 
+}
