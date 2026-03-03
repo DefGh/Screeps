@@ -594,7 +594,6 @@ module.exports = {
 
             // Run the task for this executer
             var finished = this.runExecuter(executer, task);
-            console.log('Task ', task.id, ' returned ', finished);
             // If task is finished, handle completion
             if (finished) {
                 this.handleTaskCompletion(task, executer);
