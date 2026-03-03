@@ -1,5 +1,3 @@
-const constants = require('./constants');
-
 constants = require('constants');
 
 module.exports = {
@@ -13,7 +11,7 @@ module.exports = {
         var pattern = [];
         switch (role) {
             case constants.roles.UNIVERSAL:
-                pattern = [constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK,constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORKconstants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK]  
+                pattern = [constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK, constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK]  
                 break;
             case constants.roles.MINER:
                 pattern = [constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK]
