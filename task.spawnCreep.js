@@ -29,7 +29,7 @@ module.exports = {
         // Attempt to spawn the creep
         let spawnResult = executer.spawnCreep(
             bodyParts,
-            tеask.data.role.toUpperCase() + '_' + Game.time,
+            task.data.role.toUpperCase() + '_' + Game.time,
             {
                 memory: memory
             }
