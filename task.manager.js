@@ -44,9 +44,7 @@ module.exports = {
             Memory.tasks = {};
         }
         let tasks = Memory.tasks;
-        //console.log('Current number of tasks:', Object.keys(tasks).length);
-        //console.log('Current number of creeps:', Object.keys(Game.creeps).length);
-
+       
         // if no creeps -> spawn creep task
         if (Object.keys(Game.creeps).length === 0) {
             //console.log('No creeps found, checking for universal spawn task...');
@@ -64,7 +62,6 @@ module.exports = {
                 this.spawnCreepTask(constants.roles.UNIVERSAL);
             }
         } else {
-            //console.log('Creeps exist, skipping spawn task generation');
         }
 
         // Always generate transfer energy task (low priority, repeatable)
@@ -72,6 +69,8 @@ module.exports = {
 
         // Add miner spawn task if needed
         this.checkAndAddMinerTask();
+
+        this.checkAndGenerateMineTasks();
 
     },
 

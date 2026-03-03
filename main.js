@@ -18,7 +18,7 @@ module.exports.loop = function () {
 
 runCreep = function (creep) {
     // Initialize memory tracking if not exists
-    if (!Memory.creepMemoryLog) {
+/*     if (!Memory.creepMemoryLog) {
         Memory.creepMemoryLog = {};
     }
     
@@ -37,7 +37,7 @@ runCreep = function (creep) {
     if (memoryChanged) {
         console.log(`[${creep.name}] Memory changed:`, JSON.stringify(currentMemory));
         Memory.creepMemoryLog[creepLogKey] = currentMemory;
-    }
+    } */
 
     if (task) {
         creep.say('💼 Working: ' + task.type);
