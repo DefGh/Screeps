@@ -52,7 +52,7 @@ module.exports = {
             let hasUniversalTask = false;
             for (let taskId in tasks) {
                 let task = tasks[taskId];
-                if (task.type ===constants.taskTypes.SPAWN_CREEP && task.data.role ===constants.roles.UNIVERSAL) {
+                if (task.type === constants.taskTypes.SPAWN_CREEP && task.data.role === constants.roles.UNIVERSAL) {
                     //console.log('Found existing universal spawn task:', taskId);
                     hasUniversalTask = true;
                     break;
@@ -83,7 +83,7 @@ module.exports = {
         // Check if transfer energy task already exists
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.type === constants.taskTyeps.TRANSFER_ENERGY) {
+            if (task.type === constants.taskTypes.TRANSFER_ENERGY) {
                 //console.log('Transfer energy task already exists:', taskId);
                 hasTransferTask = true;
                 break;
@@ -96,7 +96,7 @@ module.exports = {
             
             tasks[newTaskId] = this.baseTask(
                 newTaskId,
-               constants.taskTypes.TRANSFER_ENERGY,
+                constants.taskTypes.TRANSFER_ENERGY,
                 {
                     // No specific data needed - creeps will find sources/destinations dynamically
                 },
@@ -120,7 +120,7 @@ module.exports = {
         let tasks = Memory.tasks;
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
-           constants.taskTypes.SPAWN_CREEP,
+            constants.taskTypes.SPAWN_CREEP,
             {
                 role: role,
                 body: body,
@@ -141,14 +141,14 @@ module.exports = {
             canExecute: canExecute,
             repeatable: repeatable,
             maxExecuters: maxExecuters,
-            priority:constants.taskPriorities[type] || 5, // Default priority if not defined
+            priority: constants.taskPriorities[type] || 5, // Default priority if not defined
             data: data
         };
     },
 
     checkAndAddMinerTask: function () {
         // Check if we need a miner creep (up to 5 work parts)
-        let miners = _.filter(Game.creeps, creep => creep.memory.role ===constants.roles.MINER);
+        let miners = _.filter(Game.creeps, creep => creep.memory.role === constants.roles.MINER);
         let maxMiners = 2; // Limit to 2 miners for now
         
         if (miners.length < maxMiners) {
@@ -163,9 +163,9 @@ module.exports = {
         
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
-           constants.taskTypes.SPAWN_CREEP,
+            constants.taskTypes.SPAWN_CREEP,
             {
-                role:constants.roles.MINER,
+                role: constants.roles.MINER,
                 body: this.buildMinerBody(), // Custom miner body with work parts
             }, 
             [constants.roles.SPAWNER], 
