@@ -23,9 +23,9 @@ module.exports = {
         }
 
         // Convert body part strings to constants
-        let bodyParts = task.data;
+        let bodyParts = task.data.body;
 
-        var memory = task.data.role;
+        var memory = task.data;
         delete memory.body;
 
         // Attempt to spawn the creep
