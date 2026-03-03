@@ -265,20 +265,44 @@ module.exports = {
             return null;
         }
         
-        // Ищем путь от спавна до источника
-        let path = spawn.pos.findPathTo(source.pos, {
-            ignoreCreeps: true,
-            ignoreDestructibleStructures: true,
-            ignoreRoads: true,
+        // Ищем путь от спавна до источника с помощью PathFinder.search
+        let result = PathFinder.search(spawn.pos, { pos: source.pos, range: 1 }, {
+            plainCost: 1,
+            swampCost: 5,
+            maxOps: 1000,
+            roomCallback: function(roomName) {
+                let room = Game.rooms[roomName];
+                if (!room) return false;
+                
+                // Создаем cost matrix для комнаты
+                let costs = new PathFinder.CostMatrix();
+                
+                // Игнорируем крипов и разрушаемые сооружения
+                room.find(FIND_CREEPS).forEach(function(creep) {
+                    costs.set(creep.pos.x, creep.pos.y, 0xff);
+                });
+                
+                room.find(FIND_STRUCTURES, {
+                    filter: (structure) => {
+                        return structure.structureType !== STRUCTURE_ROAD &&
+                               structure.structureType !== STRUCTURE_CONTAINER &&
+                               structure.structureType !== STRUCTURE_RAMPART;
+                    }
+                }).forEach(function(structure) {
+                    costs.set(structure.pos.x, structure.pos.y, 0xff);
+                });
+                
+                return costs;
+            }
         });
         
-        if (path.length === 0) {
+        if (result.incomplete || result.path.length === 0) {
             console.log('No path found from spawn to source', source.id);
             return null;
         }
         
         // Берем последнюю точку пути (ближайшую к источнику)
-        let lastPoint = path[path.length - 1];
+        let lastPoint = result.path[result.path.length - 1];
         
         // Проверяем, что позиция позволяет добывать энергию из источника
         let range = source.pos.getRangeTo(lastPoint.x, lastPoint.y);
