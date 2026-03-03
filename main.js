@@ -1,5 +1,8 @@
+const constants = require('./constants');
+
 taskManager = require('task.manager');;
 common = require('common');
+constants = require('constants');
 
 module.exports.loop = function () {
 
@@ -80,7 +83,7 @@ runCreep = function (creep) {
 }
 runSpawn = function (spawn) {
     //console.log('Processing spawn:', spawn.name);
-    let role = common.roles.SPAWNER;
+    let role = constants.roles.SPAWNER;
     let task = spawn.memory.task;
     if (task) {
         //console.log('Spawn', spawn.name, 'has existing task:', task.type);
