@@ -49,10 +49,8 @@ module.exports = {
                 break;
             
             case ERR_INVALID_ARGS:
-                this.completeTask(task, false, 'Invalid spawn arguments');
                 taskFinished = true;
                 break;
-            
             case ERR_NAME_EXISTS:
                 // Generate alternative name and retry
                 let alternativeName = this.generateCreepName(task.data.role) + '_' + Game.time;
@@ -60,25 +58,15 @@ module.exports = {
                     bodyParts,
                     alternativeName,
                     { memory: { role: task.data.role } }
-                );
-                
-                if (retryResult === OK) {
-                    this.completeTask(task, true, 'Creep spawned: ' + alternativeName);
-                    taskFinished = true;
-                } else {
-                    this.completeTask(task, false, 'Spawn failed with alternative name');
-                    taskFinished = true;
-                }
+                );          
+                taskFinished = true;
                 break;
-            
             case ERR_NOT_ENOUGH_ENERGY:
                 this.completeTask(task, false, 'Energy insufficient at spawn time');
                 taskFinished = false;
                 break;
-            
             default:
-                this.completeTask(task, false, 'Spawn error: ' + spawnResult);
-                taskFinished = true;
+               taskFinished = true;
         }
 
         return taskFinished;
@@ -87,18 +75,4 @@ module.exports = {
     generateCreepName: function (role) {
         return role.toUpperCase() + '_' + Game.time;
     },
-
-    completeTask: function (task, success, message) {
-        task.status = success ? constants.taskStatuses.DONE : constants.taskStatuses.IN_PROGRESS;
-        task.completedAt = Game.time;
-        task.result = {
-            success: success,
-            message: message
-        };
-        
-        // Clean up task memory if it's not repeatable
-        if (!task.repeatable) {
-            delete Memory.tasks[task.id];
-        }
-    }
 };

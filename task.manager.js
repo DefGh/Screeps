@@ -615,5 +615,126 @@ module.exports = {
         }
         
         console.log('Task', taskId, 'completed:', success ? 'SUCCESS' : 'FAILED');
+    },
+
+    // NEW METHODS FOR EXECUTER EXECUTION
+
+    runExecuters: function() {
+        // Main method to run all assigned executers
+        let tasks = Memory.tasks;
+        let totalExecuters = 0;
+        
+        // Process all tasks with assigned executers
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.executers && task.executers.length > 0) {
+                totalExecuters += task.executers.length;
+                this.processTaskExecuters(task);
+            }
+        }
+        
+        if (totalExecuters > 0) {
+            console.log('Task Manager: Processing', totalExecuters, 'assigned executers');
+        }
+    },
+
+    processTaskExecuters: function(task) {
+        // Process all executers assigned to a specific task
+        let aliveExecuters = [];
+        
+        for (let executerId of task.executers) {
+            let executer = Game.getObjectById(executerId);
+            
+            if (!executer) {
+                // Executer is dead, skip and will be cleaned up later
+                continue;
+            }
+            
+            aliveExecuters.push(executerId);
+            
+            // Run the task for this executer
+            let finished = this.runExecuter(executer, task);
+            
+            // If task is finished, handle completion
+            if (finished) {
+                this.handleTaskCompletion(task, executer);
+            }
+        }
+        
+        // Update task with alive executers
+        task.executers = aliveExecuters;
+    },
+
+    runExecuter: function(executer, task) {
+        // Handle task execution for a specific executer
+        let taskProcessor = require('task.' + task.type);
+        
+        // Initialize task execution data if not exists
+        if (!executer.memory.taskExecutionData) {
+            executer.memory.taskExecutionData = null;
+        }
+        
+        // Run the task
+        let finished = taskProcessor.run(executer, task);
+        
+        return finished;
+    },
+
+    handleTaskCompletion: function(task, executer) {
+        // Handle task completion for a specific executer
+        if (task.repeatable) {
+            // For repeatable tasks, just clear the executer's task memory
+            // and let them get a new task next tick
+            delete executer.memory.task;
+            delete executer.memory.taskExecutionData;
+            
+            // Try to assign a new task to this executer
+            let newTask = this.getTask(executer.memory.role);
+            if (newTask) {
+                executer.memory.task = newTask;
+                // Only mark non-repeatable tasks as inProgress
+                if (!newTask.repeatable) {
+                    newTask.status = 'inProgress';
+                }
+            }
+        } else {
+            // For non-repeatable tasks, remove from global memory
+            this.completeTask(task.id, true);
+            
+            // Clear executer's task memory
+            delete executer.memory.task;
+            delete executer.memory.taskExecutionData;
+        }
+    },
+
+    // Legacy methods for backward compatibility (can be removed later)
+    runCreep: function(creep) {
+        // This method is now deprecated - use runExecuters() instead
+        // But keeping it for backward compatibility
+        let task = creep.memory.task;
+        if (task) {
+            let finished = this.runExecuter(creep, task);
+            if (finished) {
+                this.handleTaskCompletion(task, creep);
+            }
+        }
+    },
+
+    runSpawn: function(spawn) {
+        // This method is now deprecated - use runExecuters() instead
+        // But keeping it for backward compatibility
+        let task = spawn.memory.task;
+        if (task) {
+            let finished = this.runExecuter(spawn, task);
+            if (finished) {
+                this.handleTaskCompletion(task, spawn);
+            }
+        }
+    },
+
+    runTask: function(executer, task) {
+        // This method is now deprecated - use runExecuter() instead
+        // But keeping it for backward compatibility
+        return this.runExecuter(executer, task);
     }
 }
