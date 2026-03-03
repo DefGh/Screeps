@@ -1,5 +1,3 @@
-const constants = require('./constants');
-
 taskManager = require('task.manager');;
 common = require('common');
 constants = require('constants');
