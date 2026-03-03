@@ -6,7 +6,7 @@ module.exports = {
         //console.log('Building body for role:', role);
         
         // get max energy
-        let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable;
+        let maxEnergy = Game.spawns['Spawn1'].getCapacity([RESOURCE_ENERGY]);
         //console.log('Max energy available:', maxEnergy);
         var pattern = [];
         switch (role) {
