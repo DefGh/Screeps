@@ -14,9 +14,9 @@ module.exports = {
                 var aval = maxEnergy;
                 let parts = [];    
                 //console.log('Building universal body with', aval, 'energy');
-
+                let universal_body = [MOVE, CARRY, WORK]
                 while (aval > 0) {
-                    for (let part in constants.BodyPartCosts) {
+                    for (let part in universal_body) {
                         if (aval >= constants.BodyPartCosts[part]) {
                             aval -= constants.BodyPartCosts[part];
                             parts.push(part);
