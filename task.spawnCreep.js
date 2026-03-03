@@ -35,6 +35,9 @@ module.exports = {
             }
         );
 
+
+        console.log(spawnResult);
+
         switch (spawnResult) {
             case OK:
             case ERR_INVALID_ARGS:
