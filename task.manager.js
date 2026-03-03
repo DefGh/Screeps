@@ -1,10 +1,6 @@
 constants = require('constants');
 
 module.exports = {
-    roles: constants.roles,
-    taskTypes: constants.taskTypes,
-    taskPriorities: constants.taskPriorities,
-    taskStatuses: constants.taskStatuses,
 
     getTask: function (role) {
         if (!Memory.tasks) {
@@ -57,7 +53,7 @@ module.exports = {
             let hasUniversalTask = false;
             for (let taskId in tasks) {
                 let task = tasks[taskId];
-                if (task.type === this.taskTypes.SPAWN_CREEP && task.data.role === this.roles.UNIVERSAL) {
+                if (task.type === constants.taskTypes.SPAWN_CREEP && task.data.role === constants.roles.UNIVERSAL) {
                     //console.log('Found existing universal spawn task:', taskId);
                     hasUniversalTask = true;
                     break;
@@ -65,7 +61,7 @@ module.exports = {
             }
             if (!hasUniversalTask) {
                 //console.log('No universal spawn task found, creating new one...');
-                this.spawnCreepTask(this.roles.UNIVERSAL);
+                this.spawnCreepTask(constants.roles.UNIVERSAL);
             }
         } else {
             //console.log('Creeps exist, skipping spawn task generation');
@@ -88,7 +84,7 @@ module.exports = {
         // Check if transfer energy task already exists
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.type === this.taskTypes.TRANSFER_ENERGY) {
+            if (task.type === constants.taskTypes.TRANSFER_ENERGY) {
                 //console.log('Transfer energy task already exists:', taskId);
                 hasTransferTask = true;
                 break;
@@ -101,11 +97,11 @@ module.exports = {
             
             tasks[newTaskId] = this.baseTask(
                 newTaskId,
-                this.taskTypes.TRANSFER_ENERGY,
+                constants.taskTypes.TRANSFER_ENERGY,
                 {
                     // No specific data needed - creeps will find sources/destinations dynamically
                 },
-                [this.roles.UNIVERSAL], // Universal role can handle transfer tasks
+                [constants.roles.UNIVERSAL], // Universal role can handle transfer tasks
                 true, // Repeatable - always available
                 999 // Many creeps can do this simultaneously
             );
@@ -125,12 +121,12 @@ module.exports = {
         let tasks = Memory.tasks;
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
-            this.taskTypes.SPAWN_CREEP,
+            constants.taskTypes.SPAWN_CREEP,
             {
                 role: role,
                 body: body,
             }, 
-            [this.roles.SPAWNER], 
+            [constants.roles.SPAWNER], 
             false, 
             1
         );
@@ -146,14 +142,14 @@ module.exports = {
             canExecute: canExecute,
             repeatable: repeatable,
             maxExecuters: maxExecuters,
-            priority: this.taskPriorities[type] || 5, // Default priority if not defined
+            priority: constants.taskPriorities[type] || 5, // Default priority if not defined
             data: data
         };
     },
 
     checkAndAddMinerTask: function () {
         // Check if we need a miner creep (up to 5 work parts)
-        let miners = _.filter(Game.creeps, creep => creep.memory.role === this.roles.MINER);
+        let miners = _.filter(Game.creeps, creep => creep.memory.role === constants.roles.MINER);
         let maxMiners = 2; // Limit to 2 miners for now
         
         if (miners.length < maxMiners) {
@@ -168,12 +164,12 @@ module.exports = {
         
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
-            this.taskTypes.SPAWN_CREEP,
+            constants.taskTypes.SPAWN_CREEP,
             {
-                role: this.roles.MINER,
+                role: constants.roles.MINER,
                 body: this.buildMinerBody(), // Custom miner body with work parts
             }, 
-            [this.roles.SPAWNER], 
+            [constants.roles.SPAWNER], 
             false, 
             1
         );
