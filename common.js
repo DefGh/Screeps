@@ -25,7 +25,7 @@ module.exports = {
         var body = []
         while (avail > 0) {
             for(let part of pattern) {
-                if (avail > part.cost)
+                if (avail >= part.cost)
                 {
                     avail -= part.cost
                     body.push(part.part)
