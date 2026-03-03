@@ -14,36 +14,16 @@ module.exports = {
                 var aval = maxEnergy;
                 let parts = [];    
                 //console.log('Building universal body with', aval, 'energy');
-
-                // Build body parts until we run out of energy
-                let maxParts = 50; // Safety limit to prevent infinite loops
-                let partCount = 0;
-                
-                while (aval > 0 && partCount < maxParts) {
-                    let addedPart = false;
-                    
-                    // Try to add parts in priority order: WORK, CARRY, MOVE
-                    if (aval >= constants.BodyPartCosts.WORK) {
-                        aval -= constants.BodyPartCosts.WORK;
-                        parts.push('WORK');
-                        addedPart = true;
-                    } else if (aval >= constants.BodyPartCosts.CARRY) {
-                        aval -= constants.BodyPartCosts.CARRY;
-                        parts.push('CARRY');
-                        addedPart = true;
-                    } else if (aval >= constants.BodyPartCosts.MOVE) {
-                        aval -= constants.BodyPartCosts.MOVE;
-                        parts.push('MOVE');
-                        addedPart = true;
+                let universal_body = ['MOVE', 'CARRY', 'WORK']
+                while (aval > 0) {
+                    for (let part in universal_body) {
+                        if (aval >= constants.BodyPartCosts[part]) {
+                            aval -= constants.BodyPartCosts[part];
+                            parts.push(part);
+                            //console.log('Added part:', part, 'Cost:', constants.BodyPartCosts[part], 'Remaining energy:', aval);
+                        }
                     }
-                    
-                    if (!addedPart) {
-                        break; // Can't add any more parts
-                    }
-                    
-                    partCount++;
                 }
-                
                 //console.log('Final body parts:', parts);
                 return parts;
                 break;
