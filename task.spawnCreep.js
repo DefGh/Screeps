@@ -23,7 +23,7 @@ module.exports = {
         }
 
         // Convert body part strings to constants
-        let bodyParts = task.data.body;
+        let bodyParts = task.data;
 
         var memory = task.data.role;
         delete memory.body;
