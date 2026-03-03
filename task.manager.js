@@ -1,4 +1,4 @@
-constants = require('constants');
+constants = require('./constants');
 
 module.exports = {
 

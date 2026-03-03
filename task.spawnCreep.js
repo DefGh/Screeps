@@ -1,3 +1,5 @@
+const constants = require("./constants");
+
 module.exports = {
 
     run: function (executer, task) {
@@ -30,37 +32,7 @@ module.exports = {
         }
 
         // Convert body part strings to constants
-        let bodyParts = [];
-        for (let part of task.data.body) {
-            switch (part) {
-                case 'MOVE':
-                    bodyParts.push(MOVE);
-                    break;
-                case 'WORK':
-                    bodyParts.push(WORK);
-                    break;
-                case 'CARRY':
-                    bodyParts.push(CARRY);
-                    break;
-                case 'ATTACK':
-                    bodyParts.push(ATTACK);
-                    break;
-                case 'RANGED_ATTACK':
-                    bodyParts.push(RANGED_ATTACK);
-                    break;
-                case 'HEAL':
-                    bodyParts.push(HEAL);
-                    break;
-                case 'TOUGH':
-                    bodyParts.push(TOUGH);
-                    break;
-                case 'CLAIM':
-                    bodyParts.push(CLAIM);
-                    break;
-                default:
-                    bodyParts.push(MOVE); // Default to MOVE
-            }
-        }
+        let bodyParts = task.data.body;
 
         // Attempt to spawn the creep
         let spawnResult = executer.spawnCreep(
@@ -107,7 +79,7 @@ module.exports = {
             
             case ERR_NOT_ENOUGH_ENERGY:
                 this.completeTask(task, false, 'Energy insufficient at spawn time');
-                taskFinished = true;
+                taskFinished = false;
                 break;
             
             default:
@@ -118,47 +90,14 @@ module.exports = {
         return taskFinished;
     },
 
-    calculateBodyCost: function (bodyParts) {
-        let cost = 0;
-        for (let part of bodyParts) {
-            switch (part) {
-                case 'MOVE':
-                    cost += 50;
-                    break;
-                case 'WORK':
-                    cost += 100;
-                    break;
-                case 'CARRY':
-                    cost += 50;
-                    break;
-                case 'ATTACK':
-                    cost += 80;
-                    break;
-                case 'RANGED_ATTACK':
-                    cost += 150;
-                    break;
-                case 'HEAL':
-                    cost += 250;
-                    break;
-                case 'TOUGH':
-                    cost += 10;
-                    break;
-                case 'CLAIM':
-                    cost += 600;
-                    break;
-                default:
-                    cost += 50; // Default cost
-            }
-        }
-        return cost;
-    },
+
 
     generateCreepName: function (role) {
         return role.toUpperCase() + '_' + Game.time;
     },
 
     completeTask: function (task, success, message) {
-        task.status = success ? 'done' : 'failed';
+        task.status = success ? constants.taskStatuses.DONE : constants.taskStatuses.IN_PROGRESS;
         task.completedAt = Game.time;
         task.result = {
             success: success,
