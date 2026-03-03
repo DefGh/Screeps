@@ -22,15 +22,6 @@ module.exports = {
             return false; // Task remains in progress, will retry next tick
         }
 
-        // Validate energy availability
-        let bodyCost = this.calculateBodyCost(task.data.body);
-        let availableEnergy = executer.room.energyAvailable;
-        
-        if (availableEnergy < bodyCost) {
-            this.completeTask(task, false, 'Insufficient energy: ' + availableEnergy + '/' + bodyCost);
-            return true; // Task is finished (failed)
-        }
-
         // Convert body part strings to constants
         let bodyParts = task.data.body;
 
