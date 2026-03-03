@@ -34,6 +34,89 @@ module.exports = {
         
         return null;
     },
+
+    tryAddTask: function(task) {
+        // Validate task structure
+        if (!task || !task.type || !task.data) {
+            console.log('Invalid task structure - missing type or data');
+            return false;
+        }
+
+        if (!Memory.tasks) {
+            Memory.tasks = {};
+        }
+
+        // Check for existing duplicates
+        for (let existingTaskId in Memory.tasks) {
+            let existingTask = Memory.tasks[existingTaskId];
+            
+            // Skip if task types don't match
+            if (existingTask.type !== task.type) {
+                continue;
+            }
+            
+            // Compare data objects for duplicates
+            if (this.areTaskDataEqual(existingTask.data, task.data)) {
+                console.log('Duplicate task found - not adding:', task.type);
+                return false;
+            }
+        }
+
+        // Generate unique task ID
+        let newTaskId = task.type + '_' + Game.time;
+        
+        // Create complete task object with default values if not provided
+        let completeTask = {
+            id: newTaskId,
+            type: task.type,
+            status: 'pending',
+            canExecute: task.canExecute || [],
+            repeatable: task.repeatable || false,
+            maxExecuters: task.maxExecuters || 1,
+            priority: task.priority || 0,
+            data: task.data
+        };
+
+        // Add task to memory
+        Memory.tasks[newTaskId] = completeTask;
+        console.log('Task added successfully:', newTaskId, 'Type:', task.type);
+        
+        return true;
+    },
+
+    areTaskDataEqual: function(data1, data2) {
+        // Handle null/undefined cases
+        if (!data1 && !data2) return true;
+        if (!data1 || !data2) return false;
+
+        // Get all keys from both objects
+        let keys1 = Object.keys(data1);
+        let keys2 = Object.keys(data2);
+
+        // Check if same number of keys
+        if (keys1.length !== keys2.length) return false;
+
+        // Check each key-value pair
+        for (let key of keys1) {
+            if (!keys2.includes(key)) return false;
+            
+            let val1 = data1[key];
+            let val2 = data2[key];
+
+            // Handle different value types
+            if (typeof val1 !== typeof val2) return false;
+
+            if (typeof val1 === 'object' && val1 !== null) {
+                // Recursively compare nested objects
+                if (!this.areTaskDataEqual(val1, val2)) return false;
+            } else if (val1 !== val2) {
+                return false;
+            }
+        }
+
+        return true;
+    },
+
     generateTasks: function () {
         //console.log('Generating tasks...');
         
@@ -329,7 +412,6 @@ module.exports = {
         return position;
     },
 
-
     spawnMinerTask: function (sourceId, position) {
         console.log('Creating miner task for source', sourceId);
         
@@ -344,7 +426,67 @@ module.exports = {
     },
 
     checkAndGenerateMineTasks: function() {
+        let tasks = Memory.tasks;
+        let room = Game.spawns['Spawn1'].room;
+        
+        if (!room) {
+            return;
+        }
+        
+        // Get all miners
+        let miners = [];
+        for (let name in Game.creeps) {
+            let creep = Game.creeps[name];
+            if (creep.memory.role === constants.roles.MINER) {
+                miners.push(creep);
+            }
+        }
+        
+        // Generate mine tasks for each miner
+        for (let miner of miners) {
+            let sourceId = miner.memory.sourceId;
+            if (sourceId) {
+                // Check if mine task already exists for this miner
+                let existingTask = this.findMineTaskForMiner(miner.id);
+                if (!existingTask) {
+                    // Create mine task
+                    this.createMineTask(miner.id, sourceId);
+                }
+            }
+        }
+    },
 
+    findMineTaskForMiner: function(minerId) {
+        let tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === constants.taskTypes.MINE && 
+                task.data && 
+                task.data.minerId === minerId) {
+                return task;
+            }
+        }
+        return null;
+    },
+
+    createMineTask: function(minerId, sourceId) {
+        let miner = Game.creeps[minerId];
+        if (!miner) return;
+        
+        let newTaskId = 'mine' + minerId + Game.time;
+        
+        Memory.tasks[newTaskId] = this.baseTask(
+            newTaskId,
+            constants.taskTypes.MINE,
+            {
+                minerId: minerId,
+                sourceId: sourceId,
+                position: miner.memory.position
+            },
+            [constants.roles.MINER],
+            true, // Repeatable - miner should keep mining
+            1,
+            5 // Medium priority
+        );
     }
-
 }

@@ -22,6 +22,8 @@ module.exports = {
     taskTypes: {
         SPAWN_CREEP: 'spawnCreep',
         TRANSFER_ENERGY: 'transferEnergy',
+        TAXI: 'taxi',
+        MINE: 'mine'
     },
     
     // Приоритеты задач
