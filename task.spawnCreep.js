@@ -36,7 +36,6 @@ module.exports = {
         );
 
 
-        console.log(spawnResult);
 
         switch (spawnResult) {
             case OK:
@@ -44,9 +43,15 @@ module.exports = {
             case ERR_NAME_EXISTS:        
                 taskFinished = true;
                 break;
+            case ERR_NOT_ENOUGH_ENERGY:
+                taskFinished = false;
             default:
                taskFinished = false;
         }
+
+        if (taskFinished)
+            console.log(spawnResult);
+
 
         return taskFinished;
     },
