@@ -24,7 +24,7 @@ module.exports = {
         let newTaskId = task.type + '_' + Game.time;
         // Create complete task object with default values if not provided
         let completeTask = {
-            id: newTaskId,
+            id: task.id || newTaskId,
             type: task.type,
             status: 'pending',
             canExecute: task.canExecute || [],
