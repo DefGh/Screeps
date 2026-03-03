@@ -83,6 +83,7 @@ module.exports = {
                     creep.say('🔋 Full/Empty');
                     state.phase = 'findDestination';
                     state.sourceId = null;
+                    return;
                 }
 
         let source = Game.getObjectById(state.sourceId);
