@@ -28,6 +28,7 @@ module.exports = {
     taskPriorities: {
         SPAWN_CREEP: 10,
         TRANSFER_ENERGY: 1,
+        MINER: 2, // Приоритет ниже, чем у универсальных крипов
     },
     
     // Статусы задач

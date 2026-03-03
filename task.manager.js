@@ -110,7 +110,7 @@ module.exports = {
         }
     },
 
-    spawnCreepTask: function (role) {
+    spawnCreepTask: function (role, additionalData) {
         //console.log('Creating spawn creep task for role:', role);
         let body = common.buildBody(role);
         //console.log('Generated body parts:', body);
@@ -119,13 +119,20 @@ module.exports = {
         //console.log('New task ID:', newTaskId);
         
         let tasks = Memory.tasks;
+        let taskData = {
+            role: role,
+            body: body,
+        };
+        
+        // Добавляем дополнительные данные, если они есть
+        if (additionalData) {
+            Object.assign(taskData, additionalData);
+        }
+        
         tasks[newTaskId] = this.baseTask(
             newTaskId, 
             constants.taskTypes.SPAWN_CREEP,
-            {
-                role: role,
-                body: body,
-            }, 
+            taskData, 
             [constants.roles.SPAWNER], 
             false, 
             1
@@ -148,45 +155,179 @@ module.exports = {
     },
 
     checkAndAddMinerTask: function () {
-        // Check if we need a miner creep (up to 5 work parts)
-        let miners = _.filter(Game.creeps, creep => creep.memory.role === constants.roles.MINER);
-        let maxMiners = 2; // Limit to 2 miners for now
+        //console.log('Checking for miner tasks...');
         
-        if (miners.length < maxMiners) {
-            //console.log('Creating miner spawn task...');
-            this.spawnMinerTask();
+        // Инициализация памяти для хранения позиций шахтеров
+        if (!Memory.minerPositions) {
+            Memory.minerPositions = {};
         }
-    },
-
-    spawnMinerTask: function () {
-        let newTaskId = 'spawnMiner' + Game.time;
+        
         let tasks = Memory.tasks;
+        let room = Game.spawns['Spawn1'].room;
         
-        tasks[newTaskId] = this.baseTask(
-            newTaskId, 
-            constants.taskTypes.SPAWN_CREEP,
-            {
-                role: constants.roles.MINER,
-                body: this.buildMinerBody(), // Custom miner body with work parts
-            }, 
-            [constants.roles.SPAWNER], 
-            false, 
-            1
-        );
-        //console.log('Miner spawn task created successfully');
-    },
-
-    buildMinerBody: function () {
-        // Create a miner with up to 5 work parts 
-        let workParts = Math.min(5, Math.floor(Game.spawns['Spawn1'].room.energyCapacityAvailable / 200));
-        let body = [];
-        
-        for (let i = 0; i < workParts; i++) {
-            body.push(WORK);
+        if (!room) {
+            //console.log('No room found for spawn');
+            return;
         }
         
-        return body;
-    }
+        // Получаем все источники в комнате
+        let sources = room.find(FIND_SOURCES);
+        //console.log('Found', sources.length, 'sources in room');
+        
+        for (let source of sources) {
+            // Проверяем, есть ли уже шахтер, работающий на этом источнике
+            let existingMiner = this.findMinerForSource(source.id);
+            if (existingMiner) {
+                //console.log('Source', source.id, 'already has miner:', existingMiner.name);
+                continue;
+            }
+            
+            // Проверяем, есть ли уже задача на создание шахтера для этого источника
+            let existingTask = this.findMinerTaskForSource(source.id);
+            if (existingTask) {
+                //console.log('Source', source.id, 'already has miner task:', existingTask.id);
+                continue;
+            }
+            
+            // Проверяем наличие врагов рядом с источником
+            if (this.hasEnemiesNearSource(source)) {
+                //console.log('Source', source.id, 'has enemies nearby, skipping');
+                continue;
+            }
+            
+            // Рассчитываем позицию для шахтера
+            let minerPosition = this.getOrCreateMinerPosition(source);
+            if (!minerPosition) {
+                //console.log('Could not find suitable position for source', source.id);
+                continue;
+            }
+            
+            // Проверяем, достаточно ли энергии для создания шахтера
+            let minerBody = common.buildBody(constants.roles.MINER);
+            let totalCost = minerBody.reduce((sum, part) => sum + constants.BodyParts[part].cost, 0);
+            
+            if (room.energyAvailable < totalCost) {
+                //console.log('Not enough energy to spawn miner for source', source.id, '- need:', totalCost, 'have:', room.energyAvailable);
+                continue;
+            }
+            
+            // Создаем задачу на создание шахтера
+            this.spawnMinerTask(source.id, minerPosition);
+            //console.log('Created miner task for source', source.id, 'at position:', minerPosition);
+        }
+    },
+
+    findMinerForSource: function (sourceId) {
+        for (let name in Game.creeps) {
+            let creep = Game.creeps[name];
+            if (creep.memory.role === constants.roles.MINER && creep.memory.sourceId === sourceId) {
+                return creep;
+            }
+        }
+        return null;
+    },
+
+    findMinerTaskForSource: function (sourceId) {
+        let tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === constants.taskTypes.SPAWN_CREEP && 
+                task.data && 
+                task.data.role === constants.roles.MINER && 
+                task.data.sourceId === sourceId) {
+                return task;
+            }
+        }
+        return null;
+    },
+
+    hasEnemiesNearSource: function (source) {
+        // Проверяем вражеские крипы в радиусе 15 клеток
+        let hostileCreeps = source.pos.findInRange(FIND_HOSTILE_CREEPS, 15);
+        
+        // Проверяем вражеские сооружения в радиусе 15 клеток
+        let hostileStructures = source.pos.findInRange(FIND_HOSTILE_STRUCTURES, 15);
+        
+        return hostileCreeps.length > 0 || hostileStructures.length > 0;
+    },
+
+    getOrCreateMinerPosition: function (source) {
+        // Проверяем, есть ли уже сохраненная позиция для этого источника
+        if (Memory.minerPositions[source.id]) {
+            //console.log('Using existing position for source', source.id);
+            return Memory.minerPositions[source.id];
+        }
+        
+        // Ищем путь от спавна до источника, игнорируя препятствия
+        let spawn = Game.spawns['Spawn1'];
+        if (!spawn) {
+            //console.log('No spawn found for position calculation');
+            return null;
+        }
+        
+        // Ищем путь от спавна до источника
+        let path = spawn.pos.findPathTo(source.pos, {
+            ignoreCreeps: true,
+            ignoreDestructibleStructures: true,
+            ignoreRoads: true,
+            ignore: [] // Не игнорируем стены, чтобы найти реальный путь
+        });
+        
+        if (path.length === 0) {
+            //console.log('No path found from spawn to source', source.id);
+            return null;
+        }
+        
+        // Берем последнюю точку пути (ближайшую к источнику)
+        let lastPoint = path[path.length - 1];
+        
+        // Проверяем, что позиция позволяет добывать энергию из источника
+        let range = source.pos.getRangeTo(lastPoint.x, lastPoint.y);
+        if (range > 3) {
+            //console.log('Path endpoint too far from source:', range);
+            return null;
+        }
+        
+        // Проверяем, что позиция в пределах комнаты и не на стене
+        if (lastPoint.x < 0 || lastPoint.x > 49 || lastPoint.y < 0 || lastPoint.y > 49) {
+            //console.log('Path endpoint outside room bounds');
+            return null;
+        }
+        
+        let terrain = source.room.getTerrain().get(lastPoint.x, lastPoint.y);
+        if (terrain === TERRAIN_MASK_WALL) {
+            //console.log('Path endpoint on wall');
+            return null;
+        }
+        
+        // Формируем позицию
+        let position = {
+            x: lastPoint.x,
+            y: lastPoint.y,
+            roomName: source.pos.roomName
+        };
+        
+        // Сохраняем позицию для повторного использования
+        Memory.minerPositions[source.id] = position;
+        //console.log('Calculated new position for source', source.id, ':', position);
+        
+        return position;
+    },
+
+
+    spawnMinerTask: function (sourceId, position) {
+        //console.log('Creating miner task for source', sourceId);
+        
+        let additionalData = {
+            sourceId: sourceId,
+            position: position
+        };
+        
+        this.spawnCreepTask(constants.roles.MINER, additionalData);
+        
+        //console.log('Miner task created successfully for source', sourceId);
+    },
+
 
 
 }
