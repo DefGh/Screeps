@@ -10,13 +10,9 @@ module.exports = {
 
         // Convert body part strings to constants
         let bodyParts = task.data.body;
-        
-        console.log('DEBUG: task.spawnCreep.run called');
-        console.log('DEBUG: task.data.body length:', bodyParts ? bodyParts.length : 'undefined/null');
-        console.log('DEBUG: task.data.body:', bodyParts);
-        console.log('DEBUG: task.data.role:', task.data.role);
 
-        var memory = task.data;
+        // Create a copy of task.data for memory to avoid modifying the original task
+        var memory = Object.assign({}, task.data);
         delete memory.body;
 
         // Attempt to spawn the creep
@@ -27,9 +23,6 @@ module.exports = {
                 memory: memory
             }
         );
-
-        console.log('DEBUG: spawnCreep result:', spawnResult);
-        console.log('DEBUG: spawnCreep result constant:', spawnResult === OK ? 'OK' : 'NOT OK');
 
         return spawnResult == OK;
     },

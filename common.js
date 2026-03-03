@@ -5,15 +5,11 @@ module.exports = {
         // get max energy
         let spawn = Game.spawns['Spawn1'];
         
-        
-        
         if (!spawn) {
-            
             return [];
         }
         
         let maxEnergy = spawn.store.getCapacity([RESOURCE_ENERGY]);
-        
         
         //        var pattern = [];
         let pattern;
@@ -25,33 +21,23 @@ module.exports = {
                 pattern = [constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK, constants.BodyParts.WORK]
                 break;
             default:
-                
                 return [];
         }
-        
-        
-        
+
         var avail = maxEnergy; 
-        
         var body = []
-        
         while (avail > 0) {
-            
             for(let part of pattern) {
-                
                 if (avail >= part.cost)
                 {
                     avail -= part.cost
                     body.push(part.part)
-                    
                 }   
                 else {
-                    
                     return body;
                 }
             }
         }
-        
         return body;
     }
 }
