@@ -10,6 +10,9 @@ module.exports.loop = function () {
     // Check executers health and handle deaths
     taskManager.checkExecutersHealth();
 
+    // Assign tasks to available executers
+    taskManager.assignExecutersToTasks();
+
     // Run all assigned executers through the task manager
     taskManager.runExecuters();
 }
