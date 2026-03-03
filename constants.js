@@ -1,4 +1,4 @@
-constants = {
+module.exports = {
     // Константы частей тела и их стоимости
     BodyPartCosts: {
         MOVE: 50,
@@ -37,5 +37,3 @@ constants = {
         DONE: 'done',
     }
 };
-
-module.exports = constants;
