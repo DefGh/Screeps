@@ -207,7 +207,7 @@ module.exports = {
             let totalCost = minerBody.reduce((sum, part) => sum + constants.BodyParts[part].cost, 0);
             
             if (room.energyAvailable < totalCost) {
-                //console.log('Not enough energy to spawn miner for source', source.id, '- need:', totalCost, 'have:', room.energyAvailable);
+                console.log('Not enough energy to spawn miner for source', source.id, '- need:', totalCost, 'have:', room.energyAvailable);
                 continue;
             }
             
