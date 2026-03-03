@@ -270,7 +270,6 @@ module.exports = {
             ignoreCreeps: true,
             ignoreDestructibleStructures: true,
             ignoreRoads: true,
-            ignore: [] // Не игнорируем стены, чтобы найти реальный путь
         });
         
         if (path.length === 0) {
