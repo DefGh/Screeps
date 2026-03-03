@@ -16,11 +16,17 @@ module.exports = {
                 //console.log('Building universal body with', aval, 'energy');
                 let universal_body = [constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK]
                 while (aval > 0) {
-                    for (let part in universal_body) {
+                    let partsAdded = false;
+                    for (let part of universal_body) {
                         if (aval >= part.cost) {
                             aval -= part.cost;
                             parts.push(part.part);
+                            partsAdded = true;
                         }
+                    }
+                    // Если не удалось добавить ни одной части, выходим из цикла
+                    if (!partsAdded) {
+                        break;
                     }
                 }
                 //console.log('Final body parts:', parts);
