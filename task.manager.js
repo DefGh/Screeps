@@ -59,7 +59,7 @@ module.exports = {
             }
             if (!hasUniversalTask) {
                 //console.log('No universal spawn task found, creating new one...');
-                this.spawnCreepTask(constants.roles.UNIVERSAL);
+                this.spawnCreepTask(constants.roles.UNIVERSAL, 1);
             }
         } else {
         }
@@ -102,14 +102,15 @@ module.exports = {
                 },
                 [constants.roles.UNIVERSAL], // Universal role can handle transfer tasks
                 true, // Repeatable - always available
-                999 // Many creeps can do this simultaneously
+                999, // Many creeps can do this simultaneously,
+                999
             );
             
             //console.log('Transfer energy task created successfully');
         }
     },
 
-    spawnCreepTask: function (role, additionalData) {
+    spawnCreepTask: function (role, priority, additionalData) {
         //console.log('Creating spawn creep task for role:', role);
         let body = common.buildBody(role);
         //console.log('Generated body parts:', body);
@@ -134,12 +135,13 @@ module.exports = {
             taskData, 
             [constants.roles.SPAWNER], 
             false, 
-            1
+            1,
+            priority
         );
         //console.log('Spawn task created successfully');
     },
 
-    baseTask: function (id, type, data, canExecute, repeatable, maxExecuters) {
+    baseTask: function (id, type, data, canExecute, repeatable, maxExecuters, priority) {
 
         return {
             id: id,
@@ -148,7 +150,7 @@ module.exports = {
             canExecute: canExecute,
             repeatable: repeatable,
             maxExecuters: maxExecuters,
-            priority: constants.taskPriorities[type] || 5, // Default priority if not defined
+            priority: priority,
             data: data
         };
     },
@@ -336,13 +338,13 @@ module.exports = {
             position: position
         };
         
-        this.spawnCreepTask(constants.roles.MINER, additionalData);
+        this.spawnCreepTask(constants.roles.MINER, 5, additionalData);
         
         console.log('Miner task created successfully for source', sourceId);
     },
 
     checkAndGenerateMineTasks: function() {
-        
+
     }
 
 }
