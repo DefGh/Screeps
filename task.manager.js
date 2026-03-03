@@ -155,7 +155,7 @@ module.exports = {
     },
 
     checkAndAddMinerTask: function () {
-        //console.log('Checking for miner tasks...');
+        console.log('Checking for miner tasks...');
         
         // Инициализация памяти для хранения позиций шахтеров
         if (!Memory.minerPositions) {
@@ -166,39 +166,39 @@ module.exports = {
         let room = Game.spawns['Spawn1'].room;
         
         if (!room) {
-            //console.log('No room found for spawn');
+            console.log('No room found for spawn');
             return;
         }
         
         // Получаем все источники в комнате
         let sources = room.find(FIND_SOURCES);
-        //console.log('Found', sources.length, 'sources in room');
+        console.log('Found', sources.length, 'sources in room');
         
         for (let source of sources) {
             // Проверяем, есть ли уже шахтер, работающий на этом источнике
             let existingMiner = this.findMinerForSource(source.id);
             if (existingMiner) {
-                //console.log('Source', source.id, 'already has miner:', existingMiner.name);
+                console.log('Source', source.id, 'already has miner:', existingMiner.name);
                 continue;
             }
             
             // Проверяем, есть ли уже задача на создание шахтера для этого источника
             let existingTask = this.findMinerTaskForSource(source.id);
             if (existingTask) {
-                //console.log('Source', source.id, 'already has miner task:', existingTask.id);
+                console.log('Source', source.id, 'already has miner task:', existingTask.id);
                 continue;
             }
             
             // Проверяем наличие врагов рядом с источником
             if (this.hasEnemiesNearSource(source)) {
-                //console.log('Source', source.id, 'has enemies nearby, skipping');
+                console.log('Source', source.id, 'has enemies nearby, skipping');
                 continue;
             }
             
             // Рассчитываем позицию для шахтера
             let minerPosition = this.getOrCreateMinerPosition(source);
             if (!minerPosition) {
-                //console.log('Could not find suitable position for source', source.id);
+                console.log('Could not find suitable position for source', source.id);
                 continue;
             }
             
@@ -213,7 +213,7 @@ module.exports = {
             
             // Создаем задачу на создание шахтера
             this.spawnMinerTask(source.id, minerPosition);
-            //console.log('Created miner task for source', source.id, 'at position:', minerPosition);
+            console.log('Created miner task for source', source.id, 'at position:', minerPosition);
         }
     },
 
@@ -254,14 +254,14 @@ module.exports = {
     getOrCreateMinerPosition: function (source) {
         // Проверяем, есть ли уже сохраненная позиция для этого источника
         if (Memory.minerPositions[source.id]) {
-            //console.log('Using existing position for source', source.id);
+            console.log('Using existing position for source', source.id);
             return Memory.minerPositions[source.id];
         }
         
         // Ищем путь от спавна до источника, игнорируя препятствия
         let spawn = Game.spawns['Spawn1'];
         if (!spawn) {
-            //console.log('No spawn found for position calculation');
+            console.log('No spawn found for position calculation');
             return null;
         }
         
@@ -273,7 +273,7 @@ module.exports = {
         });
         
         if (path.length === 0) {
-            //console.log('No path found from spawn to source', source.id);
+            console.log('No path found from spawn to source', source.id);
             return null;
         }
         
@@ -283,19 +283,19 @@ module.exports = {
         // Проверяем, что позиция позволяет добывать энергию из источника
         let range = source.pos.getRangeTo(lastPoint.x, lastPoint.y);
         if (range > 3) {
-            //console.log('Path endpoint too far from source:', range);
+            console.log('Path endpoint too far from source:', range);
             return null;
         }
         
         // Проверяем, что позиция в пределах комнаты и не на стене
         if (lastPoint.x < 0 || lastPoint.x > 49 || lastPoint.y < 0 || lastPoint.y > 49) {
-            //console.log('Path endpoint outside room bounds');
+            console.log('Path endpoint outside room bounds');
             return null;
         }
         
         let terrain = source.room.getTerrain().get(lastPoint.x, lastPoint.y);
         if (terrain === TERRAIN_MASK_WALL) {
-            //console.log('Path endpoint on wall');
+            console.log('Path endpoint on wall');
             return null;
         }
         
@@ -308,14 +308,14 @@ module.exports = {
         
         // Сохраняем позицию для повторного использования
         Memory.minerPositions[source.id] = position;
-        //console.log('Calculated new position for source', source.id, ':', position);
+        console.log('Calculated new position for source', source.id, ':', position);
         
         return position;
     },
 
 
     spawnMinerTask: function (sourceId, position) {
-        //console.log('Creating miner task for source', sourceId);
+        console.log('Creating miner task for source', sourceId);
         
         let additionalData = {
             sourceId: sourceId,
@@ -324,7 +324,7 @@ module.exports = {
         
         this.spawnCreepTask(constants.roles.MINER, additionalData);
         
-        //console.log('Miner task created successfully for source', sourceId);
+        console.log('Miner task created successfully for source', sourceId);
     },
 
 
