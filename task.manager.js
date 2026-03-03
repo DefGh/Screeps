@@ -201,16 +201,7 @@ module.exports = {
                 console.log('Could not find suitable position for source', source.id);
                 continue;
             }
-            
-            // Проверяем, достаточно ли энергии для создания шахтера
-            let minerBody = common.buildBody(constants.roles.MINER);
-            let totalCost = minerBody.reduce((sum, part) => sum + constants.BodyParts[part].cost, 0);
-            
-            if (room.energyAvailable < totalCost) {
-                console.log('Not enough energy to spawn miner for source', source.id, '- need:', totalCost, 'have:', room.energyAvailable);
-                continue;
-            }
-            
+                        
             // Создаем задачу на создание шахтера
             this.spawnMinerTask(source.id, minerPosition);
             console.log('Created miner task for source', source.id, 'at position:', minerPosition);
