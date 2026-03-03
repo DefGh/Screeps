@@ -39,20 +39,41 @@ module.exports = {
         }
         // 3 - else - try create taxi task and move to coord
         else {
-            console.log('DEBUG: creep is not on position, creating taxi task');
-            // Create taxi task to move to mining position
-            let taxiTaskResult = taskManager.tryAddTask({
-                type: constants.taskTypes.TAXI,
-                canExecute: [constants.roles.UNIVERSAL],
-                repeatable: false,
-                maxExecuters: 1,
-                priority: 1,
-                data: {
-                    whom: creep.id,
-                    where: position
+            console.log('DEBUG: creep is not on position, checking for existing taxi task');
+            
+            // Check if taxi task already exists for this creep
+            let taxiTaskExists = false;
+            if (Memory.tasks) {
+                for (let taskId in Memory.tasks) {
+                    let existingTask = Memory.tasks[taskId];
+                    if (existingTask.type === constants.taskTypes.TAXI &&
+                        existingTask.data &&
+                        existingTask.data.whom === creep.id) {
+                        taxiTaskExists = true;
+                        console.log('DEBUG: taxi task already exists for this creep');
+                        break;
+                    }
                 }
-            });
-            console.log('DEBUG: taxi task creation result:', taxiTaskResult);
+            }
+            
+            // Create taxi task only if it doesn't exist
+            if (!taxiTaskExists) {
+                console.log('DEBUG: creating new taxi task');
+                let taxiTaskResult = taskManager.tryAddTask({
+                    type: constants.taskTypes.TAXI,
+                    canExecute: [constants.roles.UNIVERSAL],
+                    repeatable: false,
+                    maxExecuters: 1,
+                    priority: 1,
+                    data: {
+                        whom: creep.id,
+                        where: position
+                    }
+                });
+                console.log('DEBUG: taxi task creation result:', taxiTaskResult);
+            } else {
+                console.log('DEBUG: taxi task already exists, not creating new one');
+            }
             
             creep.moveTo(position);
             return false; // Task not finished, still moving
