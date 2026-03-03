@@ -18,7 +18,7 @@ module.exports = {
             return true; // Task completed successfully
         }
         // 3 - move to target and escort
-        creep.moveTo(targetCreep);
+        creep.moveTo(targetCreep.pos);
         return false; // Task not finished yet
     }
 }
