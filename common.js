@@ -14,13 +14,12 @@ module.exports = {
                 var aval = maxEnergy;
                 let parts = [];    
                 //console.log('Building universal body with', aval, 'energy');
-                let universal_body = ['MOVE', 'CARRY', 'WORK']
+                let universal_body = [constants.BodyParts.MOVE, constants.BodyParts.CARRY, constants.BodyParts.WORK]
                 while (aval > 0) {
                     for (let part in universal_body) {
-                        if (aval >= constants.BodyPartCosts[part]) {
-                            aval -= constants.BodyPartCosts[part];
-                            parts.push(part);
-                            //console.log('Added part:', part, 'Cost:', constants.BodyPartCosts[part], 'Remaining energy:', aval);
+                        if (aval >= part.cost) {
+                            aval -= part.cost;
+                            parts.push(part.part);
                         }
                     }
                 }

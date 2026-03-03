@@ -1,14 +1,14 @@
 module.exports = {
     // Константы частей тела и их стоимости
-    BodyPartCosts: {
-        MOVE: 50,
-        WORK: 100,
-        CARRY: 50,
-        ATTACK: 80,
-        RANGED_ATTACK: 150,
-        HEAL: 250,
-        TOUGH: 10,
-        CLAIM: 600
+    BodyParts: {
+        MOVE: {cost: 50, part: MOVE},
+        WORK: { cost: 100, part: WORK} ,
+        CARRY: { cost: 50, part: CARRY} ,
+        ATTACK: { cost: 80, part: ATTACK} ,
+        RANGED_ATTACK: { cost: 150, part: RANGED_ATTACK} ,
+        HEAL: { cost: 250, part: HEAL} ,
+        TOUGH: { cost: 10, part: TOUGH} ,
+        CLAIM: { cost: 600, part: CLAIM} 
     },
     
     // Роли крипов
@@ -37,3 +37,4 @@ module.exports = {
         DONE: 'done',
     }
 };
+{ cost:, part:  ',} 
