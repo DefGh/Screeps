@@ -1,6 +1,5 @@
 const constants = require('constants');
 const taskManager = require('task.manager');
-
 module.exports = {
     initializeRoom: function() {
         if (Memory.roomInitialized) {

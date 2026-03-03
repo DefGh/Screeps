@@ -1,14 +1,11 @@
 const constants = require("constants");
 const taskManager = require("task.manager")
-
-
 module.exports = {
     run : function(creep, task) {
         // 1 - init
         let sourceId = task.data.sourceId;
         let source = Game.getObjectById(sourceId);
         let position = task.data.position;
-
         // 2 - if on destination coord - mine
         if (creep.pos.x === position.x && creep.pos.y === position.y) {
             // Mine energy from source
@@ -41,7 +38,6 @@ module.exports = {
                     where: position
                 }
             });
-
             creep.moveTo(position);
             return false; // Task not finished, still moving
         }

@@ -1,5 +1,4 @@
 module.exports = {
-
     run: function (creep, task) {
         // Initialize task execution data if not exists
         if (!creep.memory.taskExecutionData) {
@@ -11,9 +10,7 @@ module.exports = {
             };
             creep.say('🔄 Init');
         }
-
         let state = creep.memory.taskExecutionData;
-
         switch (state.phase) {
             case 'findSource':
                 this.findEnergySource(creep, state);
@@ -31,19 +28,15 @@ module.exports = {
                 }
                 break;
         }
-
         // Transfer tasks continue until delivery cycle is complete
         return false; // Task continues within cycle
     },
-
     findEnergySource: function (creep, state) {
         creep.say('🔎 Finding source');
-
         // 1. Check for dropped energy on ground (highest priority)
         let droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
             filter: (resource) => resource.resourceType === RESOURCE_ENERGY
         });
-
         if (droppedEnergy) {
             creep.say('💎 Found dropped');
             state.sourceId = droppedEnergy.id;
@@ -51,7 +44,6 @@ module.exports = {
             state.lastAction = 'pickup';
             return;
         }
-
         // 2. Check for containers with energy
         let containers = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: (structure) => {
@@ -60,7 +52,6 @@ module.exports = {
                        structure.store[RESOURCE_ENERGY] > 0;
             }
         });
-
         if (containers) {
             creep.say('📦 Found container');
             state.sourceId = containers.id;
@@ -68,12 +59,10 @@ module.exports = {
             state.lastAction = 'withdraw';
             return;
         }
-
         // 3. Check for sources (mining)
         let sources = creep.pos.findClosestByRange(FIND_SOURCES, {
             filter: (source) => source.energy > 0
         });
-
         if (sources) {
             creep.say('⛏️ Found source');
             state.sourceId = sources.id;
@@ -81,11 +70,9 @@ module.exports = {
             state.lastAction = 'harvest';
             return;
         }
-
         creep.say('⏳ Waiting...');
         // Stay in findSource phase, will retry next tick
     },
-
     transferToCreep: function (creep, state) {
         let source = Game.getObjectById(state.sourceId);
         
@@ -97,7 +84,6 @@ module.exports = {
             state.destinationId = null;
             return;
         }
-
         // Move to source
         let moveResult = creep.moveTo(source, { 
             visualizePathStyle: { stroke: '#ffaa00' },
@@ -108,7 +94,6 @@ module.exports = {
             creep.say('❌ Move fail');
             return;
         }
-
         // Check if we're at the source
         let distance = creep.pos.getRangeTo(source);
         
@@ -126,7 +111,6 @@ module.exports = {
                     result = creep.harvest(source);
                     break;
             }
-
             if (result === OK) {
                 // Check if creep is full or source is empty
                 if (creep.store.getFreeCapacity() === 0 || 
@@ -149,10 +133,8 @@ module.exports = {
             creep.say('🚶 Moving...');
         }
     },
-
     findEnergyDestination: function (creep, state) {
         creep.say('🎯 Finding dest');
-
         // Only proceed if creep has energy
         if (creep.store[RESOURCE_ENERGY] === 0) {
             creep.say('🔋 Empty - going back to find source');
@@ -160,7 +142,6 @@ module.exports = {
             state.destinationId = null; // Clear destination when going back to source
             return;
         }
-
         // Try to find the best available destination
         let bestDestination = null;
         
@@ -172,7 +153,6 @@ module.exports = {
                        structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
             }
         });
-
         if (spawns) {
             bestDestination = spawns;
             creep.say('🏗️ Found spawn');
@@ -184,7 +164,6 @@ module.exports = {
                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
                 }
             });
-
             if (storage) {
                 bestDestination = storage;
                 creep.say('📦 Found storage');
@@ -197,13 +176,11 @@ module.exports = {
                 }
             }
         }
-
         if (bestDestination) {
             state.destinationId = bestDestination.id;
             state.phase = 'delivering';
             return;
         }
-
         // 4. If no destination found but creep has energy, just complete the task
         // This prevents infinite loops when no valid destinations are available
         creep.say('⏳ No destination found - completing task');
@@ -211,7 +188,6 @@ module.exports = {
         this.clearTransferState(creep);
         return true; // Task completed, will be reassigned
     },
-
     deliverEnergy: function (creep, state) {
         // Safety check: if creep has no energy, go back to find source
         if (creep.store[RESOURCE_ENERGY] === 0) {
@@ -220,7 +196,6 @@ module.exports = {
             state.destinationId = null;
             return;
         }
-
         let destination = Game.getObjectById(state.destinationId);
         
         if (!destination) {
@@ -229,7 +204,6 @@ module.exports = {
             state.destinationId = null;
             return;
         }
-
         // Move to destination
         let moveResult = creep.moveTo(destination, { 
             visualizePathStyle: { stroke: '#ffffff' },
@@ -240,7 +214,6 @@ module.exports = {
             creep.say('❌ Move fail');
             return;
         }
-
         // Check if we're at the destination
         let distance = creep.pos.getRangeTo(destination);
         
@@ -258,7 +231,6 @@ module.exports = {
             } else {
                 result = creep.transfer(destination, RESOURCE_ENERGY);
             }
-
             if (result === OK) {
                 // Check if creep is empty or destination is full
                 if (creep.store[RESOURCE_ENERGY] === 0 || 
@@ -294,7 +266,6 @@ module.exports = {
             return false;
         }
     },
-
     clearTransferState: function (creep) {
         // Clear all transfer-related memory
         if (creep.memory.taskExecutionData) {
