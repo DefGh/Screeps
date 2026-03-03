@@ -590,28 +590,6 @@ module.exports = {
             }
             
             task.executers = aliveExecuters;
-            
-            // If task is not repeatable and has no executers, mark as failed
-            if (!task.repeatable && task.executers.length === 0 && task.status === 'inProgress') {
-                task.status = 'failed';
-            }
-        }
-    },
-
-    handleExecuterDeath: function(executerId) {
-        let tasks = Memory.tasks;
-        
-        for (let taskId in tasks) {
-            let task = tasks[taskId];
-            let index = task.executers.indexOf(executerId);
-            if (index !== -1) {
-                task.executers.splice(index, 1);
-                                
-                // Try to reassign if there are available slots
-                if (task.executers.length < task.maxExecuters) {
-                    this.assignExecuterToTask(task);
-                }
-            }
         }
     },
 
@@ -630,10 +608,9 @@ module.exports = {
             delete executer.memory.task;
             delete executer.memory.taskExecutionData;
         }
-        
-        // If task is repeatable and has available slots, try to assign new executer
-        if (task.repeatable && task.executers.length < task.maxExecuters) {
-            this.assignExecuterToTask(task);
+
+        if (!task.repeatable) {
+            delete task[task.id];
         }
     },
 
