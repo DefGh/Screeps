@@ -643,22 +643,6 @@ module.exports = {
         }
     },
 
-    completeTask: function(taskId, success) {
-        let task = Memory.tasks[taskId];
-        if (!task) return;
-
-        if (task.repeatable) {
-            // For repeatable tasks, just mark as pending and clear executers
-            task.status = 'pending';
-            task.executers = [];
-        } else {
-            // For non-repeatable tasks, remove from memory
-            delete Memory.tasks[taskId];
-        }
-        
-        console.log('Task', taskId, 'completed:', success ? 'SUCCESS' : 'FAILED');
-    },
-
     handleTaskCompletion: function(task, executer) {
         // Handle task completion for a specific executer
         console.log('Task', task.type, 'completed by', executer.name || executer.name, 'successfully');

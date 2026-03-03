@@ -7,13 +7,11 @@ module.exports = {
 
         // Validate task data
         if (!task.data || !task.data.role || !task.data.body) {
-            this.completeTask(task, false, 'Invalid task data');
             return true; // Task is finished (failed)
         }
 
         // Check if executer is a spawn
         if (!executer || !executer.spawnCreep) {
-            this.completeTask(task, false, 'Invalid executer type');
             return true; // Task is finished (failed)
         }
 
@@ -39,7 +37,6 @@ module.exports = {
 
         switch (spawnResult) {
             case OK:
-                this.completeTask(task, true, 'Creep spawned: ' + this.generateCreepName(task.data.role));
                 taskFinished = true;
                 break;
             
@@ -62,7 +59,6 @@ module.exports = {
                 taskFinished = true;
                 break;
             case ERR_NOT_ENOUGH_ENERGY:
-                this.completeTask(task, false, 'Energy insufficient at spawn time');
                 taskFinished = false;
                 break;
             default:
