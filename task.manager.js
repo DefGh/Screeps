@@ -593,8 +593,8 @@ module.exports = {
             aliveExecuters.push(executerId);
 
             // Run the task for this executer
-            let finished = this.runExecuter(executer, task);
-
+            var finished = this.runExecuter(executer, task);
+            console.log('Task ', task.id, ' returned ', finished);
             // If task is finished, handle completion
             if (finished) {
                 this.handleTaskCompletion(task, executer);
