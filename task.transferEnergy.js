@@ -75,10 +75,7 @@ module.exports = {
     },
     transferToCreep: function (creep, state) {
 
-         if (creep.store.getFreeCapacity() === 0 || 
-                    (state.lastAction === 'pickup' && source.amount === 0) ||
-                    (state.lastAction === 'withdraw' && source.store[RESOURCE_ENERGY] === 0) ||
-                    (state.lastAction === 'harvest' && source.energy === 0)) {
+         if (creep.store.getFreeCapacity() === 0) {
                     
                     creep.say('🔋 Full/Empty');
                     state.phase = 'findDestination';
