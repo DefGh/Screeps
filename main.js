@@ -13,6 +13,7 @@ module.exports.loop = function () {
     // Assign tasks to available executers
     taskManager.assignExecutersToTasks();
 
+    taskManager.generateTasks();
     // Run all assigned executers through the task manager
     taskManager.runExecuters();
 }
