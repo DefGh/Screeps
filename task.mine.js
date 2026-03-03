@@ -58,7 +58,7 @@ module.exports = {
                 });
             }
             
-            creep.moveTo(position);
+            creep.moveTo(position.x, position.y);
             return false; // Task not finished, still moving
         }
     }
