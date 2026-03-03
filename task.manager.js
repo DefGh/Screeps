@@ -544,6 +544,37 @@ module.exports = {
                 return true;
             }
         }
+        
+        // Find available spawns that can execute this task
+        for (let name in Game.spawns) {
+            let spawn = Game.spawns[name];
+            
+            // Check if spawn can execute this task and is not already assigned
+            if (task.canExecute.includes(constants.roles.SPAWNER) && 
+                !task.executers.includes(spawn.id) &&
+                !this.isSpawnAssignedToTask(spawn.id)) {
+                
+                // Check if spawn is not currently busy
+                if (spawn.spawning) {
+                    continue; // Skip busy spawns
+                }
+                
+                // Assign spawn to task
+                task.executers.push(spawn.id);
+                spawn.memory = spawn.memory || {};
+                spawn.memory.task = task;
+                spawn.memory.taskExecutionData = null;
+                
+                // Mark task as in progress if it's not repeatable
+                if (!task.repeatable) {
+                    task.status = 'inProgress';
+                }
+                
+                console.log('Assigned spawn', spawn.name, 'to task', task.type);
+                return true;
+            }
+        }
+        
         return false;
     },
 
@@ -552,6 +583,17 @@ module.exports = {
         for (let taskId in tasks) {
             let task = tasks[taskId];
             if (task.executers.includes(creepId)) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    isSpawnAssignedToTask: function(spawnId) {
+        let tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.executers.includes(spawnId)) {
                 return true;
             }
         }
@@ -583,15 +625,15 @@ module.exports = {
         }
     },
 
-    handleExecuterDeath: function(creepId) {
+    handleExecuterDeath: function(executerId) {
         let tasks = Memory.tasks;
         
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            let index = task.executers.indexOf(creepId);
+            let index = task.executers.indexOf(executerId);
             if (index !== -1) {
                 task.executers.splice(index, 1);
-                console.log('Removed dead executer', creepId, 'from task', task.type);
+                console.log('Removed dead executer', executerId, 'from task', task.type);
                 
                 // Try to reassign if there are available slots
                 if (task.executers.length < task.maxExecuters) {
@@ -615,6 +657,28 @@ module.exports = {
         }
         
         console.log('Task', taskId, 'completed:', success ? 'SUCCESS' : 'FAILED');
+    },
+
+    handleTaskCompletion: function(task, executer) {
+        // Handle task completion for a specific executer
+        console.log('Task', task.type, 'completed by', executer.name || executer.name, 'successfully');
+        
+        // Remove executer from task
+        let index = task.executers.indexOf(executer.id);
+        if (index !== -1) {
+            task.executers.splice(index, 1);
+        }
+        
+        // Clear executer's task memory
+        if (executer.memory) {
+            delete executer.memory.task;
+            delete executer.memory.taskExecutionData;
+        }
+        
+        // If task is repeatable and has available slots, try to assign new executer
+        if (task.repeatable && task.executers.length < task.maxExecuters) {
+            this.assignExecuterToTask(task);
+        }
     },
 
     // NEW METHODS FOR EXECUTER EXECUTION
