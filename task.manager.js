@@ -4,7 +4,6 @@ module.exports = {
 
     getTask: function (role) {
         if (!Memory.tasks) {
-            //console.log('Initializing Memory.tasks');
             Memory.tasks = {};
         }
 
@@ -14,7 +13,6 @@ module.exports = {
         if (role === constants.roles.MINER) {
             let mineTask = this.getMineTaskForMiner();
             if (mineTask) {
-                //console.log('Miner assigned mine task:', mineTask.id);
                 return mineTask;
             }
         }
@@ -37,7 +35,6 @@ module.exports = {
         // Return the highest priority task
         if (availableTasks.length > 0) {
             let selectedTask = availableTasks[0];
-            //console.log('Task assigned to role:', role, 'Type:', selectedTask.type, 'Priority:', selectedTask.priority);
             return selectedTask;
         }
         
@@ -83,7 +80,8 @@ module.exports = {
             repeatable: task.repeatable || false,
             maxExecuters: task.maxExecuters || 1,
             priority: task.priority || 0,
-            data: task.data
+            data: task.data,
+            executers: [] // New field for assigned executers
         };
 
         // Add task to memory
@@ -127,8 +125,6 @@ module.exports = {
     },
 
     generateTasks: function () {
-        //console.log('Generating tasks...');
-        
         if (!Memory) {
             Memory = {};
         }
@@ -169,11 +165,11 @@ module.exports = {
         // Add miner spawn task if needed
         this.checkAndAddMinerTask();
 
+        // Assign executers to available tasks
+        this.assignExecutersToTasks();
     },
 
     generateTransferEnergyTask: function () {
-        //console.log('Generating transfer energy task...');
-        
         let tasks = Memory.tasks;
         let hasTransferTask = false;
         
@@ -181,29 +177,23 @@ module.exports = {
         for (let taskId in tasks) {
             let task = tasks[taskId];
             if (task.type === constants.taskTypes.TRANSFER_ENERGY) {
-                //console.log('Transfer energy task already exists:', taskId);
                 hasTransferTask = true;
                 break;
             }
         }
         
         if (!hasTransferTask) {
-            //console.log('Creating new transfer energy task...');
             let newTaskId = 'transferEnergy' + Game.time;
             
             tasks[newTaskId] = this.baseTask(
                 newTaskId,
                 constants.taskTypes.TRANSFER_ENERGY,
-                {
-                    // No specific data needed - creeps will find sources/destinations dynamically
-                },
-                [constants.roles.UNIVERSAL], // Universal role can handle transfer tasks
-                true, // Repeatable - always available
-                999, // Many creeps can do this simultaneously,
+                {},
+                [constants.roles.UNIVERSAL],
+                true, // Repeatable
+                999, // Many creeps can do this simultaneously
                 999
             );
-            
-            //console.log('Transfer energy task created successfully');
         }
     },
 
@@ -239,7 +229,6 @@ module.exports = {
     },
 
     baseTask: function (id, type, data, canExecute, repeatable, maxExecuters, priority) {
-
         return {
             id: id,
             type: type,
@@ -248,7 +237,8 @@ module.exports = {
             repeatable: repeatable,
             maxExecuters: maxExecuters,
             priority: priority,
-            data: data
+            data: data,
+            executers: []
         };
     },
 
@@ -514,5 +504,116 @@ module.exports = {
             }
         }
         return null;
+    },
+
+    // NEW METHODS FOR EXECUTER MANAGEMENT
+
+    assignExecutersToTasks: function() {
+        // Check all pending tasks and assign available executers
+        let tasks = Memory.tasks;
+        
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.status === 'pending' && task.executers.length < task.maxExecuters) {
+                this.assignExecuterToTask(task);
+            }
+        }
+    },
+
+    assignExecuterToTask: function(task) {
+        // Find available creeps that can execute this task
+        for (let name in Game.creeps) {
+            let creep = Game.creeps[name];
+            
+            // Check if creep can execute this task and is not already assigned
+            if (task.canExecute.includes(creep.memory.role) && 
+                !task.executers.includes(creep.id) &&
+                !this.isCreepAssignedToTask(creep.id)) {
+                
+                // Assign creep to task
+                task.executers.push(creep.id);
+                creep.memory.task = task;
+                creep.memory.taskExecutionData = null;
+                
+                // Mark task as in progress if it's not repeatable
+                if (!task.repeatable) {
+                    task.status = 'inProgress';
+                }
+                
+                console.log('Assigned creep', creep.name, 'to task', task.type);
+                return true;
+            }
+        }
+        return false;
+    },
+
+    isCreepAssignedToTask: function(creepId) {
+        let tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.executers.includes(creepId)) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    checkExecutersHealth: function() {
+        let tasks = Memory.tasks;
+        
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            let aliveExecuters = [];
+            
+            for (let executerId of task.executers) {
+                let creep = Game.getObjectById(executerId);
+                if (creep) {
+                    aliveExecuters.push(executerId);
+                } else {
+                    console.log('Executer', executerId, 'died, removing from task', task.type);
+                }
+            }
+            
+            task.executers = aliveExecuters;
+            
+            // If task is not repeatable and has no executers, mark as failed
+            if (!task.repeatable && task.executers.length === 0 && task.status === 'inProgress') {
+                task.status = 'failed';
+            }
+        }
+    },
+
+    handleExecuterDeath: function(creepId) {
+        let tasks = Memory.tasks;
+        
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            let index = task.executers.indexOf(creepId);
+            if (index !== -1) {
+                task.executers.splice(index, 1);
+                console.log('Removed dead executer', creepId, 'from task', task.type);
+                
+                // Try to reassign if there are available slots
+                if (task.executers.length < task.maxExecuters) {
+                    this.assignExecuterToTask(task);
+                }
+            }
+        }
+    },
+
+    completeTask: function(taskId, success) {
+        let task = Memory.tasks[taskId];
+        if (!task) return;
+
+        if (task.repeatable) {
+            // For repeatable tasks, just mark as pending and clear executers
+            task.status = 'pending';
+            task.executers = [];
+        } else {
+            // For non-repeatable tasks, remove from memory
+            delete Memory.tasks[taskId];
+        }
+        
+        console.log('Task', taskId, 'completed:', success ? 'SUCCESS' : 'FAILED');
     }
 }

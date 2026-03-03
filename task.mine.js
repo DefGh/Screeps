@@ -16,9 +16,15 @@ module.exports = {
             if (result === ERR_NOT_ENOUGH_RESOURCES) {
                 // Source is empty, just wait
                 creep.say('waiting');
+                return false; // Task not finished, continue waiting
             } else if (result !== OK) {
                 // Other error, try to move to correct position
                 creep.moveTo(position);
+                return false; // Task not finished
+            } else {
+                // Successfully mined
+                creep.say('⛏️ Mining');
+                return false; // Task continues (repeatable)
             }
         }
         // 3 - else - try create taxi task and move to coord
@@ -37,6 +43,7 @@ module.exports = {
             });
 
             creep.moveTo(position);
+            return false; // Task not finished, still moving
         }
     }
 }

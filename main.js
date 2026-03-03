@@ -7,6 +7,9 @@ module.exports.loop = function () {
     // Инициализация комнаты (один раз в начале)
     roomInitializer.initializeRoom();
 
+    // Check executers health and handle deaths
+    taskManager.checkExecutersHealth();
+
     for (let name in Game.creeps) {
         let creep = Game.creeps[name];
         runCreep(creep);
@@ -67,6 +70,7 @@ runCreep = function (creep) {
             }
         }
     } else {
+        // Creep has no task - check if it should be assigned one
         creep.say('❓ Seeking task...');
         let newTask = taskManager.getTask(creep.memory.role);
         if (newTask) {
@@ -112,8 +116,12 @@ runTask = function (executer, task) {
     taskProcessor = require('task.' + task.type);
     let finished = taskProcessor.run(executer, task);
 
-    // For non-repeatable tasks, clean up when finished
+    // Handle task completion
     if (finished) {
+        // Complete the task through task manager
+        taskManager.completeTask(task.id, true);
+        
+        // Clear executer's task memory
         delete executer.memory.task;
         delete executer.memory.taskExecutionData;
     }
