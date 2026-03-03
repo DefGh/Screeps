@@ -25,14 +25,17 @@ module.exports = {
         // Convert body part strings to constants
         let bodyParts = task.data.body;
 
-        
+        var memory = task.data.role;
+        delete memory.body;
+
+        memory.task = {};
 
         // Attempt to spawn the creep
         let spawnResult = executer.spawnCreep(
             bodyParts,
             this.generateCreepName(task.data.role),
             {
-                memory: task.data
+                memory: { role: task.data.role }
             }
         );
 
