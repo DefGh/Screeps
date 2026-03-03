@@ -403,71 +403,6 @@ module.exports = {
         
         this.spawnCreepTask(constants.roles.MINER, 5, additionalData);
         
-            },
-
-    checkAndGenerateMineTasks: function() {
-        let tasks = Memory.tasks;
-        let room = Game.spawns['Spawn1'].room;
-        
-        if (!room) {
-            return;
-        }
-        
-        // Get all miners
-        let miners = [];
-        for (let name in Game.creeps) {
-            let creep = Game.creeps[name];
-            if (creep.memory.role === constants.roles.MINER) {
-                miners.push(creep);
-            }
-        }
-        
-        // Generate mine tasks for each miner
-        for (let miner of miners) {
-            let sourceId = miner.memory.sourceId;
-            if (sourceId) {
-                // Check if mine task already exists for this miner
-                let existingTask = this.findMineTaskForMiner(miner.id);
-                if (!existingTask) {
-                    // Create mine task
-                    this.createMineTask(miner.id, sourceId);
-                }
-            }
-        }
-    },
-
-    findMineTaskForMiner: function(minerId) {
-        let tasks = Memory.tasks;
-        for (let taskId in tasks) {
-            let task = tasks[taskId];
-            if (task.type === constants.taskTypes.MINE && 
-                task.data && 
-                task.data.minerId === minerId) {
-                return task;
-            }
-        }
-        return null;
-    },
-
-    createMineTask: function(minerId, sourceId) {
-        let miner = Game.creeps[minerId];
-        if (!miner) return;
-        
-        let newTaskId = 'mine' + minerId + Game.time;
-        
-        Memory.tasks[newTaskId] = this.baseTask(
-            newTaskId,
-            constants.taskTypes.MINE,
-            {
-                minerId: minerId,
-                sourceId: sourceId,
-                position: miner.memory.position
-            },
-            [constants.roles.MINER],
-            true, // Repeatable - miner should keep mining
-            1,
-            5 // Medium priority
-        );
     },
 
     getMineTaskForMiner: function() {
@@ -487,24 +422,24 @@ module.exports = {
     assignExecutersToTasks: function() {
         // Check all pending tasks and assign available executers
         let tasks = Memory.tasks;
-        tasksSorted = tasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-        for (let taskId in tasksSorted) {
+        
+        // Extract all pending tasks that need executers assigned
+        let pendingTasks = [];
+        for (let taskId in tasks) {
             let task = tasks[taskId];
             if (task.status === 'pending' && task.executers.length < task.maxExecuters) {
-                this.assignExecuterToTask(task);
+                pendingTasks.push(task);
             }
         }
+        
+        // Sort tasks by priority (ascending order - lower numbers = higher priority)
+        pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+        
+        // Process tasks in priority order
+        for (let task of pendingTasks) {
+            this.assignExecuterToTask(task);
+        }
     },
-
-    assignExecuterToTask: function(task) {
-        // Find available creeps that can execute this task
-        for (let name in Game.creeps) {
-            let creep = Game.creeps[name];
-            
-            // Check if creep can execute this task and is not already assigned
-            if (task.canExecute.includes(creep.memory.role) && 
-                !task.executers.includes(creep.id) &&
-                !this.isCreepAssignedToTask(creep.id)) {
                 
                 // Assign creep to task
                 task.executers.push(creep.id);
