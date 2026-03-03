@@ -28,14 +28,12 @@ module.exports = {
         var memory = task.data.role;
         delete memory.body;
 
-        memory.task = {};
-
         // Attempt to spawn the creep
         let spawnResult = executer.spawnCreep(
             bodyParts,
             this.generateCreepName(task.data.role),
             {
-                memory: { role: task.data.role }
+                memory: memory
             }
         );
 
@@ -85,8 +83,6 @@ module.exports = {
 
         return taskFinished;
     },
-
-
 
     generateCreepName: function (role) {
         return role.toUpperCase() + '_' + Game.time;
