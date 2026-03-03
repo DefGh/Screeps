@@ -158,9 +158,6 @@ module.exports = {
     spawnCreepTask: function (role, priority, additionalData) {
         let body = common.buildBody(role);
 
-        if (body.length === 0)
-            return;
-
         let newTaskId = 'spawnCreep' + role + Game.time;
         //        
         let tasks = Memory.tasks;
