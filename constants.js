@@ -37,4 +37,3 @@ module.exports = {
         DONE: 'done',
     }
 };
-{ cost:, part:  ',} 
