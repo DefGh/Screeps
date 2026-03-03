@@ -60,7 +60,7 @@ module.exports = {
             }
             if (!hasUniversalTask) {
                 //console.log('No universal spawn task found, creating new one...');
-                this.spawnCreepTask(this.roles.UNIVERSAL);
+                this.spawnCreepTask(constants.roles.UNIVERSAL);
             }
         } else {
             //console.log('Creeps exist, skipping spawn task generation');
@@ -100,7 +100,7 @@ module.exports = {
                 {
                     // No specific data needed - creeps will find sources/destinations dynamically
                 },
-                [this.roles.UNIVERSAL], // Universal role can handle transfer tasks
+                [constants.roles.UNIVERSAL], // Universal role can handle transfer tasks
                 true, // Repeatable - always available
                 999 // Many creeps can do this simultaneously
             );
@@ -125,7 +125,7 @@ module.exports = {
                 role: role,
                 body: body,
             }, 
-            [this.roles.SPAWNER], 
+            [constants.roles.SPAWNER], 
             false, 
             1
         );
@@ -168,7 +168,7 @@ module.exports = {
                 role:constants.roles.MINER,
                 body: this.buildMinerBody(), // Custom miner body with work parts
             }, 
-            [this.roles.SPAWNER], 
+            [constants.roles.SPAWNER], 
             false, 
             1
         );
