@@ -83,7 +83,7 @@ module.exports = {
         // Check if transfer energy task already exists
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.type === this.taskTyeps.TRANSFER_ENERGY) {
+            if (task.type === constants.taskTyeps.TRANSFER_ENERGY) {
                 //console.log('Transfer energy task already exists:', taskId);
                 hasTransferTask = true;
                 break;
