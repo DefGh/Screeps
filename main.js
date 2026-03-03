@@ -18,26 +18,28 @@ module.exports.loop = function () {
 
 runCreep = function (creep) {
     // Initialize memory tracking if not exists
-/*     if (!Memory.creepMemoryLog) {
-        Memory.creepMemoryLog = {};
-    }
+    // if (!Memory.creepMemoryLog) {
+    //     Memory.creepMemoryLog = {};
+    // }
     
+    // let task = creep.memory.task;
+    // let currentMemory = {
+    //     task: task ? task.type : null,
+    //     taskExecutionData: creep.memory.taskExecutionData || null
+    // };
+    
+    // let creepLogKey = creep.name;
+    // let previousMemory = Memory.creepMemoryLog[creepLogKey];
+    
+    // // Check if memory has changed
+    // let memoryChanged = JSON.stringify(previousMemory) !== JSON.stringify(currentMemory);
+    
+    // if (memoryChanged) {
+    //     console.log(`[${creep.name}] Memory changed:`, JSON.stringify(currentMemory));
+    //     Memory.creepMemoryLog[creepLogKey] = currentMemory;
+    // } 
+
     let task = creep.memory.task;
-    let currentMemory = {
-        task: task ? task.type : null,
-        taskExecutionData: creep.memory.taskExecutionData || null
-    };
-    
-    let creepLogKey = creep.name;
-    let previousMemory = Memory.creepMemoryLog[creepLogKey];
-    
-    // Check if memory has changed
-    let memoryChanged = JSON.stringify(previousMemory) !== JSON.stringify(currentMemory);
-    
-    if (memoryChanged) {
-        console.log(`[${creep.name}] Memory changed:`, JSON.stringify(currentMemory));
-        Memory.creepMemoryLog[creepLogKey] = currentMemory;
-    } */
 
     if (task) {
         creep.say('💼 Working: ' + task.type);
