@@ -2,45 +2,6 @@ constants = require('constants');
 
 module.exports = {
 
-    getTask: function (role) {
-        if (!Memory.tasks) {
-            Memory.tasks = {};
-        }
-
-        this.generateTasks();
-
-        // Special handling for miners - they should get mine tasks first
-        if (role === constants.roles.MINER) {
-            let mineTask = this.getMineTaskForMiner();
-            if (mineTask) {
-                return mineTask;
-            }
-        }
-
-        // Search for existing tasks that match this role, sorted by priority
-        let tasks = Memory.tasks;
-        let availableTasks = [];
-
-        // Collect all available tasks for this role
-        for (let taskId in tasks) {
-            let task = tasks[taskId];
-            if (task.canExecute && task.canExecute.includes(role) && task.status === 'pending') {
-                availableTasks.push(task);
-            }
-        }
-
-        // Sort by priority (lowest first)
-        availableTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-
-        // Return the highest priority task
-        if (availableTasks.length > 0) {
-            let selectedTask = availableTasks[0];
-            return selectedTask;
-        }
-
-        return null;
-    },
-
     tryAddTask: function (task) {
         // Validate task structure
         if (!task || !task.type || !task.data) {
@@ -196,6 +157,9 @@ module.exports = {
 
     spawnCreepTask: function (role, priority, additionalData) {
         let body = common.buildBody(role);
+
+        if (body.length === 0)
+            return;
 
         let newTaskId = 'spawnCreep' + role + Game.time;
         //        
