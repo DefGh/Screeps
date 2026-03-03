@@ -3,6 +3,7 @@ const taskManager = require("task.manager")
 module.exports = {
     run : function(creep, task) {
         // 1 - init
+        console.log(1);
         let sourceId = task.data.sourceId;
         let source = Game.getObjectById(sourceId);
         let position = task.data.position;
@@ -16,16 +17,10 @@ module.exports = {
                 // Source is empty, just wait
                 creep.say('waiting');
                 return false; // Task not finished, continue waiting
-            } else if (result !== OK) {
-                // Other error, try to move to correct position
-                res = creep.moveTo(position);
-                console.log('miner', res);
-                return false; // Task not finished
-            } else {
+            } 
                 // Successfully mined
-                creep.say('⛏️ Mining');
-                return false; // Task continues (repeatable)
-            }
+            creep.say('⛏️ Mining');
+            return false; // Task continues (repeatable)
         }
         // 3 - else - try create taxi task and move to coord
         else {

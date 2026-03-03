@@ -21,7 +21,7 @@ module.exports = {
         }
         
         // 3 - move to target and escort
-        res = creep.moveTo(targetCreep.pos);
+        res = creep.moveTo(targetCreep.pos); 
         console.log('taxi', res);
         return false; // Task not finished yet
     }
