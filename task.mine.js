@@ -24,35 +24,19 @@ module.exports = {
         // 3 - else - try create taxi task and move to coord
         else {
             // Check if taxi task already exists for this creep
-            let taxiTaskExists = false;
-            if (Memory.tasks) {
-                for (let taskId in Memory.tasks) {
-                    let existingTask = Memory.tasks[taskId];
-                    if (existingTask.type === constants.taskTypes.TAXI &&
-                        existingTask.data &&
-                        existingTask.data.whom === creep.id) {
-                        taxiTaskExists = true;
-                        break;
-                    }
+
+            taskManager.tryAddTask({
+                type: constants.taskTypes.TAXI,
+                canExecute: [constants.roles.UNIVERSAL],
+                repeatable: false,
+                maxExecuters: 1,
+                priority: 1,
+                data: {
+                    whom: creep.id,
+                    where: position
                 }
-            }
+            });
             
-            // Create taxi task only if it doesn't exist
-            if (!taxiTaskExists) {
-                taskManager.tryAddTask({
-                    type: constants.taskTypes.TAXI,
-                    canExecute: [constants.roles.UNIVERSAL],
-                    repeatable: false,
-                    maxExecuters: 1,
-                    priority: 1,
-                    data: {
-                        whom: creep.id,
-                        where: position
-                    }
-                });
-            }
-            
-            creep.moveTo(position.x, position.y); 
             return false; // Task not finished, still moving
         }
     }
