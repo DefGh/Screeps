@@ -32,7 +32,7 @@ module.exports = {
         }
         
         // Sort by priority (lowest first)
-        availableTasks.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        availableTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
         
         // Return the highest priority task
         if (availableTasks.length > 0) {
