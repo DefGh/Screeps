@@ -44,8 +44,7 @@ module.exports = {
     tryAddTask: function(task) {
         // Validate task structure
         if (!task || !task.type || !task.data) {
-            console.log('Invalid task structure - missing type or data');
-            return false;
+                        return false;
         }
 
         if (!Memory.tasks) {
@@ -63,8 +62,7 @@ module.exports = {
             
             // Compare data objects for duplicates
             if (this.areTaskDataEqual(existingTask.data, task.data)) {
-                console.log('Duplicate task found - not adding:', task.type);
-                return false;
+                                return false;
             }
         }
 
@@ -86,8 +84,7 @@ module.exports = {
 
         // Add task to memory
         Memory.tasks[newTaskId] = completeTask;
-        console.log('Task added successfully:', newTaskId, 'Type:', task.type);
-        
+                
         return true;
     },
 
@@ -198,13 +195,10 @@ module.exports = {
     },
 
     spawnCreepTask: function (role, priority, additionalData) {
-        //console.log('Creating spawn creep task for role:', role);
-        let body = common.buildBody(role);
-        //console.log('Generated body parts:', body);
-
+        //        let body = common.buildBody(role);
+        //
         let newTaskId = 'spawnCreep' + role + Game.time;
-        //console.log('New task ID:', newTaskId);
-        
+        //        
         let tasks = Memory.tasks;
         let taskData = {
             role: role,
@@ -225,8 +219,7 @@ module.exports = {
             1,
             priority
         );
-        //console.log('Spawn task created successfully');
-    },
+       },
 
     baseTask: function (id, type, data, canExecute, repeatable, maxExecuters, priority) {
         return {
@@ -243,8 +236,7 @@ module.exports = {
     },
 
     checkAndAddMinerTask: function () {
-        console.log('Checking for miner tasks...');
-        
+                
         // Инициализация памяти для хранения позиций шахтеров
         if (!Memory.minerPositions) {
             Memory.minerPositions = {};
@@ -254,46 +246,39 @@ module.exports = {
         let room = Game.spawns['Spawn1'].room;
         
         if (!room) {
-            console.log('No room found for spawn');
-            return;
+                        return;
         }
         
         // Получаем все источники в комнате
         let sources = room.find(FIND_SOURCES);
-        console.log('Found', sources.length, 'sources in room');
-        
+                
         for (let source of sources) {
             // Проверяем, есть ли уже шахтер, работающий на этом источнике
             let existingMiner = this.findMinerForSource(source.id);
             if (existingMiner) {
-                console.log('Source', source.id, 'already has miner:', existingMiner.name);
-                continue;
+                                continue;
             }
             
             // Проверяем, есть ли уже задача на создание шахтера для этого источника
             let existingTask = this.findMinerTaskForSource(source.id);
             if (existingTask) {
-                console.log('Source', source.id, 'already has miner task:', existingTask.id);
-                continue;
+                                continue;
             }
             
             // Проверяем наличие врагов рядом с источником
             if (this.hasEnemiesNearSource(source)) {
-                console.log('Source', source.id, 'has enemies nearby, skipping');
-                continue;
+                                continue;
             }
             
             // Рассчитываем позицию для шахтера
             let minerPosition = this.getOrCreateMinerPosition(source);
             if (!minerPosition) {
-                console.log('Could not find suitable position for source', source.id);
-                continue;
+                                continue;
             }
                         
             // Создаем задачу на создание шахтера
             this.spawnMinerTask(source.id, minerPosition);
-            console.log('Created miner task for source', source.id, 'at position:', minerPosition);
-        }
+                    }
     },
 
     findMinerForSource: function (sourceId) {
@@ -333,15 +318,13 @@ module.exports = {
     getOrCreateMinerPosition: function (source) {
         // Проверяем, есть ли уже сохраненная позиция для этого источника
         if (Memory.minerPositions[source.id]) {
-            console.log('Using existing position for source', source.id);
-            return Memory.minerPositions[source.id];
+                        return Memory.minerPositions[source.id];
         }
         
         // Ищем путь от спавна до источника, игнорируя препятствия
         let spawn = Game.spawns['Spawn1'];
         if (!spawn) {
-            console.log('No spawn found for position calculation');
-            return null;
+                        return null;
         }
         
         // Ищем путь от спавна до источника с помощью PathFinder.search
@@ -376,8 +359,7 @@ module.exports = {
         });
         
         if (result.incomplete || result.path.length === 0) {
-            console.log('No path found from spawn to source', source.id);
-            return null;
+                        return null;
         }
         
         // Берем последнюю точку пути (ближайшую к источнику)
@@ -386,20 +368,17 @@ module.exports = {
         // Проверяем, что позиция позволяет добывать энергию из источника
         let range = source.pos.getRangeTo(lastPoint.x, lastPoint.y);
         if (range > 3) {
-            console.log('Path endpoint too far from source:', range);
-            return null;
+                        return null;
         }
         
         // Проверяем, что позиция в пределах комнаты и не на стене
         if (lastPoint.x < 0 || lastPoint.x > 49 || lastPoint.y < 0 || lastPoint.y > 49) {
-            console.log('Path endpoint outside room bounds');
-            return null;
+                        return null;
         }
         
         let terrain = source.room.getTerrain().get(lastPoint.x, lastPoint.y);
         if (terrain === TERRAIN_MASK_WALL) {
-            console.log('Path endpoint on wall');
-            return null;
+                        return null;
         }
         
         // Формируем позицию
@@ -411,14 +390,12 @@ module.exports = {
         
         // Сохраняем позицию для повторного использования
         Memory.minerPositions[source.id] = position;
-        console.log('Calculated new position for source', source.id, ':', position);
-        
+                
         return position;
     },
 
     spawnMinerTask: function (sourceId, position) {
-        console.log('Creating miner task for source', sourceId);
-        
+                
         let additionalData = {
             sourceId: sourceId,
             position: position
@@ -426,8 +403,7 @@ module.exports = {
         
         this.spawnCreepTask(constants.roles.MINER, 5, additionalData);
         
-        console.log('Miner task created successfully for source', sourceId);
-    },
+            },
 
     checkAndGenerateMineTasks: function() {
         let tasks = Memory.tasks;
@@ -540,8 +516,7 @@ module.exports = {
                     task.status = 'inProgress';
                 }
                 
-                console.log('Assigned creep', creep.name, 'to task', task.type);
-                return true;
+                                return true;
             }
         }
         
@@ -570,8 +545,7 @@ module.exports = {
                     task.status = 'inProgress';
                 }
                 
-                console.log('Assigned spawn', spawn.name, 'to task', task.type);
-                return true;
+                                return true;
             }
         }
         
@@ -612,8 +586,7 @@ module.exports = {
                 if (creep) {
                     aliveExecuters.push(executerId);
                 } else {
-                    console.log('Executer', executerId, 'died, removing from task', task.type);
-                }
+                                    }
             }
             
             task.executers = aliveExecuters;
@@ -633,8 +606,7 @@ module.exports = {
             let index = task.executers.indexOf(executerId);
             if (index !== -1) {
                 task.executers.splice(index, 1);
-                console.log('Removed dead executer', executerId, 'from task', task.type);
-                
+                                
                 // Try to reassign if there are available slots
                 if (task.executers.length < task.maxExecuters) {
                     this.assignExecuterToTask(task);
@@ -682,8 +654,7 @@ module.exports = {
         }
         
         if (totalExecuters > 0) {
-            console.log('Task Manager: Processing', totalExecuters, 'assigned executers');
-        }
+                    }
     },
 
     processTaskExecuters: function(task) {

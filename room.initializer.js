@@ -9,55 +9,46 @@ module.exports = {
         
         let room = Game.spawns['Spawn1'].room;
         if (!room) {
-            console.log('Не найдена комната для инициализации');
-            return;
+                        return;
         }
         
-        console.log('Инициализация комнаты...');
-        
+                
         // Инициализация памяти
         Memory.minerPositions = {};
         Memory.sourceTasks = {};
         
         // Получаем все источники в комнате
         let sources = room.find(FIND_SOURCES);
-        console.log('Найдено источников:', sources.length);
-        
+                
         let createdTasks = 0;
         
         // Для каждого источника рассчитываем позицию и создаем задачу
         for (let source of sources) {
-            console.log('Обработка источника:', source.id);
-            
+                        
             // Проверяем, есть ли враги рядом с источником
             if (this.hasEnemiesNearSource(source)) {
-                console.log('Источник', source.id, 'имеет врагов поблизости, пропускаем');
-                continue;
+                                continue;
             }
             
             // Рассчитать позицию для шахтера
             let position = this.calculateMinerPosition(source);
             if (position) {
                 Memory.minerPositions[source.id] = position;
-                console.log('Позиция для шахтера на источнике', source.id, ':', position);
-                
+                                
                 // Создать задачу на добычу для этого источника
                 this.createMineTaskForSource(source.id, position);
                 createdTasks++;
             } else {
-                console.log('Не удалось рассчитать позицию для источника', source.id);
-            }
+                            }
         }
         
         Memory.roomInitialized = true;
-        console.log('Комната инициализирована, создано задач на добычу:', createdTasks);
-    },
+            },
     
     calculateMinerPosition: function(source) {
         let spawn = Game.spawns['Spawn1'];
         if (!spawn) {
-            console.log('Не найден спавн для расчета позиции');
-            return null;
+                        return null;
         }
         
         // Ищем путь от спавна до источника с помощью PathFinder.search
@@ -92,8 +83,7 @@ module.exports = {
         });
         
         if (result.incomplete || result.path.length === 0) {
-            console.log('Не найден путь от спавна до источника');
-            return null;
+                        return null;
         }
         
         // Берем последнюю точку пути (ближайшую к источнику)
@@ -102,20 +92,17 @@ module.exports = {
         // Проверяем, что позиция позволяет добывать энергию из источника
         let range = source.pos.getRangeTo(lastPoint.x, lastPoint.y);
         if (range > 3) {
-            console.log('Точка пути слишком далеко от источника:', range);
-            return null;
+                        return null;
         }
         
         // Проверяем, что позиция в пределах комнаты и не на стене
         if (lastPoint.x < 0 || lastPoint.x > 49 || lastPoint.y < 0 || lastPoint.y > 49) {
-            console.log('Точка пути вне границ комнаты');
-            return null;
+                        return null;
         }
         
         let terrain = source.room.getTerrain().get(lastPoint.x, lastPoint.y);
         if (terrain === TERRAIN_MASK_WALL) {
-            console.log('Точка пути на стене');
-            return null;
+                        return null;
         }
         
         // Формируем позицию
@@ -144,10 +131,8 @@ module.exports = {
         let success = taskManager.tryAddTask(taskData);
         if (success) {
             Memory.sourceTasks[sourceId] = true;
-            console.log('Создана задача на добычу для источника:', sourceId);
-        } else {
-            console.log('Не удалось создать задачу на добычу для источника:', sourceId);
-        }
+                    } else {
+                    }
     },
     
     hasEnemiesNearSource: function(source) {

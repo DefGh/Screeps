@@ -10,8 +10,7 @@ module.exports = {
         // Get the target creep
         let targetCreep = Game.getObjectById(whomId);
         if (!targetCreep) {
-            console.log('Target creep not found:', whomId);
-            return true; // Task completed (target died)
+                        return true; // Task completed (target died)
         }
 
         // 2 - if target creep is at destination - task is done
