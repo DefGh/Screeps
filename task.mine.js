@@ -1,43 +1,54 @@
 const constants = require("constants");
-const taskManager = require("task.manager")
-module.exports = {
-    run : function(creep, task) {
-        // 1 - init
-        let sourceId = task.data.sourceId;
-        let source = Game.getObjectById(sourceId);
-        let position = task.data.position;
-        
-        // 2 - if on destination coord - mine
-        if (creep.pos.x === position.x && creep.pos.y === position.y) {
-            // Mine energy from source
-            let result = creep.harvest(source);
-            
-            if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                // Source is empty, just wait
-                creep.say('waiting');
-                return false; // Task not finished, continue waiting
-            } 
-                // Successfully mined
-            creep.say('⛏️ Mining');
-            return false; // Task continues (repeatable)
-        }
-        // 3 - else - try create taxi task and move to coord
-        else {
-            // Check if taxi task already exists for this creep
+const taskManager = require("task.manager");
 
-            taskManager.tryAddTask({
+module.exports = {
+    run(executer, task) {
+        const { sourceId, position } = task.data || {};
+
+        // Invalid task data – complete to avoid being stuck
+        if (!sourceId || !position) {
+            return true;
+        }
+
+        const source = Game.getObjectById(sourceId);
+
+        // Source not found – nothing to mine
+        if (!source) {
+            return true;
+        }
+
+        const atMiningPosition =
+            executer.pos.x === position.x && executer.pos.y === position.y;
+
+        // On mining position – harvest in a loop
+        if (atMiningPosition) {
+            const result = executer.harvest(source);
+
+            if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                // Source is empty, keep waiting at the spot
+                return false;
+            }
+
+            // Either successfully mined or got another recoverable error – retry next tick
+            return false;
+        }
+
+        // Not on mining position – ensure there is a taxi task to pull this creep
+        taskManager.tryAddTask(
+            {
                 type: constants.taskTypes.TAXI,
                 canExecute: [constants.roles.UNIVERSAL],
                 repeatable: false,
                 maxExecuters: 1,
                 priority: 1,
                 data: {
-                    whom: creep.id,
-                    where: position
-                }
-            }, 'taxi' + creep.id);
-            
-            return false; // Task not finished, still moving
-        }
-    }
-}
+                    whom: executer.id,
+                    where: position,
+                },
+            },
+            "taxi" + executer.id
+        );
+
+        return false;
+    },
+};
