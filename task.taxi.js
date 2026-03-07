@@ -25,6 +25,7 @@ module.exports = {
         const pullResult = executer.pull(target);
 
         if (pullResult === ERR_NOT_IN_RANGE) {
+            executer.moveTo(target);
             return false;
         }
         else {
