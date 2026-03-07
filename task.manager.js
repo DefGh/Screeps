@@ -1,4 +1,5 @@
 const constants = require('constants');
+const common = require('common');
 module.exports = {
     tryAddTask: function (task, id) {
         // Validate task structure
