@@ -29,7 +29,7 @@ module.exports = {
             return false;
         }
         else {
-            target.move(creep);
+            target.move(executer);
         }
 
         const executerAtDestination =
