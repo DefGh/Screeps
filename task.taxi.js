@@ -27,6 +27,8 @@ module.exports = {
         if (pullResult === ERR_NOT_IN_RANGE) {
             executer.moveTo(target);
             return false;
+        } else {
+            target.move(creep);
         }
 
         // const executerAtDestination =
