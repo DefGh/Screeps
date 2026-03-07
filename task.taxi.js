@@ -27,18 +27,18 @@ module.exports = {
         if (pullResult === ERR_NOT_IN_RANGE) {
             executer.moveTo(target);
             return false;
-        } else {
-            target.move(executer);
         }
 
-        // const executerAtDestination =
-        //     executer.pos.x === where.x && executer.pos.y === where.y;
+        const executerAtDestination =
+            executer.pos.x === where.x && executer.pos.y === where.y;
 
-        // if (executerAtDestination) {
-        //     executer.move(executer.pos.getDirectionTo(target));
-        // } else {
-        //     executer.moveTo(where.x, where.y);
-        // }
+        if (executerAtDestination) {
+            executer.move(executer.pos.getDirectionTo(target));
+        } else {
+            executer.moveTo(where.x, where.y);
+        }
+
+        target.moveTo(executer);
 
         return false;
     },
