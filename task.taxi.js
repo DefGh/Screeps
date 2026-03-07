@@ -25,8 +25,11 @@ module.exports = {
         const pullResult = executer.pull(target);
 
         if (pullResult === ERR_NOT_IN_RANGE) {
-            executer.moveTo(target);
+            target.moveTo(executer);
             return false;
+        }
+        else {
+            targetCreep.move(creep);
         }
 
         const executerAtDestination =
@@ -38,7 +41,6 @@ module.exports = {
             executer.moveTo(where.x, where.y);
         }
 
-        target.moveTo(executer);
 
         return false;
     },
