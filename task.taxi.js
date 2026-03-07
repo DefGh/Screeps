@@ -29,14 +29,14 @@ module.exports = {
             return false;
         }
 
-        const executerAtDestination =
-            executer.pos.x === where.x && executer.pos.y === where.y;
+        // const executerAtDestination =
+        //     executer.pos.x === where.x && executer.pos.y === where.y;
 
-        if (executerAtDestination) {
-            executer.move(executer.pos.getDirectionTo(target));
-        } else {
-            executer.moveTo(where.x, where.y);
-        }
+        // if (executerAtDestination) {
+        //     executer.move(executer.pos.getDirectionTo(target));
+        // } else {
+        //     executer.moveTo(where.x, where.y);
+        // }
 
         return false;
     },
