@@ -76,4 +76,53 @@ module.exports = {
         Memory.resourceManager.reservations[creep.id] = curReservation;
         return curReservation;
     },
+
+    getReservationsInfo: function() {
+        this.init();
+        
+        let totalReserved = 0;
+        let count = 0;
+        let reservations = {};
+        
+        for (let creepId in Memory.resourceManager.reservations) {
+            let reservation = Memory.resourceManager.reservations[creepId];
+            if (reservation && reservation.amount) {
+                totalReserved += reservation.amount;
+                count++;
+                reservations[creepId] = reservation.amount;
+            }
+        }
+        
+        // Для простоты считаем доступные ресурсы как общее количество энергии в комнате
+        // минус зарезервированное количество
+        let available = 0;
+        const room = Game.spawns['Spawn1'] ? Game.spawns['Spawn1'].room : null;
+        
+        if (room) {
+            // Считаем энергию в контейнерах
+            const containers = room.find(FIND_STRUCTURES, {
+                filter: (structure) => structure.structureType === STRUCTURE_CONTAINER
+            });
+            
+            for (let container of containers) {
+                available += container.store[RESOURCE_ENERGY] || 0;
+            }
+            
+            // Считаем энергию в источниках
+            const sources = room.find(FIND_SOURCES);
+            for (let source of sources) {
+                available += source.energy || 0;
+            }
+        }
+        
+        // Доступные ресурсы = общие - зарезервированные
+        available = Math.max(0, available - totalReserved);
+        
+        return {
+            available: available,
+            totalReserved: totalReserved,
+            count: count,
+            reservations: reservations
+        };
+    }
 };
