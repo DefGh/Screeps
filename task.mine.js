@@ -40,7 +40,7 @@ module.exports = {
                 canExecute: [constants.roles.UNIVERSAL],
                 repeatable: false,
                 maxExecuters: 1,
-                priority: 1,
+                priority: constants.taskPriorities.TAXI,
                 data: {
                     whom: executer.id,
                     where: position,

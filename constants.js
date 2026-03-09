@@ -37,8 +37,9 @@ module.exports = {
     // Приоритеты задач
     taskPriorities: {
         SPAWN_CREEP: 10,
-        TRANSFER_ENERGY: 1,
-        CONSTRUCT: 2
+        TRANSFER_ENERGY: 10,
+        CONSTRUCT: 2,
+        TAXI: 5
     },
     
     // Статусы задач
