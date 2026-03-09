@@ -23,7 +23,12 @@ Creep.prototype.getEnergy = function() {
     var before = this.store.getFreeCapacity([RESOURCE_ENERGY]);
 
     // if type == pile 
-    if (this.memory.reservation.type === constants.energySourceType.pile || this.memory.reservation.type === constants.energySourceType.container ) {
+    if (this.memory.reservation.type === constants.energySourceType.pile ) {
+        if (this.withdraw(source, RESOURCE_ENERGY) != OK) {
+            this.moveTo(source)
+        }
+    }
+    if (this.memory.reservation.type === constants.energySourceType.container){
         if (this.withdraw(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }

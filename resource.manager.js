@@ -59,8 +59,10 @@ module.exports = {
         }
 
         var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
-            filter: (structure) => structure.store[RESOURCE_ENERGY] > this.reservedTotal(structure.id)
+            //filter: (structure) => structure.store[RESOURCE_ENERGY] > this.reservedTotal(structure.id)
         });
+
+        console.log(JSON.stringify(piles));
 
         if (piles.length > 0) {
             var closest = creep.pos.findClosestByRange(piles);
