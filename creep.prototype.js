@@ -41,6 +41,8 @@ Creep.prototype.deliverEnergy = function(target) {
         return true;
     }
 
+    console.log(target.structureType);
+
     switch (target.structureType) {
         case 'STRUCTURE_SPAWN':
             if (this.transfer(target, RESOURCE_ENERGY) != OK) {
