@@ -36,12 +36,11 @@ module.exports = {
 
         let pos = Memory.minerPositions;
 
-        for (let source in pos) {
+        for (let source of pos) {
             
-            var poss = pos[source];
-            let position = new RoomPosition(poss.x, poss.y, poss.roomName);
+            let position = new RoomPosition(source.x, source.y, source.roomName);
 
-            if (createConstructionTask( position, STRUCTURE_CONTAINER, 'container')){
+            if (this.createConstructionTask( position, STRUCTURE_CONTAINER, 'container')){
                 return true;
             }
 
