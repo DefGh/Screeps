@@ -8,7 +8,7 @@ Creep.prototype.getEnergy = function() {
         const resourceManager = require('resource.manager');
         const maxEnergy = this.store.getFreeCapacity([RESOURCE_ENERGY]);
 
-        let reservation = resourceManager.reserveEnergy(maxEnergy, this.id);
+        let reservation = resourceManager.reserveEnergy(this, maxEnergy);
         this.memory.reservation = reservation;
     }
     
