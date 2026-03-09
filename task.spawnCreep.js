@@ -1,30 +1,28 @@
-const constants = require("constants");
-
 module.exports = {
-
-    run: function (executer, task) {
-        // Check if spawn is currently busy
+    run(executer, task) {
+        // Spawn is currently busy – keep task in progress
         if (executer.spawning) {
-            return false; // Task remains in progress, will retry next tick
+            return false;
         }
 
-        // Convert body part strings to constants
-        let bodyParts = task.data.body;
+        const data = task.data || {};
+        const { body, role } = data;
 
-        // Create a copy of task.data for memory to avoid modifying the original task
-        var memory = Object.assign({}, task.data);
+        // Invalid task data – complete to avoid being stuck
+        if (!body || !role) {
+            return true;
+        }
+
+        const memory = Object.assign({}, data);
         delete memory.body;
 
-        // Attempt to spawn the creep
-        let spawnResult = executer.spawnCreep(
-            bodyParts,
-            task.data.role.toUpperCase() + '_' + Game.time,
-            {
-                memory: memory
-            }
+        const spawnResult = executer.spawnCreep(
+            body,
+            role.toUpperCase() + "_" + Game.time,
+            { memory }
         );
 
-        return spawnResult == OK;
+        // Only report task finished when spawning successfully started
+        return spawnResult === OK;
     },
-
 };

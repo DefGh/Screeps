@@ -1,4 +1,5 @@
-constants = require('constants');
+const constants = require('constants');
+const common = require('common');
 module.exports = {
     tryAddTask: function (task, id) {
         // Validate task structure
@@ -451,7 +452,7 @@ module.exports = {
             }
             aliveExecuters.push(executerId);
             // Run the task for this executer
-            var finished = this.runExecuter(executer, task);
+            const finished = this.runExecuter(executer, task);
             // If task is finished, handle completion
             if (finished) {
                 this.handleTaskCompletion(task, executer);

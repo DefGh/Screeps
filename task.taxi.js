@@ -1,37 +1,47 @@
-const constants = require("constants");
-const taskManager = require("task.manager")
 module.exports = {
-    run : function(creep, task) {
-        // 1 - init
-        let whomId = task.data.whom;
-        let where = task.data.where;
-        
-        // Get the target creep
-        let targetCreep = Game.getObjectById(whomId);
-        
-        if (!targetCreep) {
-            return true; // Task completed (target died)
+    run(executer, task) {
+        const { whom, where } = task.data || {};
+
+        // Invalid task data – complete to avoid being stuck
+        if (!whom || !where) {
+            return true;
         }
-        
-        // 2 - if target creep is at destination - task is done
-        if (targetCreep.pos.x === where.x && targetCreep.pos.y === where.y) {
-            // Task completed - target reached destination
-            creep.say('✅ Done');
-            return true; // Task completed successfully
+
+        const target = Game.getObjectById(whom);
+
+        // Target creep died or disappeared – consider task finished
+        if (!target) {
+            return true;
         }
-        
-        if(creep.pull(targetCreep) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(targetCreep);
+
+        const targetAtDestination =
+            target.pos.x === where.x && target.pos.y === where.y;
+
+        // Target already at destination – nothing to do
+        if (targetAtDestination) {
+            return true;
+        }
+
+        const pullResult = executer.pull(target);
+
+        if (pullResult === ERR_NOT_IN_RANGE) {
+            executer.moveTo(target);
+            return false;
+        }
+        else {
+            target.move(executer);
+        }
+
+        const executerAtDestination =
+            executer.pos.x === where.x && executer.pos.y === where.y;
+
+        if (executerAtDestination) {
+            executer.move(executer.pos.getDirectionTo(target));
         } else {
-            targetCreep.move(creep);
-
-            if(creep.pos.x === where.x && creep.pos.y === where.y) {
-                creep.move(creep.pos.getDirectionTo(targetCreep));
-            } else {
-                creep.moveTo(where.x, where.y);
-            }
+            executer.moveTo(where.x, where.y);
         }
 
-        return false; // Task not finished yet
-    }
-}
+
+        return false;
+    },
+};
