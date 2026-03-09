@@ -1,78 +1,238 @@
-const constants = require('constants');
+const resourceManager = require('resource.manager');
 
 module.exports = {
-    run: function(executer, task) {
-        const { structureType, position, targetId, targetType, constructionSiteId } = task.data || {};
-
-        // Проверка валидности данных задачи
-        if (!structureType || !position) {
-            return true; // Завершаем задачу при невалидных данных
+    run: function (creep, task) {
+        // Initialize task execution data if not exists
+        if (!creep.memory.taskExecutionData) {
+            creep.memory.taskExecutionData = {
+                phase: 'findSource', // findSource, transferring, findDestination, delivering
+                sourceId: null,
+                destinationId: null,
+                lastAction: null
+            };
+            creep.say('🔄 Init');
         }
-
-        // Преобразуем позицию из объекта в RoomPosition
-        const pos = new RoomPosition(position.x, position.y, position.roomName);
-
-        // Проверяем, достиг ли крип позиции строительства
-        const atConstructionPosition = executer.pos.isEqualTo(pos);
-
-        if (!atConstructionPosition) {
-            // Двигаемся к позиции строительства
-            const moveResult = executer.moveTo(pos, { visualizePathStyle: { stroke: '#ffffff' } });
-            
-            // Если не можем двигаться (например, путь заблокирован), завершаем задачу
-            if (moveResult !== OK && moveResult !== ERR_TIRED) {
+        let state = creep.memory.taskExecutionData;
+        switch (state.phase) {
+            case 'done':
                 return true;
-            }
+            case 'findSource':
+                this.findEnergySource(creep, state);
+                break;
+            case 'transferring':
+                this.transferToCreep(creep, state);
+                break;
+            case 'findDestination':
+                this.findEnergyDestination(creep, task);
+                break;
+            case 'delivering':
+                let deliveryResult = this.deliverEnergy(creep, state);
+                if (deliveryResult) {
+                    return true; // Cycle completed, executer treats as finished
+                }
+                break;
+        }
+        // Transfer tasks continue until delivery cycle is complete
+        return false; // Task continues within cycle
+    },
+    findEnergySource: function (creep, state) {
+        creep.say('🔎 Finding source');
+        
+        // 1. Check for dropped energy on ground (highest priority)
+        let droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+            filter: (resource) => resource.resourceType === RESOURCE_ENERGY
+        });
+        if (droppedEnergy) {
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
             
-            return false; // Продолжаем движение
-        }
-
-        // На позиции строительства - начинаем бесконечный цикл
-        // Цикл: взять энергию до полного -> строить пока есть энергия -> повторять
-        
-        // Проверяем, есть ли энергия у крипа
-        if (executer.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-            // Нет энергии - пытаемся получить
-            const gotEnergy = executer.getEnergy();
-            if (!gotEnergy) {
-                // Не удалось получить энергию - ждем
-                return false;
+            if (reserved) {
+                creep.say('💎 Found dropped');
+                state.sourceId = droppedEnergy.id;
+                state.phase = 'transferring';
+                state.lastAction = 'pickup';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
             }
-            // Энергия получена - продолжаем цикл
         }
         
-        // Проверяем наличие Construction Site
-        let constructionSite = null;
-        
-        // Сначала пробуем найти по ID (если он был сохранен)
-        if (constructionSiteId) {
-            constructionSite = Game.getObjectById(constructionSiteId);
+        // 2. Check for containers with energy
+        let containers = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return (structure.structureType === STRUCTURE_CONTAINER ||
+                       structure.structureType === STRUCTURE_STORAGE) &&
+                       structure.store[RESOURCE_ENERGY] > 0;
+            }
+        });
+        if (containers) {
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
+            
+            if (reserved) {
+                creep.say('📦 Found container');
+                state.sourceId = containers.id;
+                state.phase = 'transferring';
+                state.lastAction = 'withdraw';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
+            }
         }
         
-        // Если не нашли по ID, ищем на позиции
-        if (!constructionSite) {
-            constructionSite = executer.findConstructionSiteAtPosition(pos, structureType);
+        // 3. Check for sources (mining)
+        let sources = creep.pos.findClosestByRange(FIND_SOURCES, {
+            filter: (source) => source.energy > 0
+        });
+        if (sources) {
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
+            
+            if (reserved) {
+                creep.say('⛏️ Found source');
+                state.sourceId = sources.id;
+                state.phase = 'transferring';
+                state.lastAction = 'harvest';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
+            }
         }
         
-        if (!constructionSite) {
-            // Нет строительной площадки - задача завершена (возможно, постройка уже завершена)
-            return true;
-        }
+        creep.say('⏳ Waiting...');
+        // Stay in findSource phase, will retry next tick
+    },
+    transferToCreep: function (creep, state) {
 
-        // Проверяем, завершена ли постройка
-        if (constructionSite.progress === constructionSite.progressTotal) {
-            return true; // Постройка завершена - завершаем задачу
+         if (creep.store.getFreeCapacity() === 0) {
+                    // Освобождаем резерв - энергия успешно взята
+                    resourceManager.releaseEnergy(creep.id);
+                    
+                    creep.say('🔋 Full/Empty');
+                    state.phase = 'findDestination';
+                    state.sourceId = null;
+                    return;
+                }
+
+        let source = Game.getObjectById(state.sourceId);
+        
+        if (!source) {
+            creep.say('❓ Source lost');
+            state.phase = 'findSource';
+            state.sourceId = null;
+            // Clear destination when source is lost to start fresh
+            state.destinationId = null;
+            return;
         }
-
-        // Строим пока есть энергия
-        const buildResult = executer.buildStructure(constructionSite);
-
-        if (buildResult) {
-            // Успешно построили часть - продолжаем цикл
-            return false;
+        // Move to source
+        let moveResult = creep.moveTo(source, { 
+            visualizePathStyle: { stroke: '#ffaa00' },
+            reusePath: 5
+        });
+        
+        if (moveResult !== OK) {
+            creep.say('❌ Move fail');
+            return;
+        }
+        // Check if we're at the source
+        let distance = creep.pos.getRangeTo(source);
+        
+        if (distance <= 1) {
+            let result;
+            
+            switch (state.lastAction) {
+                case 'pickup':
+                    result = creep.pickup(source);
+                    break;
+                case 'withdraw':
+                    result = creep.withdraw(source, RESOURCE_ENERGY);
+                    break;
+                case 'harvest':
+                    result = creep.harvest(source);
+                    break;
+            }
+            if (result === OK) {
+                // Check if creep is full or source is empty
+                if (creep.store.getFreeCapacity() === 0 || 
+                    (state.lastAction === 'pickup' && source.amount === 0) ||
+                    (state.lastAction === 'withdraw' && source.store[RESOURCE_ENERGY] === 0) ||
+                    (state.lastAction === 'harvest' && source.energy === 0)) {
+                    
+                    // Освобождаем резерв - энергия успешно взята
+                    resourceManager.releaseEnergy(creep.id);
+                    
+                    creep.say('🔋 Full/Empty');
+                    state.phase = 'findDestination';
+                    state.sourceId = null;
+                } else {
+                    creep.say('🔄 Collecting');
+                }
+            } else if (result === ERR_NOT_ENOUGH_RESOURCES || result === ERR_INVALID_TARGET) {
+                creep.say('❌ Source empty');
+                state.phase = 'findSource';
+                state.sourceId = null;
+            }
         } else {
-            // Нет энергии для строительства - цикл продолжится на следующем тике
+            creep.say('🚶 Moving...');
+        }
+    },
+    findEnergyDestination: function (creep, state) {
+        state.phase = 'findSource';
+        state.destinationId = null; 
+        return;
+        
+    },
+    deliverEnergy: function (creep, state) {
+        // Safety check: if creep has no energy, go back to find source
+        if (creep.store[RESOURCE_ENERGY] === 0) {
+            creep.say('🔋 No energy, finding source');
+            state.phase = 'done';
+            state.destinationId = null;
+            return;
+        }
+        let destination = Game.getObjectById(state.destinationId);
+        
+        if (!destination) {
+            creep.say('❓ Dest lost');
+            state.phase = 'done';
+            state.destinationId = null;
+            return;
+        }
+        // Move to destination
+        let moveResult = creep.moveTo(destination, { 
+            visualizePathStyle: { stroke: '#ffffff' },
+            reusePath: 25
+        });
+        
+        if (moveResult !== OK) {
+            creep.say('❌ Move fail');
+            return;
+        }
+        // Check if we're at the destination
+        let distance = creep.pos.getRangeTo(destination);
+        
+        if (distance <= 1) {
+            let result;
+            result = creep.build(destination);           
+        } else {
+            creep.say('🚶 Moving...');
             return false;
         }
+    },
+    clearTransferState: function (creep) {
+        // Clear all transfer-related memory
+        if (creep.memory.taskExecutionData) {
+            delete creep.memory.taskExecutionData;
+            creep.say('🧹 Cleared');
+        }
+        
+        // Освобождаем резерв при завершении задачи
+        resourceManager.releaseEnergy(creep.id);
     }
 };

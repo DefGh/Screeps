@@ -322,11 +322,9 @@ module.exports = {
                 pendingTasks.push(task);
             }
         }
-        // Sort tasks by priority (ascending order - lower numbers = higher priority)
+        
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-        // Process tasks in priority order, but fill each task completely before moving to next
         for (let task of pendingTasks) {
-            // Fill current task to maximum capacity before moving to next task
             while (task.executers.length < task.maxExecuters) {
                 if (!this.assignExecuterToTask(task)) {
                     break; // No more available executers
@@ -334,6 +332,7 @@ module.exports = {
             }
         }
     },
+
     assignExecuterToTask: function (task) {
         // Find available creeps that can execute this task
         for (let name in Game.creeps) {

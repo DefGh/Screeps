@@ -47,5 +47,11 @@ module.exports = {
         PENDING: 'pending',
         IN_PROGRESS: 'inProgress',
         DONE: 'done',
+    },
+
+    energySourceType: {
+        pile: 'pile',
+        container: 'container',
+        source: 'source'
     }
 };
