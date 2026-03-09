@@ -3,6 +3,9 @@ const taskManager = require('task.manager');
 
 module.exports = {
     generateTasks: function() {
+
+    return;
+
         // Инициализация таймера в памяти
         if (!Memory.constructionTimer) {
             Memory.constructionTimer = 0;
