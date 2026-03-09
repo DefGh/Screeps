@@ -45,14 +45,14 @@ module.exports = {
     reserveEnergy: function(creep, amount) {
         this.init();
         // 0. find where to get energy from container -> pile -> source
-        var reservation = {};
+        var curReservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
             filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > this.reservedTotal(structure.id)
         });
 
         if (containers.length > 0) {
             var closest = creep.pos.findClosestByRange(containers);
-            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.container);
+            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.container);
         }
 
         var piles = creep.room.find(FIND_STRUCTURES, {
@@ -61,7 +61,7 @@ module.exports = {
 
         if (piles.length > 0) {
             var closest = creep.pos.findClosestByRange(piles);
-            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
+            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
         }
 
         var sources = creep.room.find(FIND_SOURCES, {
@@ -70,10 +70,10 @@ module.exports = {
 
         if (sources.length > 0) {
             var closest = creep.pos.findClosestByRange(sources);
-            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.source);
+            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.source);
         }
 
-        Memory.resourceManager.reservations[creep.id] = reservation;
+        Memory.resourceManager.reservations[creep.id] = curReservation;
 
     },
 };
