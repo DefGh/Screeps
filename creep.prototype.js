@@ -22,18 +22,18 @@ Creep.prototype.getEnergy = function() {
     var source = Game.getObjectById(this.memory.reservation.sourceId);
 
     // if type == pile 
-    if (reservation.type === constants.energySourceType.pile || reservation.type === constants.energySourceType.container ) {
+    if (this.memory.reservation.type === constants.energySourceType.pile || this.memory.reservation.type === constants.energySourceType.container ) {
         if (this.withdraw(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }
         return false;
     }
-    if (reservation.type ===  constants.energySourceType.source ) {
+    if (this.memory.reservation.type ===  constants.energySourceType.source ) {
         if (this.harvest(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }
         return false;
-    }   
+    }
 };
 
 Creep.prototype.deliverEnergy = function(target) {
