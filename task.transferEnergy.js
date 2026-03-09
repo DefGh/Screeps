@@ -22,7 +22,7 @@ module.exports = {
                 }
                 break;
             case 'delivering':
-                var target = getTarget(creep)
+                var target = this.getTarget(creep)
                 if (creep.deliverEnergy(target)){
                     creep.memory.taskExecutionData.phase = 'done';
                 }
