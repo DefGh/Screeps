@@ -30,7 +30,10 @@ module.exports = {
         var amount = 0;
         for (let reservationId in Memory.resourceManager.reservations) { 
             let reservation = Memory.resourceManager.reservations[reservationId];
-            console.log(JSON.stringify(reservation))
+            
+            if (!reservation.sourceId)
+                continue;
+
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
