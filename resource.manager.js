@@ -58,8 +58,8 @@ module.exports = {
             return curReservation;
         }
 
-        var piles = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > this.reservedTotal(structure.id)
+        var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
+            filter: (structure) => structure.store[RESOURCE_ENERGY] > this.reservedTotal(structure.id)
         });
 
         if (piles.length > 0) {
