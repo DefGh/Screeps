@@ -436,6 +436,9 @@ module.exports = {
         }
         if (totalExecuters > 0) {
         }
+        
+        // Проверяем мертвых крипов и снимаем их резервы (раз в 15 тиков)
+        resourceManager.checkDeadCreeps();
     },
     processTaskExecuters: function (task) {
         // Process all executers assigned to a specific task

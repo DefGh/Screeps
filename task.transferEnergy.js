@@ -1,3 +1,5 @@
+const resourceManager = require('resource.manager');
+
 module.exports = {
     run: function (creep, task) {
         // Initialize task execution data if not exists
@@ -35,17 +37,28 @@ module.exports = {
     },
     findEnergySource: function (creep, state) {
         creep.say('🔎 Finding source');
+        
         // 1. Check for dropped energy on ground (highest priority)
         let droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
             filter: (resource) => resource.resourceType === RESOURCE_ENERGY
         });
         if (droppedEnergy) {
-            creep.say('💎 Found dropped');
-            state.sourceId = droppedEnergy.id;
-            state.phase = 'transferring';
-            state.lastAction = 'pickup';
-            return;
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
+            
+            if (reserved) {
+                creep.say('💎 Found dropped');
+                state.sourceId = droppedEnergy.id;
+                state.phase = 'transferring';
+                state.lastAction = 'pickup';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
+            }
         }
+        
         // 2. Check for containers with energy
         let containers = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: (structure) => {
@@ -55,29 +68,51 @@ module.exports = {
             }
         });
         if (containers) {
-            creep.say('📦 Found container');
-            state.sourceId = containers.id;
-            state.phase = 'transferring';
-            state.lastAction = 'withdraw';
-            return;
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
+            
+            if (reserved) {
+                creep.say('📦 Found container');
+                state.sourceId = containers.id;
+                state.phase = 'transferring';
+                state.lastAction = 'withdraw';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
+            }
         }
+        
         // 3. Check for sources (mining)
         let sources = creep.pos.findClosestByRange(FIND_SOURCES, {
             filter: (source) => source.energy > 0
         });
         if (sources) {
-            creep.say('⛏️ Found source');
-            state.sourceId = sources.id;
-            state.phase = 'transferring';
-            state.lastAction = 'harvest';
-            return;
+            // Проверяем доступную энергию и резервируем
+            let capacity = creep.store.getCapacity(RESOURCE_ENERGY);
+            let reserved = resourceManager.reserveEnergy(capacity, creep.id);
+            
+            if (reserved) {
+                creep.say('⛏️ Found source');
+                state.sourceId = sources.id;
+                state.phase = 'transferring';
+                state.lastAction = 'harvest';
+                return;
+            } else {
+                creep.say('⏳ No energy available');
+                return;
+            }
         }
+        
         creep.say('⏳ Waiting...');
         // Stay in findSource phase, will retry next tick
     },
     transferToCreep: function (creep, state) {
 
          if (creep.store.getFreeCapacity() === 0) {
+                    // Освобождаем резерв - энергия успешно взята
+                    resourceManager.releaseEnergy(creep.id);
                     
                     creep.say('🔋 Full/Empty');
                     state.phase = 'findDestination';
@@ -128,6 +163,9 @@ module.exports = {
                     (state.lastAction === 'pickup' && source.amount === 0) ||
                     (state.lastAction === 'withdraw' && source.store[RESOURCE_ENERGY] === 0) ||
                     (state.lastAction === 'harvest' && source.energy === 0)) {
+                    
+                    // Освобождаем резерв - энергия успешно взята
+                    resourceManager.releaseEnergy(creep.id);
                     
                     creep.say('🔋 Full/Empty');
                     state.phase = 'findDestination';
@@ -283,5 +321,8 @@ module.exports = {
             delete creep.memory.taskExecutionData;
             creep.say('🧹 Cleared');
         }
+        
+        // Освобождаем резерв при завершении задачи
+        resourceManager.releaseEnergy(creep.id);
     }
 };
