@@ -20,9 +20,6 @@ module.exports = {
         
         // Рисуем информацию о резервах ресурсов
         this.drawResourcesInfo(visual);
-        
-        // Рисуем позиции шахтеров
-        this.drawMinerPositions(visual);
     },
 
     /**
@@ -90,21 +87,22 @@ module.exports = {
      */
     drawTaskLine: function(visual, x, y, task, color) {
         // Тип задачи
-        let taskText = `[${task.type}] `;
+        let taskText = `${task.type} / `;
         
-        // Дополнительная информация в зависимости от типа
-        if (task.type === constants.taskTypes.SPAWN_CREEP) {
-            taskText += `role:${task.data.role} `;
-        } else if (task.type === constants.taskTypes.MINE) {
-            taskText += `source:${task.data.sourceId?.slice(-4) || 'unknown'} `;
-        }
-        
-        // Исполнители
+        // Исполнители (только имена)
         const execCount = task.executers ? task.executers.length : 0;
-        taskText += `exec:${execCount}/${task.maxExecuters || 1} `;
-        
-        // Приоритет
-        taskText += `p:${task.priority || 0}`;
+        if (execCount > 0) {
+            const executorNames = [];
+            for (let creepId of task.executers) {
+                const creep = Game.getObjectById(creepId);
+                if (creep) {
+                    executorNames.push(creep.name);
+                }
+            }
+            taskText += executorNames.join(', ');
+        } else {
+            taskText += 'нет исполнителей';
+        }
         
         // Цвет в зависимости от приоритета
         let textColor = color;
@@ -114,7 +112,12 @@ module.exports = {
             textColor = '#ffff00'; // Средний приоритет - желтый
         }
         
-        visual.text(taskText, x, y, { color: textColor, fontSize: 7 });
+        // Левое выравнивание
+        visual.text(taskText, x, y, { 
+            color: textColor, 
+            fontSize: 7,
+            align: 'left'
+        });
     },
 
     /**
@@ -160,66 +163,4 @@ module.exports = {
             visual.text('Нет активных резервов', x, y, { color: '#888888', fontSize: 8 });
         }
     },
-
-    /**
-     * Отображение позиций шахтеров
-     */
-    drawMinerPositions: function(visual) {
-        if (!Memory.minerPositions) {
-            return;
-        }
-
-        // Рисуем маркеры для каждой позиции шахтера
-        for (let sourceId in Memory.minerPositions) {
-            const position = Memory.minerPositions[sourceId];
-            
-            // Проверяем, что позиция в текущей комнате
-            if (position.roomName === Game.spawns['Spawn1'].room.name) {
-                // Рисуем маркер позиции
-                visual.circle(position.x, position.y, { 
-                    radius: 0.5, 
-                    fill: 'transparent', 
-                    stroke: '#00ffff', 
-                    strokeWidth: 0.15 
-                });
-                
-                // Рисуем крестик в центре
-                visual.line(position.x - 0.3, position.y, position.x + 0.3, position.y, { color: '#00ffff', width: 0.1 });
-                visual.line(position.x, position.y - 0.3, position.x, position.y + 0.3, { color: '#00ffff', width: 0.1 });
-                
-                // Подпись с ID источника (последние 4 символа)
-                visual.text(sourceId.slice(-4), position.x + 0.5, position.y - 0.5, { 
-                    color: '#00ffff', 
-                    fontSize: 6,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    backgroundPadding: 0.1
-                });
-            }
-        }
-
-        // Проверяем, есть ли активные задачи на добычу и отображаем их
-        if (Memory.tasks) {
-            for (let taskId in Memory.tasks) {
-                const task = Memory.tasks[taskId];
-                if (task.type === constants.taskTypes.MINE && task.status === 'inProgress') {
-                    const position = task.data.position;
-                    if (position && position.roomName === Game.spawns['Spawn1'].room.name) {
-                        // Рисуем более яркий маркер для активной задачи
-                        visual.circle(position.x, position.y, { 
-                            radius: 0.6, 
-                            fill: 'transparent', 
-                            stroke: '#ff0000', 
-                            strokeWidth: 0.2 
-                        });
-                        
-                        // Индикатор активной задачи
-                        visual.text('⛏️', position.x, position.y - 0.8, { 
-                            color: '#ff0000', 
-                            fontSize: 10 
-                        });
-                    }
-                }
-            }
-        }
-    }
 };
