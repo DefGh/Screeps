@@ -115,7 +115,7 @@ module.exports = {
         // Левое выравнивание
         visual.text(taskText, x, y, { 
             color: textColor, 
-            fontSize: 7,
+            fontSize: 5,
             align: 'left'
         });
     },
