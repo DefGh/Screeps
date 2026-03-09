@@ -73,7 +73,7 @@ module.exports = {
         }
 
         var sources = creep.room.find(FIND_SOURCES, {
-            filter: (source) => source.energy > this.reservedTotal(source.id)
+            filter: (source) => source.energy > amount
         });
 
         if (sources.length > 0) {
