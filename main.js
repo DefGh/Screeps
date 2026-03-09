@@ -10,6 +10,9 @@ module.exports.loop = function () {
     // Инициализация комнаты (один раз в начале)
     roomInitializer.initializeRoom();
 
+    // Визуализация комнаты (отображение задач и резервов ресурсов)
+    roomVisualizer.visualize();
+
     // Check executers health and handle deaths
     taskManager.checkExecutersHealth();
 
@@ -19,7 +22,4 @@ module.exports.loop = function () {
 
     // Run all assigned executers through the task manager
     taskManager.runExecuters();
-
-    // Визуализация комнаты (отображение задач и резервов ресурсов)
-    roomVisualizer.visualize();
 };
