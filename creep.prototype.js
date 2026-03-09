@@ -4,13 +4,13 @@ Creep.prototype.getEnergy = function() {
 
     if (!this.memory.reservation) {
         const resourceManager = require('resource.manager');
-        const maxEnergy = this.store[RESOURCE_ENERGY].getFreeCapacity();
+        const maxEnergy = this.store.getFreeCapacity([RESOURCE_ENERGY]);
 
         let reservation = resourceManager.reserveEnergy(maxEnergy, this.id);
         this.memory.reservation = reservation;
     }
     
-    if (this.store[RESOURCE_ENERGY].getFreeCapacity() === 0) {
+    if (this.store.getFreeCapacity([RESOURCE_ENERGY]) === 0) {
         return true;
     }
 
@@ -33,7 +33,7 @@ Creep.prototype.getEnergy = function() {
 
 Creep.prototype.deliverEnergy = function(target) {
 
-    if (this.store[RESOURCE_ENERGY].getUsedCapacity() === 0) {
+    if (this.store.getUsedCapacity([RESOURCE_ENERGY]) === 0) {
         return true;
     }
 
