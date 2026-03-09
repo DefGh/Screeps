@@ -39,8 +39,8 @@ module.exports = {
 
     reserveEnergy: function(creep, amount) {
         
-        console.log(json.stringify(Memory.resourceManager))
-        console.log(json.stringify(creep))
+        console.log(JSON.stringify(Memory.resourceManager))
+        console.log(JSON.stringify(creep))
 
         // 0. find where to get energy from container -> pile -> source
         var reservation = {};
