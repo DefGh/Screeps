@@ -24,7 +24,7 @@ Creep.prototype.getEnergy = function() {
 
     // if type == pile 
     if (this.memory.reservation.type === constants.energySourceType.pile ) {
-        if (this.pick(source, RESOURCE_ENERGY) != OK) {
+        if (this.pickup(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }
     }
