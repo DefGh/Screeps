@@ -53,12 +53,12 @@ module.exports = {
         let y = 2;
 
         // Заголовок
-        visual.text('📋 ЗАДАЧИ', x, y, { color: '#ffffff', fontSize: 10, backgroundColor: '#333333', backgroundPadding: 0.2 });
+        visual.text('📋 ЗАДАЧИ', x, y, { color: '#ffffff', font: 0.10, backgroundColor: '#333333', backgroundPadding: 0.2 });
         y += 1.2;
 
         // Отображаем активные задачи
         if (inProgressTasks.length > 0) {
-            visual.text('🔄 В РАБОТЕ:', x, y, { color: '#00ff00', fontSize: 8 });
+            visual.text('🔄 В РАБОТЕ:', x, y, { color: '#00ff00', font: 0.8 });
             y += 1;
             
             for (let task of inProgressTasks) {
@@ -70,7 +70,7 @@ module.exports = {
 
         // Отображаем ожидающие задачи
         if (pendingTasks.length > 0) {
-            visual.text('⏳ В ОЧЕРЕДИ:', x, y, { color: '#ffff00', fontSize: 8 });
+            visual.text('⏳ В ОЧЕРЕДИ:', x, y, { color: '#ffff00', font: 0.8 });
             y += 1;
             
             for (let task of pendingTasks) {
@@ -78,7 +78,7 @@ module.exports = {
                 y += 0.8;
             }
         } else {
-            visual.text('Нет ожидающих задач', x, y, { color: '#888888', fontSize: 8 });
+            visual.text('Нет ожидающих задач', x, y, { color: '#888888', font: 0.8 });
         }
     },
 
@@ -115,7 +115,7 @@ module.exports = {
         // Левое выравнивание
         visual.text(taskText, x, y, { 
             color: textColor, 
-            fontSize: 5,
+            font: 0.6,
             align: 'left'
         });
     },
@@ -136,31 +136,31 @@ module.exports = {
         let y = 2;
 
         // Заголовок
-        visual.text('🔋 РЕСУРСЫ', x, y, { color: '#ffffff', fontSize: 10, backgroundColor: '#333333', backgroundPadding: 0.2 });
+        visual.text('🔋 РЕСУРСЫ', x, y, { color: '#ffffff', font: 0.1, backgroundColor: '#333333', backgroundPadding: 0.2 });
         y += 1.2;
 
         // Общая информация
-        visual.text(`Доступно: ${info.available}`, x, y, { color: '#00ff00', fontSize: 8 });
+        visual.text(`Доступно: ${info.available}`, x, y, { color: '#00ff00', font: 0.8 });
         y += 0.8;
-        visual.text(`Зарезервировано: ${info.totalReserved}`, x, y, { color: '#ff0000', fontSize: 8 });
+        visual.text(`Зарезервировано: ${info.totalReserved}`, x, y, { color: '#ff0000', font: 0.8 });
         y += 0.8;
-        visual.text(`Активных резервов: ${info.count}`, x, y, { color: '#ffff00', fontSize: 8 });
+        visual.text(`Активных резервов: ${info.count}`, x, y, { color: '#ffff00', font: 0.8 });
         y += 1;
 
         // Список активных резервов
         if (info.count > 0) {
-            visual.text('Резервы:', x, y, { color: '#ffffff', fontSize: 8 });
+            visual.text('Резервы:', x, y, { color: '#ffffff', font: 0.8 });
             y += 0.8;
             
             for (let creepId in info.reservations) {
                 const amount = info.reservations[creepId];
                 const creep = Game.getObjectById(creepId);
                 const creepName = creep ? creep.name : 'unknown';
-                visual.text(`${creepName}: ${amount}`, x, y, { color: '#888888', fontSize: 7 });
+                visual.text(`${creepName}: ${amount}`, x, y, { color: '#888888', font: 0.7 });
                 y += 0.7;
             }
         } else {
-            visual.text('Нет активных резервов', x, y, { color: '#888888', fontSize: 8 });
+            visual.text('Нет активных резервов', x, y, { color: '#888888', font: 0.8 });
         }
     },
 };
