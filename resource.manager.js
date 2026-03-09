@@ -19,7 +19,7 @@ module.exports = {
 
     reservation(creep, amount, from, type) {
         return {
-            creep: creep,
+            creep: creep.id,
             amount: amount,
             sourceId: from,
             type: type
