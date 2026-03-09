@@ -39,8 +39,9 @@ module.exports = {
         for (let source of pos) {
             
             var poss = pos[source];
+            let position = new RoomPosition(poss.x, poss.y, poss.roomName);
 
-            if (createConstructionTask( poss, STRUCTURE_CONTAINER, 'container')){
+            if (createConstructionTask( position, STRUCTURE_CONTAINER, 'container')){
                 return true;
             }
 
