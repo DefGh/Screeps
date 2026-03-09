@@ -1,3 +1,5 @@
+const { json } = require("node:stream/consumers");
+
 module.exports = {
     // Инициализация менеджера ресурсов
     init: function() {
@@ -37,6 +39,9 @@ module.exports = {
 
     reserveEnergy: function(creep, amount) {
         
+        console.log(json.stringify(Memory.resourceManager))
+        console.log(json.stringify(creep))
+
         // 0. find where to get energy from container -> pile -> source
         var reservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
