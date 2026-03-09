@@ -49,7 +49,7 @@ module.exports = {
         inProgressTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
         // Позиция для отображения (левый верхний угол)
-        let x = 2;
+        let x = 5;
         let y = 2;
 
         // Заголовок
