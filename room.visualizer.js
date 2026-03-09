@@ -1,4 +1,5 @@
 const constants = require('constants');
+const resourceManager = require('resource.manager');
 
 module.exports = {
     /**
