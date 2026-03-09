@@ -22,7 +22,8 @@ module.exports = {
                 }
                 break;
             case 'delivering':
-                if (creep.deliverEnergy()){
+                var target = getTarget(creep)
+                if (creep.deliverEnergy(target)){
                     creep.memory.taskExecutionData.phase = 'done';
                 }
                 break;
@@ -30,5 +31,22 @@ module.exports = {
         // Transfer tasks continue until delivery cycle is complete
         return false; // Task continues within cycle
     },
+
+    getTarget(creep) {
+        // spwan -> extention -> controller
+        var spawn = creep.room.find(FIND_MY_SPAWNS)[0];
+        // if not full
+        if (spawn.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+            return spawn;
+
+        var extension = creep.room.find(FIND_MY_STRUCTURES, {
+            filter: (structure) => structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+        });
+
+        if (extension.length > 0)
+            return extension[0];
+
+        return creep.room.controller;
+    }
     
 };
