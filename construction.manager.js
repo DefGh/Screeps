@@ -36,7 +36,7 @@ module.exports = {
 
         let pos = Memory.minerPositions;
 
-        for (let source of pos) {
+        for (let source in pos) {
             
             var poss = pos[source];
             let position = new RoomPosition(poss.x, poss.y, poss.roomName);
