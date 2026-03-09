@@ -21,11 +21,14 @@ module.exports = {
                 return; // Не создаем новые задачи, если уже есть 3 активные
             }
             
-            // Генерируем все типы строительных задач
-            this.buildRoadsToSources();
-            this.buildRoadToController();
-            this.buildExtensions();
-            this.buildContainers();
+            // Генерируем задачи по очереди, не более одной операции за тик
+            if (!this.buildRoadsToSources()) {
+                if (!this.buildRoadToController()) {
+                    if (!this.buildExtensions()) {
+                        this.buildContainers();
+                    }
+                }
+            }
         }
     },
     
@@ -282,6 +285,18 @@ module.exports = {
     },
     
     createConstructionTask: function(pos, structureType, structureName, targetId, targetType) {
+        // Проверяем, что позиция не на стене
+        const terrain = pos.lookFor(LOOK_TERRAIN)[0];
+        if (terrain === 'wall') {
+            return; // Не создаем задачу на постройку на стене
+        }
+        
+        // Проверяем, что позиция не занята другим сооружением
+        const existingStructures = pos.lookFor(LOOK_STRUCTURES);
+        if (existingStructures.length > 0) {
+            return; // Не создаем задачу, если позиция занята
+        }
+        
         const id = structureName + '_' + pos.x + '_' + pos.y + '_' + Game.time;
         
         // Создаем Construction Site
