@@ -52,25 +52,18 @@ module.exports = {
     getAvailableEnergy: function() {
         this.init();
         
-        // Собираем всю энергию в комнате
+        // Собираем энергию, доступную для стройки и транспортировки
         let totalEnergy = 0;
         
-        // Энергия в спавне и расширениях
-        let spawns = Game.spawns['Spawn1'].room.find(FIND_MY_STRUCTURES, {
-            filter: (structure) => {
-                return structure.structureType === STRUCTURE_SPAWN ||
-                       structure.structureType === STRUCTURE_EXTENSION;
+        // Энергия в пайлах
+        let piles = Game.spawns['Spawn1'].room.find(FIND_DROPPED_RESOURCES, {
+            filter: (resource) => {
+                return resource.resourceType === RESOURCE_ENERGY;
             }
         });
         
-        for (let structure of spawns) {
-            totalEnergy += structure.store[RESOURCE_ENERGY] || 0;
-        }
-        
-        // Энергия в хранилище
-        let storage = Game.spawns['Spawn1'].room.storage;
-        if (storage) {
-            totalEnergy += storage.store[RESOURCE_ENERGY] || 0;
+        for (let pile of piles) {
+            totalEnergy += pile.amount || 0;
         }
         
         // Энергия в контейнерах
@@ -82,6 +75,15 @@ module.exports = {
         
         for (let container of containers) {
             totalEnergy += container.store[RESOURCE_ENERGY] || 0;
+        }
+        
+        // Если нет пайлов и контейнеров, берем энергию из источников
+        if (piles.length === 0 && containers.length === 0) {
+            let sources = Game.spawns['Spawn1'].room.find(FIND_SOURCES);
+            for (let source of sources) {
+                // Энергия в источниках доступна для сбора
+                totalEnergy += source.energy || 0;
+            }
         }
         
         // Вычитаем зарезервированную энергию
