@@ -5,7 +5,7 @@ module.exports = {
         // Initialize task execution data if not exists
         if (!creep.memory.taskExecutionData) {
             creep.memory.taskExecutionData = {
-                phase: 'findSource', // findSource, transferring, findDestination, delivering
+                phase: 'getEnergy', // findSource, transferring, findDestination, delivering
                 sourceId: null,
                 destinationId: null,
                 lastAction: null
