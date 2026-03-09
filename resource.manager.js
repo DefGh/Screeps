@@ -28,8 +28,8 @@ module.exports = {
 
     reservedTotal(source) {
         var amount = 0;
-        for (let reservation in Memory.resourceManager.reservations) {
-            let reservationId = Memory.resourceManager.reservations[reservationId];
+        for (let reservationId in Memory.resourceManager.reservations) {
+            let reservation = Memory.resourceManager.reservations[reservationId];
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
