@@ -44,22 +44,22 @@ Creep.prototype.deliverEnergy = function(target) {
     console.log(target.structureType);
 
     switch (target.structureType) {
-        case 'STRUCTURE_SPAWN':
+        case STRUCTURE_SPAWN:
             if (this.transfer(target, RESOURCE_ENERGY) != OK) {
                 this.moveTo(target)
             }
             return false;
-        case 'STRUCTURE_EXTENSION':
+        case STRUCTURE_EXTENSION:
             if (this.transfer(target, RESOURCE_ENERGY) != OK) {
                 this.moveTo(target)
             }
             return false;
-        case 'STRUCTURE_CONTAINER':
+        case STRUCTURE_CONTAINER:
             if (this.transfer(target, RESOURCE_ENERGY) != OK) {
                 this.moveTo(target)
             }
             return false;
-        case 'STRUCTURE_CONTROOLER': // controller
+        case STRUCTURE_CONTROOLER: // controller
             if (this.upgradeController(target, RESOURCE_ENERGY) != OK) {
                 this.moveTo(target)
             }
