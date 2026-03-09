@@ -324,9 +324,14 @@ module.exports = {
         }
         // Sort tasks by priority (ascending order - lower numbers = higher priority)
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-        // Process tasks in priority order
+        // Process tasks in priority order, but fill each task completely before moving to next
         for (let task of pendingTasks) {
-            this.assignExecuterToTask(task);
+            // Fill current task to maximum capacity before moving to next task
+            while (task.executers.length < task.maxExecuters) {
+                if (!this.assignExecuterToTask(task)) {
+                    break; // No more available executers
+                }
+            }
         }
     },
     assignExecuterToTask: function (task) {

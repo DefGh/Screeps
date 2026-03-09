@@ -15,12 +15,33 @@ module.exports = {
         if (Memory.constructionTimer >= 30) {
             Memory.constructionTimer = 0; // Обнуляем счетчик
             
+            // Проверяем количество активных строительных задач (не больше 3)
+            const activeConstructionTasks = this.getActiveConstructionTasksCount();
+            if (activeConstructionTasks >= 3) {
+                return; // Не создаем новые задачи, если уже есть 3 активные
+            }
+            
             // Генерируем все типы строительных задач
             this.buildRoadsToSources();
             this.buildRoadToController();
             this.buildExtensions();
             this.buildContainers();
         }
+    },
+    
+    getActiveConstructionTasksCount: function() {
+        const tasks = Memory.tasks || {};
+        let count = 0;
+        
+        for (let taskId in tasks) {
+            const task = tasks[taskId];
+            if (task.type === constants.taskTypes.CONSTRUCT && 
+                (task.status === 'pending' || task.status === 'inProgress')) {
+                count++;
+            }
+        }
+        
+        return count;
     },
     
     buildRoadsToSources: function() {
@@ -263,6 +284,19 @@ module.exports = {
     createConstructionTask: function(pos, structureType, structureName, targetId, targetType) {
         const id = structureName + '_' + pos.x + '_' + pos.y + '_' + Game.time;
         
+        // Создаем Construction Site
+        const constructionResult = pos.createConstructionSite(structureType);
+        let constructionSiteId = null;
+        
+        if (constructionResult === OK) {
+            // Находим созданную строительную площадку
+            const constructionSites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
+            const constructionSite = constructionSites.find(site => site.structureType === structureType);
+            if (constructionSite) {
+                constructionSiteId = constructionSite.id;
+            }
+        }
+        
         const taskData = {
             id: id,
             type: constants.taskTypes.CONSTRUCT,
@@ -278,7 +312,8 @@ module.exports = {
                     roomName: pos.roomName
                 },
                 targetId: targetId,
-                targetType: targetType
+                targetType: targetType,
+                constructionSiteId: constructionSiteId // Привязываем Construction Site к задаче
             }
         };
         

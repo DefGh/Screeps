@@ -2,7 +2,7 @@ const constants = require('constants');
 
 module.exports = {
     run: function(executer, task) {
-        const { structureType, position, targetId, targetType } = task.data || {};
+        const { structureType, position, targetId, targetType, constructionSiteId } = task.data || {};
 
         // Проверка валидности данных задачи
         if (!structureType || !position) {
@@ -27,103 +27,52 @@ module.exports = {
             return false; // Продолжаем движение
         }
 
-        // На позиции строительства - начинаем строительство
-        const constructionSite = this.findConstructionSiteAtPosition(pos, structureType);
-
-        if (!constructionSite) {
-            // Нет строительной площадки - создаем новую
-            const result = pos.createConstructionSite(structureType);
-            
-            if (result === OK) {
-                // Успешно создали строительную площадку
-                return false; // Продолжаем задачу
-            } else if (result === ERR_INVALID_TARGET) {
-                // Что-то мешает постройке (например, другая постройка)
-                return true; // Завершаем задачу
-            } else {
-                // Другая ошибка - пробуем снова
+        // На позиции строительства - начинаем бесконечный цикл
+        // Цикл: взять энергию до полного -> строить пока есть энергия -> повторять
+        
+        // Проверяем, есть ли энергия у крипа
+        if (executer.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+            // Нет энергии - пытаемся получить
+            const gotEnergy = executer.getEnergy();
+            if (!gotEnergy) {
+                // Не удалось получить энергию - ждем
                 return false;
             }
+            // Энергия получена - продолжаем цикл
+        }
+        
+        // Проверяем наличие Construction Site
+        let constructionSite = null;
+        
+        // Сначала пробуем найти по ID (если он был сохранен)
+        if (constructionSiteId) {
+            constructionSite = Game.getObjectById(constructionSiteId);
+        }
+        
+        // Если не нашли по ID, ищем на позиции
+        if (!constructionSite) {
+            constructionSite = executer.findConstructionSiteAtPosition(pos, structureType);
+        }
+        
+        if (!constructionSite) {
+            // Нет строительной площадки - задача завершена (возможно, постройка уже завершена)
+            return true;
         }
 
-        // Есть строительная площадка - строим
-        const buildResult = executer.build(constructionSite);
+        // Проверяем, завершена ли постройка
+        if (constructionSite.progress === constructionSite.progressTotal) {
+            return true; // Постройка завершена - завершаем задачу
+        }
 
-        if (buildResult === OK) {
-            // Успешно построили часть конструкции
-            // Проверяем, завершена ли постройка
-            if (constructionSite.progress === constructionSite.progressTotal) {
-                return true; // Постройка завершена - завершаем задачу
-            }
-            return false; // Продолжаем строить
-        } else if (buildResult === ERR_NOT_ENOUGH_ENERGY) {
-            // Нет энергии - нужно пополнить
-            const storage = this.findStorageForResource(executer);
-            
-            if (storage) {
-                // Пытаемся взять энергию из хранилища
-                const withdrawResult = executer.withdraw(storage, RESOURCE_ENERGY);
-                
-                if (withdrawResult === OK || withdrawResult === ERR_NOT_ENOUGH_RESOURCES) {
-                    // Энергия взята или хранилище пустое
-                    return false; // Продолжаем задачу
-                }
-            }
-            
-            // Если не можем взять энергию, ищем энергию на земле
-            const droppedEnergy = this.findDroppedEnergy(pos);
-            if (droppedEnergy) {
-                const pickupResult = executer.pickup(droppedEnergy);
-                if (pickupResult === OK) {
-                    return false; // Продолжаем задачу
-                }
-            }
-            
-            return false; // Продолжаем пытаться
-        } else if (buildResult === ERR_INVALID_TARGET) {
-            // Строительная площадка исчезла или что-то мешает
-            return true; // Завершаем задачу
+        // Строим пока есть энергия
+        const buildResult = executer.buildStructure(constructionSite);
+
+        if (buildResult) {
+            // Успешно построили часть - продолжаем цикл
+            return false;
         } else {
-            // Другая ошибка - пробуем снова
+            // Нет энергии для строительства - цикл продолжится на следующем тике
             return false;
         }
-    },
-
-    findConstructionSiteAtPosition: function(pos, structureType) {
-        const constructionSites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
-        
-        for (let site of constructionSites) {
-            if (site.structureType === structureType) {
-                return site;
-            }
-        }
-        
-        return null;
-    },
-
-    findStorageForResource: function(creep) {
-        const spawn = Game.spawns['Spawn1'];
-        if (!spawn) {
-            return null;
-        }
-
-        // Ищем хранилище (Storage) или контейнер с энергией
-        const storage = spawn.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return (structure.structureType === STRUCTURE_STORAGE || 
-                        structure.structureType === STRUCTURE_CONTAINER) &&
-                       structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-            }
-        });
-
-        return storage;
-    },
-
-    findDroppedEnergy: function(pos) {
-        const droppedEnergy = pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
-            filter: (resource) => resource.resourceType === RESOURCE_ENERGY
-        });
-
-        return droppedEnergy.length > 0 ? droppedEnergy[0] : null;
     }
 };
