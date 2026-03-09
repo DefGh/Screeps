@@ -1,5 +1,6 @@
 const constants = require('constants');
 const common = require('common');
+const resourceManager = require('resource.manager');
 module.exports = {
     tryAddTask: function (task, id) {
         // Validate task structure
