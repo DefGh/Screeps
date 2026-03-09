@@ -57,7 +57,7 @@ Creep.prototype.deliverEnergy = function(target) {
                 this.moveTo(target)
             }
             return false;
-        case STRUCTURE_CONTROOLER: // controller
+        case STRUCTURE_CONTROLLER: // controller
             if (this.upgradeController(target, RESOURCE_ENERGY) != OK) {
                 this.moveTo(target)
             }
