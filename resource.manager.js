@@ -29,7 +29,8 @@ module.exports = {
     reservedTotal(source) {
         var amount = 0;
         for (let reservation in Memory.resourceManager.reservations) {
-            console.log(reservation);
+            console.log(reservationId);
+            reservationId = Memory.resourceManager.reservations[reservationId];
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
