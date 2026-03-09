@@ -92,6 +92,14 @@ module.exports = {
         
         for (let creepId in Memory.resourceManager.reservations) {
             let reservation = Memory.resourceManager.reservations[creepId];
+
+            let creep = Game.getObjectById(creepId);
+            if (!creep) {
+                delete Memory.resourceManager.reservations[creepId];
+                continue;
+            }
+
+
             if (reservation && reservation.amount) {
                 totalReserved += reservation.amount;
                 count++;
