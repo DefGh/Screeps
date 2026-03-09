@@ -53,7 +53,7 @@ module.exports = {
         let y = 2;
 
         // Заголовок
-        visual.text('📋 ЗАДАЧИ', x, y, { color: '#ffffff', font: 0.10, backgroundColor: '#333333', backgroundPadding: 0.2 });
+        visual.text('📋 ЗАДАЧИ', x, y, { color: '#ffffff', font: 1, backgroundColor: '#333333', backgroundPadding: 0.2 });
         y += 1.2;
 
         // Отображаем активные задачи
@@ -136,7 +136,7 @@ module.exports = {
         let y = 2;
 
         // Заголовок
-        visual.text('🔋 РЕСУРСЫ', x, y, { color: '#ffffff', font: 0.1, backgroundColor: '#333333', backgroundPadding: 0.2 });
+        visual.text('🔋 РЕСУРСЫ', x, y, { color: '#ffffff', font: 1, backgroundColor: '#333333', backgroundPadding: 0.2 });
         y += 1.2;
 
         // Общая информация
