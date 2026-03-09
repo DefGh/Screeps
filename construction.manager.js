@@ -40,7 +40,7 @@ module.exports = {
             
             var poss = pos[source];
 
-            if (createConstructionTask( pos, STRUCTURE_CONTAINER, 'container')){
+            if (createConstructionTask( poss, STRUCTURE_CONTAINER, 'container')){
                 return true;
             }
 
