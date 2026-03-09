@@ -17,12 +17,12 @@ module.exports = {
             case 'done':
                 return true;
             case 'getEnergy':
-                if (creep.getEnergy(creep)){
+                if (creep.getEnergy()){
                     creep.memory.taskExecutionData.phase = 'delivering';
                 }
                 break;
             case 'delivering':
-                if (creep.deliverEnergy(creep)){
+                if (creep.deliverEnergy()){
                     creep.memory.taskExecutionData.phase = 'done';
                 }
                 break;

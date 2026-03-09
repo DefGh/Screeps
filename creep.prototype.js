@@ -33,7 +33,7 @@ Creep.prototype.getEnergy = function() {
 
 Creep.prototype.deliverEnergy = function(target) {
 
-    if (this.store.getUsedCapacity([RESOURCE_ENERGY]) === 0) {
+    if (this.store.getUsedCapacity() === 0) {
         return true;
     }
 
