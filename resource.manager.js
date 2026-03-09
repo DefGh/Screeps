@@ -34,7 +34,6 @@ module.exports = {
             if (!reservation.sourceId)
                 continue;
 
-            console.log(JSON.stringify(reservation))
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
@@ -75,6 +74,6 @@ module.exports = {
         }
 
         Memory.resourceManager.reservations[creep.id] = curReservation;
-
+        return curReservation;
     },
 };
