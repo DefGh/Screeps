@@ -37,9 +37,9 @@ module.exports = {
         // Сортируем задачи по приоритету
         for (let taskId in tasks) {
             const task = tasks[taskId];
-            if (task.status === 'pending') {
+            if (task.status === constants.taskStatuses.pending) {
                 pendingTasks.push(task);
-            } else if (task.status === 'inProgress') {
+            } else if (task.status === constants.taskStatuses.inProgress) {
                 inProgressTasks.push(task);
             }
         }

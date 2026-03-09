@@ -304,7 +304,7 @@ module.exports = {
         let tasks = Memory.tasks;
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.type === constants.taskTypes.MINE && task.status === 'pending') {
+            if (task.type === constants.taskTypes.MINE && task.status === constants.taskStatuses.pending) {
                 return task;
             }
         }
@@ -318,7 +318,7 @@ module.exports = {
         let pendingTasks = [];
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.status === 'pending' && task.executers.length < task.maxExecuters) {
+            if (task.status === constants.taskStatuses.pending && task.executers.length < task.maxExecuters) {
                 pendingTasks.push(task);
             }
         }
