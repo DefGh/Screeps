@@ -132,7 +132,7 @@ module.exports = {
                 available += pile.energy || 0;
             }
             
-            if (available > 0) {
+            if (available == 0) {
                 const sources = room.find(FIND_SOURCES);
                 for (let source of sources) {
                     available += source.energy || 0;
