@@ -23,13 +23,22 @@ module.exports = {
         SPAWN_CREEP: 'spawnCreep',
         TRANSFER_ENERGY: 'transferEnergy',
         TAXI: 'taxi',
-        MINE: 'mine'
+        MINE: 'mine',
+        CONSTRUCT: 'construct'
+    },
+    
+    // Типы построек
+    constructionTypes: {
+        ROAD: STRUCTURE_ROAD,
+        EXTENSION: STRUCTURE_EXTENSION,
+        CONTAINER: STRUCTURE_CONTAINER
     },
     
     // Приоритеты задач
     taskPriorities: {
         SPAWN_CREEP: 10,
         TRANSFER_ENERGY: 1,
+        CONSTRUCT: 2
     },
     
     // Статусы задач

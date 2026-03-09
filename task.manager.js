@@ -1,6 +1,7 @@
 const constants = require('constants');
 const common = require('common');
 const resourceManager = require('resource.manager');
+const constructionManager = require('construction.manager');
 module.exports = {
     tryAddTask: function (task, id) {
         // Validate task structure
@@ -97,6 +98,8 @@ module.exports = {
         this.generateTransferEnergyTask();
         // Add miner spawn task if needed
         this.checkAndAddMinerTask();
+        // Generate construction tasks
+        constructionManager.generateTasks();
         // Assign executers to available tasks
         this.assignExecutersToTasks();
     },
