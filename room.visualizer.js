@@ -49,7 +49,7 @@ module.exports = {
         inProgressTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
         // Позиция для отображения (левый верхний угол)
-        let x = 5;
+        let x = 3;
         let y = 2;
 
         // Заголовок
@@ -89,17 +89,18 @@ module.exports = {
         // Тип задачи
         let taskText = `${task.type} / `;
         
-        // Исполнители (только имена)
+        // Исполнители (эмодзи по ролям)
         const execCount = task.executers ? task.executers.length : 0;
         if (execCount > 0) {
-            const executorNames = [];
+            const executorEmojis = [];
             for (let creepId of task.executers) {
                 const creep = Game.getObjectById(creepId);
                 if (creep) {
-                    executorNames.push(creep.name);
+                    const emoji = this.getRoleEmoji(creep.memory.role);
+                    executorEmojis.push(emoji);
                 }
             }
-            taskText += executorNames.join(', ');
+            taskText += executorEmojis.join(' ');
         } else {
             taskText += 'нет исполнителей';
         }
@@ -115,9 +116,25 @@ module.exports = {
         // Левое выравнивание
         visual.text(taskText, x, y, { 
             color: textColor, 
-            font: 0.6,
+            fontSize: 7,
             align: 'left'
         });
+    },
+
+    /**
+     * Возвращает эмодзи для роли крипа
+     */
+    getRoleEmoji: function(role) {
+        switch (role) {
+            case 'universal':
+                return '🔧'; // Разборный инструмент
+            case 'spawner':
+                return '🥚'; // Яйцо (символ спавна)
+            case 'miner':
+                return '⛏️'; // Кирка
+            default:
+                return '❓'; // Неизвестная роль
+        }
     },
 
     /**
