@@ -4,6 +4,8 @@ const constants = require("constants");
 const roomInitializer = require("room.initializer");
 const roomVisualizer = require("room.visualizer");
 
+require("creep.prototype")
+
 module.exports.loop = function () {
     // Инициализация комнаты (один раз в начале)
     roomInitializer.initializeRoom();

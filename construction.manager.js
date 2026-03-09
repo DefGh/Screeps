@@ -21,14 +21,13 @@ module.exports = {
                 return; // Не создаем новые задачи, если уже есть 3 активные
             }
             
-            // Генерируем задачи по очереди, не более одной операции за тик
-            if (!this.buildRoadsToSources()) {
-                if (!this.buildRoadToController()) {
-                    if (!this.buildExtensions()) {
-                        this.buildContainers();
-                    }
-                }
-            }
+            this.buildRoadsToSources();
+            this.buildRoadToController();
+            this.buildExtensions();
+            this.buildContainers();
+                    
+                
+            
         }
     },
     
