@@ -34,6 +34,7 @@ module.exports = {
             if (!reservation.sourceId)
                 continue;
 
+            console.log(JSON.stringify(reservation))
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
