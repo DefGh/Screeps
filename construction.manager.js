@@ -27,6 +27,11 @@ module.exports = {
         }
     },
 
+    getActiveConstructionTasksCount() {
+        var room = Game.spawns['Spawn1'].room;
+        return room.find(FIND_CONSTRUCTION_SITES).length;
+    },
+
     buildContainers() {
 
         let pos = Memory.minerPositions;
