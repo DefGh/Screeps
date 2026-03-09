@@ -322,7 +322,7 @@ module.exports = {
                 pendingTasks.push(task);
             }
         }
-        
+
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
         for (let task of pendingTasks) {
             while (task.executers.length < task.maxExecuters) {
@@ -443,11 +443,6 @@ module.exports = {
                 this.processTaskExecuters(task);
             }
         }
-        if (totalExecuters > 0) {
-        }
-        
-        // Проверяем мертвых крипов и снимаем их резервы (раз в 15 тиков)
-        resourceManager.checkDeadCreeps();
     },
     processTaskExecuters: function (task) {
         // Process all executers assigned to a specific task
