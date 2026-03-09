@@ -1,3 +1,5 @@
+const constants = require('constants');
+
 Creep.prototype.getEnergy = function() {
     // 0. Reserver energy if not reserved
     // reserve amount with source mentoning
@@ -18,13 +20,13 @@ Creep.prototype.getEnergy = function() {
     var source = Game.getObjectById(this.memory.reservation.sourceId);
 
     // if type == pile 
-    if (reservation.type === 'pile' || reservation.type === 'container' ) {
+    if (reservation.type === constants.energySourceType.pile || reservation.type === constants.energySourceType.container ) {
         if (this.withdraw(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }
         return false;
     }
-    if (reservation.type === 'source' ) {
+    if (reservation.type ===  constants.energySourceType.source ) {
         if (this.harvest(source, RESOURCE_ENERGY) != OK) {
             this.moveTo(source)
         }
