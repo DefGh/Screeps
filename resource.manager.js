@@ -1,8 +1,8 @@
-const { json } = require("node:stream/consumers");
+const constants = require("constants");
 
 module.exports = {
     // Инициализация менеджера ресурсов
-    init: function() {
+    init() {
         if (!Memory.resourceManager) {
             Memory.resourceManager = {
                 reservations: {}, 
@@ -38,10 +38,8 @@ module.exports = {
     },
 
     reserveEnergy: function(creep, amount) {
-        
-        console.log(JSON.stringify(Memory.resourceManager))
-        console.log(JSON.stringify(creep))
-
+        this.init();
+        console.log(creep.memory)
         // 0. find where to get energy from container -> pile -> source
         var reservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
