@@ -45,7 +45,7 @@ module.exports = {
 
         if (containers.length > 0) {
             var closest = creep.pos.findClosestByRange(containers);
-            reservation = this.reservation(creep, amount, closest.id, 'container');
+            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.container);
         }
 
         var piles = creep.room.find(FIND_STRUCTURES, {
@@ -54,7 +54,7 @@ module.exports = {
 
         if (piles.length > 0) {
             var closest = creep.pos.findClosestByRange(piles);
-            reservation = this.reservation(creep, amount, closest.id, 'pile');
+            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
         }
 
         var sources = creep.room.find(FIND_SOURCES, {
@@ -63,7 +63,7 @@ module.exports = {
 
         if (sources.length > 0) {
             var closest = creep.pos.findClosestByRange(sources);
-            reservation = this.reservation(creep, amount, closest.id, 'source');
+            reservation = this.reservation(creep, amount, closest.id, constants.energySourceType.source);
         }
 
         Memory.resourceManager.reservations[creep.id] = reservation;
