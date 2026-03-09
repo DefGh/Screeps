@@ -30,6 +30,7 @@ module.exports = {
         var amount = 0;
         for (let reservationId in Memory.resourceManager.reservations) { 
             let reservation = Memory.resourceManager.reservations[reservationId];
+            console.log(JSON.stringify(reservation))
             if (reservation.sourceId === source.id) {
                 amount += reservation.amount;
             }
@@ -40,7 +41,6 @@ module.exports = {
 
     reserveEnergy: function(creep, amount) {
         this.init();
-        console.log(creep.memory)
         // 0. find where to get energy from container -> pile -> source
         var reservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
