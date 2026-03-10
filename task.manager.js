@@ -321,7 +321,7 @@ module.exports = {
         for (let taskId in tasks) {
             let task = tasks[taskId];
             
-            if (task.status == constants.taskStatuses.PENDING && task.executers.length < task.maxExecuters) {
+            if (task.executers.length < task.maxExecuters) {
                 pendingTasks.push(task);
             }
         }
