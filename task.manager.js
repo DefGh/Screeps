@@ -325,9 +325,6 @@ module.exports = {
             }
         }
 
-        pendingTasks = tasks.filter(task => task.status == constants.taskStatuses.pending);
-
-        console.log(JSON.stringify(pendingTasks))
         console.log(JSON.stringify(pendingTasks))
 
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
