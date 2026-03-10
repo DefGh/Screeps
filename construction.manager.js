@@ -1,6 +1,8 @@
 const constants = require('constants');
 const taskManager = require('task.manager');
 
+const maxconstructionTasks = 1;
+
 module.exports = {
     generateTasks() {
         
@@ -16,7 +18,7 @@ module.exports = {
             Memory.constructionTimer = 0; // Обнуляем счетчик
                 
             const activeConstructionTasks = this.getActiveConstructionTasksCount();
-            if (activeConstructionTasks >= 3) {
+            if (activeConstructionTasks >= maxconstructionTasks) {
                 return; 
             }
 
