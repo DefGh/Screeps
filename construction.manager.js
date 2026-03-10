@@ -3,16 +3,13 @@ const taskManager = require('task.manager');
 
 module.exports = {
     generateTasks() {
-        return;
-        // Инициализация таймера в памяти
+        
         if (!Memory.constructionTimer) {
             Memory.constructionTimer = 0;
         }
         
-        // Увеличиваем счетчик каждый тик
         Memory.constructionTimer++;
         
-        // Выполняем генерацию задач только раз в 30 тиков
         if (Memory.constructionTimer >= 30) {
             Memory.constructionTimer = 0; // Обнуляем счетчик
                 
@@ -85,7 +82,7 @@ module.exports = {
             repeatable: false,
             maxExecuters: 2, // 2 исполнителя на задачу
             priority: constants.taskPriorities.CONSTRUCT,
-            data: {
+            task: {
                 structureType: structureType,
                 position: {
                     x: pos.x,
