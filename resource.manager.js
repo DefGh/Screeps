@@ -43,7 +43,7 @@ module.exports = {
         }
 
         var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
-            filter: (structure) => (structure.energy + 300) > amount
+            filter: (structure) => (structure.energy ) > (amount + 300)
         });
 
         if (piles.length > 0) {
