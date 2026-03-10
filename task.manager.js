@@ -1,6 +1,6 @@
 const constants = require('constants');
 const common = require('common');
-const resourceManager = require('resource.manager');
+
 module.exports = {
     tryAddTask: function (task, id) {
         // Validate task structure
@@ -87,6 +87,11 @@ module.exports = {
                 existingUniversalTasks++;
             }
         }
+
+        console.log('universalCreeps: ' + universalCreeps);
+        console.log('existingUniversalTasks: ' + existingUniversalTasks);
+        console.log('neededUniversalCreeps: ' + (3 - universalCreeps - existingUniversalTasks));
+
         // Calculate how many more universal creeps we need
         let neededUniversalCreeps = Math.max(0, 3 - universalCreeps - existingUniversalTasks);
         // Create spawn tasks for the needed universal creeps
