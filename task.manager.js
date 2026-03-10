@@ -325,6 +325,8 @@ module.exports = {
             }
         }
 
+        console.log(JSON.stringify(pendingTasks))
+
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
         for (let task of pendingTasks) {
             while (task.executers.length < task.maxExecuters) {
