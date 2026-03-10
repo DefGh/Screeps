@@ -23,8 +23,12 @@ module.exports = {
                 break;
             case 'delivering':
                 var target = this.getTarget(task)
-                if (creep.deliverEnergy(target)){
+                if (!target)
+                {
                     creep.memory.taskExecutionData.phase = 'done';
+                }
+                if (creep.build(target) != OK){
+                    creep.moveTo(target);
                 }
                 break;
         }
