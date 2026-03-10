@@ -14,7 +14,6 @@ module.exports = {
             Memory.constructionTimer = 0; // Обнуляем счетчик
                 
             const activeConstructionTasks = this.getActiveConstructionTasksCount();
-            console.log(activeConstructionTasks);
             if (activeConstructionTasks >= 3) {
                 return; 
             }
@@ -57,7 +56,7 @@ module.exports = {
         
         // Проверяем, что позиция не занята другим сооружением
         const existingStructures = pos.lookFor(LOOK_STRUCTURES);
-        console.log(existingStructures.length);
+
         if (existingStructures.length > 0) {
             return false; // Не создаем задачу, если позиция занята
         }
@@ -84,7 +83,7 @@ module.exports = {
             repeatable: false,
             maxExecuters: 2, // 2 исполнителя на задачу
             priority: constants.taskPriorities.CONSTRUCT,
-            task: {
+            data: {
                 structureType: structureType,
                 position: {
                     x: pos.x,
