@@ -87,7 +87,7 @@ module.exports = {
      */
     drawTaskLine: function(visual, x, y, task, color) {
         // Тип задачи
-        let taskText = `${task.type} ${task.priority} / `;
+        let taskText = `${task.type} / ${task.priority} / `;
         
         // Исполнители (эмодзи по ролям)
         const execCount = task.executers ? task.executers.length : 0;
