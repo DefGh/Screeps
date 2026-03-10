@@ -74,6 +74,10 @@ module.exports = {
             if (constructionSite) {
                 constructionSiteId = constructionSite.id;
             }
+            else {
+                console.log('Construction site not found');
+                return false;
+            }
         }
         else {
             return false;
