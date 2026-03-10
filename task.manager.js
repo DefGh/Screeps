@@ -326,7 +326,6 @@ module.exports = {
             }
         }
 
-        console.log(`[TaskManager] Found ${pendingTasks.length} pending tasks needing executers`);
 
         // Sort by priority (1 = highest, 999 = lowest)
         // Lower numbers = higher priority
@@ -335,23 +334,15 @@ module.exports = {
             const priorityB = b.priority || 999;
             return priorityA - priorityB;
         });
-        
-        console.log(`[TaskManager] Processing tasks in priority order:`);
+               
         for (let task of pendingTasks) {
-            console.log(`  - Task ${task.id} (${task.type}) - Priority: ${task.priority || 999}, Max executers: ${task.maxExecuters}, Current: ${task.executers.length}`);
-        }
-        
-        for (let task of pendingTasks) {
-            console.log(`[TaskManager] Assigning executers to task ${task.id} (${task.type})`);
             let initialExecuters = task.executers.length;
             while (task.executers.length < task.maxExecuters) {
                 if (!this.assignExecuterToTask(task)) {
-                    console.log(`[TaskManager] No more available executers for task ${task.id}`);
                     break; // No more available executers
                 }
             }
             let assignedCount = task.executers.length - initialExecuters;
-            console.log(`[TaskManager] Assigned ${assignedCount} executers to task ${task.id}, total: ${task.executers.length}/${task.maxExecuters}`);
         }
     },
 
