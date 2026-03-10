@@ -4,7 +4,7 @@ const taskManager = require('task.manager');
 module.exports = {
     generateTasks() {
         
-        populatetasks()
+        this.populatetasks()
 
         if (!Memory.constructionTimer) {
             Memory.constructionTimer = 30;
