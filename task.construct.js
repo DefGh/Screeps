@@ -33,9 +33,9 @@ module.exports = {
     },
 
     getTarget(task) {
-        var creep = Game.getObjectById(task.data.constructionSiteId);
+        var target = Game.getObjectById(task.data.constructionSiteId);
        
-        return creep.room.controller;
+        return target;
     }
     
 };
