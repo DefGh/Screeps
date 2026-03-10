@@ -37,8 +37,8 @@ module.exports = {
     // Приоритеты задач (1 = highest priority, 999 = lowest priority)
     taskPriorities: {
         SPAWN_CREEP: 1,      // Highest priority - essential for survival
-        CONSTRUCT: 2,        // High priority - building infrastructure
-        TAXI: 5,             // Medium priority - resource transport
+        CONSTRUCT: 4,        // High priority - building infrastructure
+        TAXI: 2,             // Medium priority - resource transport
         TRANSFER_ENERGY: 999 // Lowest priority - can wait
     },
     
