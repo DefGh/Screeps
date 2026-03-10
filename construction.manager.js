@@ -4,8 +4,10 @@ const taskManager = require('task.manager');
 module.exports = {
     generateTasks() {
         
+        populatetasks()
+
         if (!Memory.constructionTimer) {
-            Memory.constructionTimer = 0;
+            Memory.constructionTimer = 30;
         }
         
         Memory.constructionTimer++;
@@ -21,7 +23,29 @@ module.exports = {
             if (this.buildContainers()) {
                 return; 
             }
+        }
+    },
 
+    populatetasks() {
+        var tasks = Memory.tasks;
+        for (let taskId in tasks) {
+            let task = tasks[taskId];
+            if (task.type === constants.taskTypes.CONSTRUCT) {
+                if (!task.data.constructionSiteId) {
+
+                    const pos = new RoomPosition(
+                        task.data.position.x,
+                        task.data.position.y,
+                        task.data.position.roomName
+                    );
+
+                    const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
+                    if (site) {
+                        task.data.constructionSiteId = site.id;
+                    }
+                }
+                
+            }
         }
     },
 
@@ -69,14 +93,11 @@ module.exports = {
         
         if (constructionResult === OK) {
             // Находим созданную строительную площадку
-            const constructionSites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
-            const constructionSite = constructionSites.find(site => site.structureType === structureType);
-            if (constructionSite) {
-                constructionSiteId = constructionSite.id;
-            }
-            else {
-                console.log('Construction site not found');
-                return false;
+            const sites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
+    
+            if (sites.length > 0) {
+                constructionSiteId = sites[0].id;
+                console.log("Construction site id:", constructionSiteId);
             }
         }
         else {
