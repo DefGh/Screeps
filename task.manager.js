@@ -26,7 +26,7 @@ module.exports = {
         let completeTask = {
             id: id,
             type: task.type,
-            status: 'pending',
+            status: constants.taskStatuses.PENDING,
             canExecute: task.canExecute || [],
             repeatable: task.repeatable || false,
             maxExecuters: task.maxExecuters || 1,
