@@ -7,12 +7,12 @@ module.exports = {
         this.populatetasks()
 
         if (!Memory.constructionTimer) {
-            Memory.constructionTimer = 30;
+            Memory.constructionTimer = 0;
         }
         
         Memory.constructionTimer++;
         
-        if (Memory.constructionTimer >= 30) {
+        if (Memory.constructionTimer >= 300) {
             Memory.constructionTimer = 0; // Обнуляем счетчик
                 
             const activeConstructionTasks = this.getActiveConstructionTasksCount();
