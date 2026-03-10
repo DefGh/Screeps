@@ -21,6 +21,12 @@ Creep.prototype.getEnergy = function() {
 
     var source = Game.getObjectById(this.memory.reservation.sourceId);
 
+    if (!source)
+    {
+        delete this.memory.reservation;
+        delete Memory.resourceManager.reservations[this.name];
+    }
+
     var before = this.store.getFreeCapacity([RESOURCE_ENERGY]);
 
     // if type == pile 
