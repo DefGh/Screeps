@@ -73,43 +73,81 @@ module.exports = {
 
     reserveEnergy: function(creep, amount) {
         this.init();
-        // 0. find where to get energy from container -> pile -> source
-        var curReservation = {};
-        var containers = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && this.availableEnergy(structure) > amount
+
+        let curReservation;
+
+        // containers
+        let containers = creep.room.find(FIND_STRUCTURES, {
+            filter: (s) =>
+                s.structureType === STRUCTURE_CONTAINER &&
+                this.availableEnergy(s) > amount
         });
 
-        if (containers.length > 0) {
-            var closest = creep.pos.findClosestByRange(containers);
-            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.container);
+        // piles
+        let piles = creep.room.find(FIND_DROPPED_RESOURCES, {
+            filter: (r) =>
+                r.resourceType === RESOURCE_ENERGY &&
+                this.availableEnergy(r) > (amount + 300)
+        });
+
+        // mix containers and piles
+        let targets = [];
+
+        for (let c of containers) {
+            targets.push({
+                type: constants.energySourceType.container,
+                source: c
+            });
+        }
+
+        for (let p of piles) {
+            targets.push({
+                type: constants.energySourceType.pile,
+                source: p
+            });
+        }
+
+        if (targets.length > 0) {
+
+            let closestSource = creep.pos.findClosestByRange(
+                targets.map(t => t.source)
+            );
+
+            let target = targets.find(t => t.source.id === closestSource.id);
+
+            curReservation = this.reservation(
+                creep,
+                amount,
+                target.source.id,
+                target.type
+            );
 
             Memory.resourceManager.reservations[creep.name] = curReservation;
+
             return curReservation;
         }
 
-        var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
-            filter: (structure) => this.availableEnergy(structure) > (amount + 300)
-        });
-
-        if (piles.length > 0) {
-            var closest = creep.pos.findClosestByRange(piles);
-            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
-
-            Memory.resourceManager.reservations[creep.name] = curReservation;
-            return curReservation;
-        }
-
-        var sources = creep.room.find(FIND_SOURCES, {
-            filter: (source) => this.availableEnergy(source) > amount
+        // fallback to sources
+        let sources = creep.room.find(FIND_SOURCES, {
+            filter: (s) => this.availableEnergy(s) > amount
         });
 
         if (sources.length > 0) {
-            var closest = creep.pos.findClosestByRange(sources);
-            curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.source);
-            
+            let closest = creep.pos.findClosestByRange(sources);
+
+            curReservation = this.reservation(
+                creep,
+                amount,
+                closest.id,
+                constants.energySourceType.source
+            );
+
             Memory.resourceManager.reservations[creep.name] = curReservation;
+
             return curReservation;
         }
+
+        return null;
     },
 
     getReservationsInfo: function() {

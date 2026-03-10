@@ -314,39 +314,45 @@ module.exports = {
     },
     // NEW METHODS FOR EXECUTER MANAGEMENT
     assignExecutersToTasks: function () {
-        // Check all pending tasks and assign available executers
+
         let tasks = Memory.tasks;
-        // Extract all pending tasks that need executers assigned
+
         let pendingTasks = [];
+
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            
+
             if (task.executers.length < task.maxExecuters) {
                 pendingTasks.push(task);
             }
         }
 
-
-        // Sort by priority (1 = highest, 999 = lowest)
-        // Lower numbers = higher priority
-        pendingTasks = pendingTasks.sort((a, b) => {
+        // sort by priority
+        pendingTasks.sort((a, b) => {
             const priorityA = a.priority || 999;
             const priorityB = b.priority || 999;
             return priorityA - priorityB;
         });
-               
+
         console.log("===============")
+
         for (let task of pendingTasks) {
+
             console.log(`Assigning executers to task ${task.id}`);
             console.log(`Executers count: ${task.executers.length}`);
             console.log(`Max executers: ${task.maxExecuters}`);
+
             while (task.executers.length < task.maxExecuters) {
-                this.assignExecuterToTask(task)
-                return;
+
+                let assigned = this.assignExecuterToTask(task);
+
+                // если больше некого назначать — выходим из while
+                if (!assigned) {
+                    break;
+                }
             }
         }
     },
-
     assignExecuterToTask: function (task) {
         // Find available creeps that can execute this task
         for (let name in Game.creeps) {
@@ -391,6 +397,9 @@ module.exports = {
         }
         return false;
     },
+
+
+
     isCreepAssignedToTask: function (creepId) {
         let tasks = Memory.tasks;
         for (let taskId in tasks) {
