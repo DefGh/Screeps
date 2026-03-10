@@ -326,8 +326,6 @@ module.exports = {
             }
         }
 
-        console.log(JSON.stringify(pendingTasks))
-
         pendingTasks.sort((a, b) => (a.priority || 0) - (b.priority || 0));
         for (let task of pendingTasks) {
             while (task.executers.length < task.maxExecuters) {
@@ -365,9 +363,6 @@ module.exports = {
                 !task.executers.includes(spawn.id) &&
                 !this.isSpawnAssignedToTask(spawn.id)) {
                 // Check if spawn is not currently busy
-
-                console.log('Task for spawner');
-
                 if (spawn.spawning) {
                     continue; // Skip busy spawns
                 }

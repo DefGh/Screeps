@@ -62,8 +62,6 @@ module.exports = {
             filter: (structure) => (structure.energy + 300) > amount
         });
 
-        console.log(JSON.stringify(piles));
-
         if (piles.length > 0) {
             var closest = creep.pos.findClosestByRange(piles);
             curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
