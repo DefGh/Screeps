@@ -22,4 +22,11 @@ module.exports.loop = function () {
 
     // Run all assigned executers through the task manager
     taskManager.runExecuters();
+
+    for(var i in Memory.creeps) {
+        if(!Game.creeps[i]) {
+            delete Memory.creeps[i];
+            delete Memory.resourceManager.reservations[i];
+        }
+    }
 };

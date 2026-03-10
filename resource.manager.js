@@ -19,7 +19,7 @@ module.exports = {
 
     reservation(creep, amount, from, type) {
         return {
-            creep: creep.id,
+            creep: creep.name,
             amount: amount,
             sourceId: from,
             type: type
@@ -80,7 +80,6 @@ module.exports = {
             let creep = Game.creeps[creepId];
             if (!creep) {
                 delete Memory.resourceManager.reservations[creepId];
-                delete Memory.creeps[creepId];
                 continue;
             }
 
