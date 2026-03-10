@@ -41,7 +41,7 @@ Creep.prototype.getEnergy = function() {
     var after = this.store.getFreeCapacity([RESOURCE_ENERGY]);
     var got = before - after;
     this.memory.reservation.amount -= got;
-    Memory.resourceManager.reservations[this.id] = this.memory.reservation;
+    Memory.resourceManager.reservations[this.name] = this.memory.reservation;
     return false;
 };
 
