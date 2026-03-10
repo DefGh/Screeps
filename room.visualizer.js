@@ -37,7 +37,7 @@ module.exports = {
         // Сортируем задачи по приоритету
         for (let taskId in tasks) {
             const task = tasks[taskId];
-            if (task.status === constants.taskStatuses.pending) {
+            if (task.status === constants.taskStatuses.PENDING) {
                 pendingTasks.push(task);
             } else if (task.status === constants.taskStatuses.inProgress) {
                 inProgressTasks.push(task);
@@ -102,7 +102,7 @@ module.exports = {
             }
             taskText += executorEmojis.join(' ');
         } else {
-            //task.status = constants.taskStatuses.pending;
+            //task.status = constants.taskStatuses.PENDING;
             taskText += 'нет исполнителей';
         }
         

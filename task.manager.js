@@ -306,7 +306,7 @@ module.exports = {
         let tasks = Memory.tasks;
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.type === constants.taskTypes.MINE && task.status === constants.taskStatuses.pending) {
+            if (task.type === constants.taskTypes.MINE && task.status === constants.taskStatuses.PENDING) {
                 return task;
             }
         }
@@ -320,7 +320,12 @@ module.exports = {
         let pendingTasks = [];
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.status == constants.taskStatuses.pending && task.executers.length < task.maxExecuters) {
+            console.log(task.status)
+            console.log(constants.taskStatuses.PENDING)
+            console.log(task.status == constants.taskStatuses.PENDING)
+            console.log(task.maxExecuters)
+            console.log(task.executers.length)
+            if (task.status == constants.taskStatuses.PENDING && task.executers.length < task.maxExecuters) {
                 pendingTasks.push(task);
             }
         }
@@ -351,7 +356,7 @@ module.exports = {
                 creep.memory.taskExecutionData = null;
                 // Mark task as in progress if it's not repeatable
                 if (!task.repeatable) {
-                    task.status = 'inProgress';
+                    task.status = constants.taskStatuses.inProgress;
                 }
                 return true;
             }
@@ -377,7 +382,7 @@ module.exports = {
                 spawn.memory.taskExecutionData = null;
                 // Mark task as in progress if it's not repeatable
                 if (!task.repeatable) {
-                    task.status = 'inProgress';
+                    task.status = constants.taskStatuses.inProgress;
                 }
                 return true;
             }
