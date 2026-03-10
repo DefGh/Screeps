@@ -30,7 +30,7 @@ module.exports = {
     optimise() {
         this.init();
 
-        if (Memory.resourceManager.lastOptimise  < 10000)
+        if (Memory.resourceManager.lastOptimise  < 2000)
         {
             Memory.resourceManager.lastOptimise += 1;
             return;
