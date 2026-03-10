@@ -76,7 +76,7 @@ module.exports = {
         // 0. find where to get energy from container -> pile -> source
         var curReservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && availableEnergy(structure) > amount
+            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && this.availableEnergy(structure) > amount
         });
 
         if (containers.length > 0) {
@@ -88,7 +88,7 @@ module.exports = {
         }
 
         var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
-            filter: (structure) => availableEnergy(structure) > (amount + 300)
+            filter: (structure) => this.availableEnergy(structure) > (amount + 300)
         });
 
         if (piles.length > 0) {
@@ -100,7 +100,7 @@ module.exports = {
         }
 
         var sources = creep.room.find(FIND_SOURCES, {
-            filter: (source) => availableEnergy(source) > amount
+            filter: (source) => this.availableEnergy(source) > amount
         });
 
         if (sources.length > 0) {
