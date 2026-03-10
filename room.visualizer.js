@@ -172,9 +172,7 @@ module.exports = {
             
             for (let creepId in info.reservations) {
                 const amount = info.reservations[creepId];
-                const creep = Game.getObjectById(creepId);
-                const creepName = creep ? creep.name : 'unknown';
-                visual.text(`${creepName}: ${amount}`, x, y, { color: '#888888', font: 0.7 });
+                visual.text(`${creepId}: ${amount}`, x, y, { color: '#888888', font: 0.7 });
                 y += 0.7;
             }
         } else {
