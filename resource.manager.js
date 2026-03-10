@@ -24,14 +24,37 @@ module.exports = {
             sourceId: from,
             type: type
         }
-    },    
+    },   
+    
+    availableEnergy: function(source) {
+        
+        var available = 0;
+
+        if (source.store)
+        {
+            available = source.store[RESOURCE_ENERGY];
+        } else {
+            available = source.energy;
+        }
+
+        for (let creepId in Memory.resourceManager.reservations) {
+            let reservation = Memory.resourceManager.reservations[creepId];
+
+            if (reservation && reservation.sourceId === source.id) {
+                available -= reservation.amount;
+            }
+        }
+
+        return available;
+
+    },
 
     reserveEnergy: function(creep, amount) {
         this.init();
         // 0. find where to get energy from container -> pile -> source
         var curReservation = {};
         var containers = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > amount
+            filter: (structure) => structure.structureType === STRUCTURE_CONTAINER && availableEnergy(structure) > amount
         });
 
         if (containers.length > 0) {
@@ -43,7 +66,7 @@ module.exports = {
         }
 
         var piles = creep.room.find(FIND_DROPPED_RESOURCES, {
-            filter: (structure) => (structure.energy ) > (amount + 300)
+            filter: (structure) => availableEnergy(structure) > (amount + 300)
         });
 
         if (piles.length > 0) {
@@ -55,7 +78,7 @@ module.exports = {
         }
 
         var sources = creep.room.find(FIND_SOURCES, {
-            filter: (source) => source.energy > amount
+            filter: (source) => availableEnergy(source) > amount
         });
 
         if (sources.length > 0) {
