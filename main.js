@@ -3,6 +3,7 @@ const common = require("common");
 const constants = require("constants");
 const roomInitializer = require("room.initializer");
 const roomVisualizer = require("room.visualizer");
+const constructionManager = require("construction.manager");
 
 require("creep.prototype")
 
@@ -19,6 +20,7 @@ module.exports.loop = function () {
     // Assign tasks to available executers and generate new ones
     taskManager.assignExecutersToTasks();
     taskManager.generateTasks();
+    constructionManager.generateTasks();
 
     // Run all assigned executers through the task manager
     taskManager.runExecuters();
