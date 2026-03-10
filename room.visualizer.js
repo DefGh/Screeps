@@ -102,7 +102,7 @@ module.exports = {
             }
             taskText += executorEmojis.join(' ');
         } else {
-            //task.status = constants.taskStatuses.PENDING;
+            task.status = constants.taskStatuses.PENDING;
             taskText += 'нет исполнителей';
         }
         
