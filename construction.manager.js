@@ -75,6 +75,9 @@ module.exports = {
                 constructionSiteId = constructionSite.id;
             }
         }
+        else {
+            return false;
+        }
         
         const taskData = {
             id: id,

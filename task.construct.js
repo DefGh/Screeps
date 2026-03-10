@@ -32,7 +32,6 @@ module.exports = {
                 }
                 break;
         }
-        // Transfer tasks continue until delivery cycle is complete
         return false; // Task continues within cycle
     },
 
