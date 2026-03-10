@@ -151,6 +151,7 @@ module.exports = {
             priority
         );
     },
+
     baseTask: function (id, type, data, canExecute, repeatable, maxExecuters, priority) {
         return {
             id: id,
@@ -319,7 +320,7 @@ module.exports = {
         let pendingTasks = [];
         for (let taskId in tasks) {
             let task = tasks[taskId];
-            if (task.status === constants.taskStatuses.pending && task.executers.length < task.maxExecuters) {
+            if (task.status == constants.taskStatuses.pending && task.executers.length < task.maxExecuters) {
                 pendingTasks.push(task);
             }
         }
