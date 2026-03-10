@@ -22,6 +22,12 @@ module.exports = {
                 }
                 break;
             case 'delivering':
+            
+                if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0){
+                    creep.memory.taskExecutionData.phase = 'getEnergy';
+                    return false;
+                }
+            
                 var target = this.getTarget(task)
                 if (!target)
                 {
@@ -30,6 +36,7 @@ module.exports = {
                 if (creep.build(target) != OK){
                     creep.moveTo(target);
                 }
+
                 break;
         }
         return false; // Task continues within cycle
