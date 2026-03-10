@@ -14,7 +14,8 @@ Creep.prototype.getEnergy = function() {
     }
     
     if (this.store.getFreeCapacity([RESOURCE_ENERGY]) === 0) {
-        delete this.memory.reservation ;
+        delete this.memory.reservation;
+        delete Memory.resourceManager.reservations[this.name];
         return true;
     }
 
@@ -42,6 +43,7 @@ Creep.prototype.getEnergy = function() {
     var got = before - after;
     this.memory.reservation.amount -= got;
     Memory.resourceManager.reservations[this.name] = this.memory.reservation;
+
     return false;
 };
 
