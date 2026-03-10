@@ -88,10 +88,6 @@ module.exports = {
             }
         }
 
-        console.log('universalCreeps: ' + universalCreeps);
-        console.log('existingUniversalTasks: ' + existingUniversalTasks);
-        console.log('neededUniversalCreeps: ' + (3 - universalCreeps - existingUniversalTasks));
-
         // Calculate how many more universal creeps we need
         let neededUniversalCreeps = Math.max(0, 3 - universalCreeps - existingUniversalTasks);
         // Create spawn tasks for the needed universal creeps
@@ -365,6 +361,9 @@ module.exports = {
                 !task.executers.includes(spawn.id) &&
                 !this.isSpawnAssignedToTask(spawn.id)) {
                 // Check if spawn is not currently busy
+
+                console.log('Task for spawner');
+
                 if (spawn.spawning) {
                     continue; // Skip busy spawns
                 }
