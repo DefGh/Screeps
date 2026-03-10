@@ -341,9 +341,8 @@ module.exports = {
             console.log(`Executers count: ${task.executers.length}`);
             console.log(`Max executers: ${task.maxExecuters}`);
             while (task.executers.length < task.maxExecuters) {
-                if (this.assignExecuterToTask(task))
-                    return;
-
+                this.assignExecuterToTask(task)
+                return;
             }
         }
     },
