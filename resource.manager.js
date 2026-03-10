@@ -38,7 +38,7 @@ module.exports = {
             var closest = creep.pos.findClosestByRange(containers);
             curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.container);
 
-            Memory.resourceManager.reservations[creep.id] = curReservation;
+            Memory.resourceManager.reservations[creep.name] = curReservation;
             return curReservation;
         }
 
@@ -50,7 +50,7 @@ module.exports = {
             var closest = creep.pos.findClosestByRange(piles);
             curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.pile);
 
-            Memory.resourceManager.reservations[creep.id] = curReservation;
+            Memory.resourceManager.reservations[creep.name] = curReservation;
             return curReservation;
         }
 
@@ -62,7 +62,7 @@ module.exports = {
             var closest = creep.pos.findClosestByRange(sources);
             curReservation = this.reservation(creep, amount, closest.id, constants.energySourceType.source);
             
-            Memory.resourceManager.reservations[creep.id] = curReservation;
+            Memory.resourceManager.reservations[creep.name] = curReservation;
             return curReservation;
         }
     },
