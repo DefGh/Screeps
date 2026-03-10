@@ -329,7 +329,7 @@ module.exports = {
 
         // Sort by priority (1 = highest, 999 = lowest)
         // Lower numbers = higher priority
-        pendingTasks.sort((a, b) => {
+        pendingTasks = pendingTasks.sort((a, b) => {
             const priorityA = a.priority || 999;
             const priorityB = b.priority || 999;
             return priorityA - priorityB;
