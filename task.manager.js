@@ -335,15 +335,16 @@ module.exports = {
             return priorityA - priorityB;
         });
                
+        console.log("===============")
         for (let task of pendingTasks) {
-            let initialExecuters = task.executers.length;
             console.log(`Assigning executers to task ${task.id}`);
+            console.log(`Executers count: ${task.executers.length}`);
+            console.log(`Max executers: ${task.maxExecuters}`);
             while (task.executers.length < task.maxExecuters) {
                 if (!this.assignExecuterToTask(task)) {
                     break; // No more available executers
                 }
             }
-            let assignedCount = task.executers.length - initialExecuters;
         }
     },
 
