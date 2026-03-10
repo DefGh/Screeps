@@ -56,6 +56,7 @@ module.exports = {
         
         // Проверяем, что позиция не занята другим сооружением
         const existingStructures = pos.lookFor(LOOK_STRUCTURES);
+        console.log(existingStructures);
         if (existingStructures.length > 0) {
             return false; // Не создаем задачу, если позиция занята
         }
