@@ -155,7 +155,7 @@ module.exports = {
         return {
             id: id,
             type: type,
-            status: 'pending',
+            status: constants.taskStatuses.PENDING,
             canExecute: canExecute,
             repeatable: repeatable,
             maxExecuters: maxExecuters,
