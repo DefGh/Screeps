@@ -337,6 +337,7 @@ module.exports = {
                
         for (let task of pendingTasks) {
             let initialExecuters = task.executers.length;
+            console.log(`Assigning executers to task ${task.id}`);
             while (task.executers.length < task.maxExecuters) {
                 if (!this.assignExecuterToTask(task)) {
                     break; // No more available executers
