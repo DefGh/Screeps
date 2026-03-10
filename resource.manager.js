@@ -26,22 +26,6 @@ module.exports = {
         }
     },    
 
-    reservedTotal(source) {
-        var amount = 0;
-        for (let reservationId in Memory.resourceManager.reservations) { 
-            let reservation = Memory.resourceManager.reservations[reservationId];
-            
-            if (!reservation.sourceId)
-                continue;
-
-            if (reservation.sourceId === source.id) {
-                amount += reservation.amount;
-            }
-        }
-
-        return amount;
-    },
-
     reserveEnergy: function(creep, amount) {
         this.init();
         // 0. find where to get energy from container -> pile -> source
@@ -93,13 +77,12 @@ module.exports = {
         for (let creepId in Memory.resourceManager.reservations) {
             let reservation = Memory.resourceManager.reservations[creepId];
 
-            let creep = Game.creeps[creepId];
-            if (!creep) {
-                delete Memory.resourceManager.reservations[creepId];
-                delete Memory.creeps[creepId];
-                continue;
-            }
-
+            // let creep = Game.creeps[creepId];
+            // if (!creep) {
+            //     delete Memory.resourceManager.reservations[creepId];
+            //     delete Memory.creeps[creepId];
+            //     continue;
+            // }
 
             if (reservation && reservation.amount) {
                 totalReserved += reservation.amount;
