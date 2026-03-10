@@ -34,12 +34,12 @@ module.exports = {
         CONTAINER: STRUCTURE_CONTAINER
     },
     
-    // Приоритеты задач
+    // Приоритеты задач (1 = highest priority, 999 = lowest priority)
     taskPriorities: {
-        SPAWN_CREEP: 10,
-        TRANSFER_ENERGY: 10,
-        CONSTRUCT: 2,
-        TAXI: 5
+        SPAWN_CREEP: 1,      // Highest priority - essential for survival
+        CONSTRUCT: 2,        // High priority - building infrastructure
+        TAXI: 5,             // Medium priority - resource transport
+        TRANSFER_ENERGY: 999 // Lowest priority - can wait
     },
     
     // Статусы задач
