@@ -89,7 +89,7 @@ module.exports = {
         }
 
         // Calculate how many more universal creeps we need
-        let neededUniversalCreeps = Math.max(0, 3 - universalCreeps - existingUniversalTasks);
+        let neededUniversalCreeps = Math.max(0, Memory.universals - universalCreeps - existingUniversalTasks);
         // Create spawn tasks for the needed universal creeps
         for (let i = 0; i < neededUniversalCreeps; i++) {
             this.spawnCreepTask(constants.roles.UNIVERSAL, 1);

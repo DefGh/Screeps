@@ -12,7 +12,8 @@ module.exports = {
                 //     sourceId: from,
                 //     type: type
                 // }
-                lastCleanup: 0
+                lastCleanup: 0,
+                lastOptimise: 0,
             };
         }
     },
@@ -26,6 +27,27 @@ module.exports = {
         }
     },   
     
+    optimise() {
+        this.init();
+
+        if (Memory.resourceManager.lastOptimise  < 10000)
+        {
+            Memory.resourceManager.lastOptimise += 1;
+            return;
+        }
+
+        Memory.resourceManager.lastOptimise = 0;
+
+        let info = this.getReservationsInfo();
+        if (info.available > 4000) {
+            Memoory.universals +=1;
+        }
+        if (info.available < 1000) {
+            Memoory.universals -=1;
+        }
+
+    },
+
     availableEnergy: function(source) {
         
         var available = 0;

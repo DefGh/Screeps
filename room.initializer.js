@@ -17,6 +17,7 @@ module.exports = {
         // Подготовка служебной памяти
         Memory.minerPositions = {};
         Memory.sourceTasks = {};
+        Memory.universals = 3;
 
         const sources = room.find(FIND_SOURCES);
 

@@ -4,6 +4,7 @@ const constants = require("constants");
 const roomInitializer = require("room.initializer");
 const roomVisualizer = require("room.visualizer");
 const constructionManager = require("construction.manager");
+const resourceManager = require("resource.manager");
 
 require("creep.prototype")
 
@@ -22,7 +23,8 @@ module.exports.loop = function () {
     taskManager.generateTasks();
     constructionManager.generateTasks();
 
-    // Run all assigned executers through the task manager
+    resourceManager.optimise();
+    
     taskManager.runExecuters();
 
     for(var i in Memory.creeps) {
