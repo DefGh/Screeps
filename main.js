@@ -2,6 +2,7 @@ const bootstrap = require("./bootstrap");
 const cleanup = require("./cleanup");
 const constants = require("./constants");
 const executorRunner = require("./executor.runner");
+const sourceManager = require("./source.manager");
 
 function runSpawns() {
     for (const name in Game.spawns) {
@@ -30,6 +31,7 @@ function runCreeps() {
 module.exports.loop = function () {
     bootstrap.bootstrapMemory();
     cleanup.cleanupDeadCreeps();
+    sourceManager.refreshManagedSources();
     runSpawns();
     runCreeps();
 };

@@ -1,11 +1,12 @@
 const constants = require("./constants");
+const sourceManager = require("./source.manager");
 
 function run(spawn, task) {
     if (!isValidSpawnTask(task) || typeof spawn.spawnCreep !== "function") {
         return true;
     }
 
-    const creepName = buildCreepName(task);
+    const creepName = task.data.creepName || buildCreepName(task);
     const spawnMemory = Object.assign({}, task.data.memory, { role: task.data.role });
     const result = spawn.spawnCreep(task.data.body, creepName, {
         memory: spawnMemory,
@@ -19,6 +20,7 @@ function run(spawn, task) {
         return false;
     }
 
+    cleanupLinkedTasks(task);
     return true;
 }
 
@@ -31,8 +33,8 @@ function ensureUniversalSpawnTask(spawn) {
         return;
     }
 
-    const taskId = nextTaskId(constants.taskTypes.SPAWN_CREEP);
-    Memory.tasks[taskId] = {
+    const taskId = nextSpawnTaskId(constants.roles.UNIVERSAL);
+    addTask({
         id: taskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -45,24 +47,55 @@ function ensureUniversalSpawnTask(spawn) {
             role: constants.roles.UNIVERSAL,
             stage: constants.spawnTaskStages.WAITING,
         },
-    };
+    });
+}
+
+function ensureMinerSpawnTask(spawn) {
+    if (!spawn || !spawn.room) {
+        return;
+    }
+
+    const roomName = spawn.room.name;
+    const minerSources = sourceManager.getMinerSourcesForRoom(roomName);
+
+    for (const sourceData of minerSources) {
+        if (hasMineTaskForSource(sourceData.sourceId)) {
+            continue;
+        }
+
+        createMinerTaskSet(spawn, sourceData.sourceId, sourceData.minerPos);
+    }
 }
 
 function countAliveUniversals() {
+    return countAliveByRole(constants.roles.UNIVERSAL);
+}
+
+function countQueuedUniversals() {
+    return countQueuedByRole(constants.roles.UNIVERSAL);
+}
+
+function countAliveByRole(role, roomName) {
     let count = 0;
 
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
 
-        if (creep.memory && creep.memory.role === constants.roles.UNIVERSAL) {
-            count += 1;
+        if (!creep.memory || creep.memory.role !== role) {
+            continue;
         }
+
+        if (roomName && (!creep.room || creep.room.name !== roomName)) {
+            continue;
+        }
+
+        count += 1;
     }
 
     return count;
 }
 
-function countQueuedUniversals() {
+function countQueuedByRole(role, roomName) {
     let count = 0;
 
     for (const taskId in Memory.tasks) {
@@ -76,7 +109,11 @@ function countQueuedUniversals() {
             continue;
         }
 
-        if (!task.data || task.data.role !== constants.roles.UNIVERSAL) {
+        if (!task.data || task.data.role !== role) {
+            continue;
+        }
+
+        if (roomName && task.data.roomName && task.data.roomName !== roomName) {
             continue;
         }
 
@@ -92,7 +129,7 @@ function countQueuedUniversals() {
 }
 
 function buildUniversalBody(spawn) {
-    const partSet = [WORK, CARRY, MOVE];
+    const partSet = [MOVE, WORK, CARRY, MOVE] ;
     const minimumCost = BODYPART_COST[WORK];
     const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
         ? spawn.room.energyCapacityAvailable
@@ -123,13 +160,132 @@ function buildUniversalBody(spawn) {
     return body;
 }
 
+function buildMinerBody(spawn) {
+    const minimumCost = BODYPART_COST[WORK];
+    const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
+        ? spawn.room.energyCapacityAvailable
+        : minimumCost;
+
+    if (capacity < minimumCost) {
+        return [WORK];
+    }
+
+    const maxPartsByEnergy = Math.floor(capacity / minimumCost);
+    const workParts = Math.max(
+        1,
+        Math.min(constants.miners.MAX_WORK_PARTS, maxPartsByEnergy, MAX_CREEP_SIZE)
+    );
+
+    const body = [];
+
+    for (let index = 0; index < workParts; index += 1) {
+        body.push(WORK);
+    }
+
+    return body;
+}
+
+function createMinerTaskSet(spawn, sourceId, minerPos) {
+    const mineTaskId = nextTaskId(constants.taskTypes.MINE);
+    const taxiTaskId = nextTaskId(constants.taskTypes.TAXI);
+    const spawnTaskId = nextSpawnTaskId(constants.roles.MINER);
+    const creepName = buildPlannedCreepName(constants.roles.MINER, mineTaskId);
+
+    addTask({
+        id: mineTaskId,
+        type: constants.taskTypes.MINE,
+        status: constants.taskStatuses.IN_PROGRESS,
+        canExecute: [constants.roles.MINER],
+        data: {
+            sourceId: sourceId,
+        },
+    });
+
+    addTask({
+        id: taxiTaskId,
+        type: constants.taskTypes.TAXI,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.UNIVERSAL],
+        data: {
+            minerName: creepName,
+            sourceId: sourceId,
+            minerPos: minerPos,
+        },
+    });
+
+    addTask({
+        id: spawnTaskId,
+        type: constants.taskTypes.SPAWN_CREEP,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.SPAWNER],
+        data: {
+            body: buildMinerBody(spawn),
+            creepName: creepName,
+            memory: {
+                role: constants.roles.MINER,
+                taskId: mineTaskId,
+            },
+            mineTaskId: mineTaskId,
+            role: constants.roles.MINER,
+            roomName: spawn.room.name,
+            sourceId: sourceId,
+            stage: constants.spawnTaskStages.WAITING,
+            taxiTaskId: taxiTaskId,
+        },
+    });
+}
+
 function buildCreepName(task) {
     return task.data.role + "_" + Game.time;
+}
+
+function buildPlannedCreepName(role, taskId) {
+    return role + "_" + String(taskId).replace(":", "_");
 }
 
 function nextTaskId(type) {
     Memory.taskSequence += 1;
     return type + ":" + Memory.taskSequence;
+}
+
+function nextSpawnTaskId(role) {
+    Memory.taskSequence += 1;
+    return "spawn:" + role + ":" + Memory.taskSequence;
+}
+
+function hasMineTaskForSource(sourceId) {
+    for (const taskId in Memory.tasks) {
+        const task = Memory.tasks[taskId];
+
+        if (!task || task.type !== constants.taskTypes.MINE || !task.data) {
+            continue;
+        }
+
+        if (task.data.sourceId === sourceId) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function cleanupLinkedTasks(task) {
+    if (!task || !task.data) {
+        return;
+    }
+
+    if (task.data.mineTaskId && Memory.tasks[task.data.mineTaskId]) {
+        delete Memory.tasks[task.data.mineTaskId];
+    }
+
+    if (task.data.taxiTaskId && Memory.tasks[task.data.taxiTaskId]) {
+        delete Memory.tasks[task.data.taxiTaskId];
+    }
+}
+
+function addTask(task) {
+    Memory.tasks[task.id] = task;
+    console.log(`task added ${task.id}`);
 }
 
 function isValidSpawnTask(task) {
@@ -147,6 +303,7 @@ function isValidSpawnTask(task) {
 }
 
 module.exports = {
+    ensureMinerSpawnTask,
     ensureUniversalSpawnTask,
     run,
 };

@@ -1,11 +1,14 @@
 module.exports = {
     roles: {
         SPAWNER: "spawner",
+        MINER: "miner",
         UNIVERSAL: "universal",
     },
 
     taskTypes: {
+        MINE: "mine",
         SPAWN_CREEP: "spawnCreep",
+        TAXI: "taxi",
         TRANSFER_ENERGY: "transferEnergy",
     },
 
@@ -20,6 +23,15 @@ module.exports = {
 
     colony: {
         DEFAULT_TARGET_UNIVERSALS: 3,
+    },
+
+    miners: {
+        MAX_WORK_PARTS: 5,
+    },
+
+    sources: {
+        HOSTILE_DANGER_RANGE: 5,
+        MINER_POS_REFRESH_INTERVAL: 1000,
     },
 
     spawnTaskStages: {

@@ -5,6 +5,10 @@ function bootstrapMemory() {
         Memory.creeps = {};
     }
 
+    if (!Memory.sources) {
+        Memory.sources = {};
+    }
+
     if (!Memory.spawns) {
         Memory.spawns = {};
     }

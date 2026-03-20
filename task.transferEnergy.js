@@ -33,13 +33,13 @@ function ensureTransferEnergyTask(creep) {
     }
 
     const taskId = nextTaskId(constants.taskTypes.TRANSFER_ENERGY);
-    Memory.tasks[taskId] = {
+    addTask({
         id: taskId,
         type: constants.taskTypes.TRANSFER_ENERGY,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.UNIVERSAL],
         data: taskData,
-    };
+    });
 }
 
 function runCollectStage(creep, task) {
@@ -289,6 +289,11 @@ function shouldWaitForSource(sourceType) {
 function nextTaskId(type) {
     Memory.taskSequence += 1;
     return type + ":" + Memory.taskSequence;
+}
+
+function addTask(task) {
+    Memory.tasks[task.id] = task;
+    console.log(`task added ${task.id}`);
 }
 
 function isValidTransferEnergyTask(task) {

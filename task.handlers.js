@@ -1,9 +1,13 @@
 const constants = require("./constants");
+const mineTask = require("./task.mine");
 const spawnCreepTask = require("./task.spawnCreep");
+const taxiTask = require("./task.taxi");
 const transferEnergyTask = require("./task.transferEnergy");
 
 const handlersByType = {
+    [constants.taskTypes.MINE]: mineTask.run,
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask.run,
+    [constants.taskTypes.TAXI]: taxiTask.run,
     [constants.taskTypes.TRANSFER_ENERGY]: transferEnergyTask.run,
 };
 
