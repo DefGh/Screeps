@@ -18,11 +18,14 @@ module.exports = {
     },
 
     dispatcher: {
-        WAIT_TICKS_ON_EMPTY_QUEUE: 15,
+        WAIT_TICKS_ON_EMPTY_QUEUE: 50,
     },
 
     colony: {
         DEFAULT_TARGET_UNIVERSALS: 3,
+        LOW_RESOURCE_THRESHOLD: 3000,
+        MIN_TARGET_UNIVERSALS: 1,
+        TARGET_UNIVERSALS_RECALC_INTERVAL: 1500,
     },
 
     miners: {
@@ -30,7 +33,7 @@ module.exports = {
     },
 
     sources: {
-        HOSTILE_DANGER_RANGE: 5,
+        HOSTILE_DANGER_RANGE: 15,
         MINER_POS_REFRESH_INTERVAL: 1000,
     },
 

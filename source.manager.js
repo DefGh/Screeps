@@ -64,14 +64,14 @@ function getMinerSourcesForRoom(roomName) {
 
 function refreshRoomSources(room) {
     const sources = room.find(FIND_SOURCES);
-    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    const threats = getRoomThreats(room);
 
     for (const source of sources) {
-        refreshSourceMemory(source, hostiles);
+        refreshSourceMemory(source, threats);
     }
 }
 
-function refreshSourceMemory(source, hostiles) {
+function refreshSourceMemory(source, threats) {
     const sourceMemory = getSourceMemory(source.id);
 
     if (
@@ -81,16 +81,16 @@ function refreshSourceMemory(source, hostiles) {
         return;
     }
 
-    if (isMinerPosValid(source, sourceMemory.minerPos, hostiles)) {
+    if (isMinerPosValid(source, sourceMemory.minerPos, threats)) {
         sourceMemory.minerPosCheckedAt = Game.time;
         return;
     }
 
-    sourceMemory.minerPos = findMinerPos(source, hostiles);
+    sourceMemory.minerPos = findMinerPos(source, threats);
     sourceMemory.minerPosCheckedAt = Game.time;
 }
 
-function findMinerPos(source, hostiles) {
+function findMinerPos(source, threats) {
     const roomName = source.room.name;
 
     for (let x = source.pos.x - 1; x <= source.pos.x + 1; x += 1) {
@@ -109,7 +109,7 @@ function findMinerPos(source, hostiles) {
                 roomName: roomName,
             };
 
-            if (isMinerPosValid(source, position, hostiles)) {
+            if (isMinerPosValid(source, position, threats)) {
                 return position;
             }
         }
@@ -118,7 +118,7 @@ function findMinerPos(source, hostiles) {
     return null;
 }
 
-function isMinerPosValid(source, minerPos, hostiles) {
+function isMinerPosValid(source, minerPos, threats) {
     if (!source || !source.room || !minerPos) {
         return false;
     }
@@ -144,7 +144,7 @@ function isMinerPosValid(source, minerPos, hostiles) {
         return false;
     }
 
-    if (isDangerousPosition(hostiles, minerPos.x, minerPos.y)) {
+    if (isDangerousPosition(threats, minerPos.x, minerPos.y)) {
         return false;
     }
 
@@ -179,6 +179,10 @@ function getManagedRoomNames() {
     }
 
     return Object.keys(roomNames);
+}
+
+function getRoomThreats(room) {
+    return room.find(FIND_HOSTILE_CREEPS).concat(room.find(FIND_HOSTILE_STRUCTURES));
 }
 
 function isInsideRoom(x, y) {
@@ -226,9 +230,9 @@ function isImpassableStructure(structure) {
     return true;
 }
 
-function isDangerousPosition(hostiles, x, y) {
-    for (const hostile of hostiles) {
-        if (hostile.pos && hostile.pos.inRangeTo(x, y, constants.sources.HOSTILE_DANGER_RANGE)) {
+function isDangerousPosition(threats, x, y) {
+    for (const threat of threats) {
+        if (threat.pos && threat.pos.inRangeTo(x, y, constants.sources.HOSTILE_DANGER_RANGE)) {
             return true;
         }
     }

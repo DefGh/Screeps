@@ -25,6 +25,10 @@ function bootstrapMemory() {
         Memory.colony.targetUniversals = constants.colony.DEFAULT_TARGET_UNIVERSALS;
     }
 
+    if (!Memory.colony.universalTargeting || typeof Memory.colony.universalTargeting !== "object") {
+        Memory.colony.universalTargeting = {};
+    }
+
     if (typeof Memory.taskSequence !== "number") {
         Memory.taskSequence = 0;
     }

@@ -1,12 +1,13 @@
 const constants = require("./constants");
+const taskHandlers = require("./task.handlers");
 const taskProviders = require("./task.providers");
 
 function getTask(role, executor) {
-    let task = findPendingTask(role);
+    let task = findPendingTask(role, executor);
 
     if (!task) {
         taskProviders.runProviders(role, executor);
-        task = findPendingTask(role);
+        task = findPendingTask(role, executor);
     }
 
     if (!task) {
@@ -20,9 +21,9 @@ function getTask(role, executor) {
     return task;
 }
 
-function findPendingTask(role) {
+function findPendingTask(role, executor) {
     if (role === constants.roles.SPAWNER) {
-        const universalSpawnTask = findPendingUniversalSpawnTask();
+        const universalSpawnTask = findPendingUniversalSpawnTask(executor);
 
         if (universalSpawnTask) {
             return universalSpawnTask;
@@ -30,7 +31,7 @@ function findPendingTask(role) {
     }
 
     if (role === constants.roles.UNIVERSAL) {
-        const taxiTask = findPendingTaskByType(role, constants.taskTypes.TAXI);
+        const taxiTask = findPendingTaskByType(role, constants.taskTypes.TAXI, executor);
 
         if (taxiTask) {
             return taxiTask;
@@ -48,17 +49,21 @@ function findPendingTask(role) {
             continue;
         }
 
+        if (!taskHandlers.canExecuteTask(executor, task)) {
+            continue;
+        }
+
         return task;
     }
 
     return null;
 }
 
-function findPendingUniversalSpawnTask() {
-    return findPendingSpawnTaskByRole(constants.roles.UNIVERSAL);
+function findPendingUniversalSpawnTask(executor) {
+    return findPendingSpawnTaskByRole(constants.roles.UNIVERSAL, executor);
 }
 
-function findPendingSpawnTaskByRole(targetRole) {
+function findPendingSpawnTaskByRole(targetRole, executor) {
     for (const taskId in Memory.tasks) {
         const task = Memory.tasks[taskId];
 
@@ -75,6 +80,10 @@ function findPendingSpawnTaskByRole(targetRole) {
         }
 
         if (task.data.role === targetRole) {
+            if (!taskHandlers.canExecuteTask(executor, task)) {
+                continue;
+            }
+
             return task;
         }
     }
@@ -82,7 +91,7 @@ function findPendingSpawnTaskByRole(targetRole) {
     return null;
 }
 
-function findPendingTaskByType(role, taskType) {
+function findPendingTaskByType(role, taskType, executor) {
     for (const taskId in Memory.tasks) {
         const task = Memory.tasks[taskId];
 
@@ -95,6 +104,10 @@ function findPendingTaskByType(role, taskType) {
         }
 
         if (!Array.isArray(task.canExecute) || !task.canExecute.includes(role)) {
+            continue;
+        }
+
+        if (!taskHandlers.canExecuteTask(executor, task)) {
             continue;
         }
 

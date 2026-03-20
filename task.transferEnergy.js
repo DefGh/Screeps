@@ -50,8 +50,7 @@ function runCollectStage(creep, task) {
         currentEnergy >= task.data.remainingAmount ||
         resourceManager.getFreeEnergyCapacity(creep) === 0
     ) {
-        task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-        task.data.collectRemainingAmount = 0;
+        switchToDeliverStage(task);
         return false;
     }
 
@@ -59,9 +58,7 @@ function runCollectStage(creep, task) {
 
     if (!source) {
         if (currentEnergy > 0) {
-            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-            task.data.remainingAmount = Math.min(task.data.remainingAmount, currentEnergy);
-            task.data.collectRemainingAmount = 0;
+            switchToDeliverStage(task, Math.min(task.data.remainingAmount, currentEnergy));
             return false;
         }
 
@@ -76,9 +73,7 @@ function runCollectStage(creep, task) {
 
     if (availableEnergy <= 0) {
         if (currentEnergy > 0) {
-            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-            task.data.remainingAmount = Math.min(task.data.remainingAmount, currentEnergy);
-            task.data.collectRemainingAmount = 0;
+            switchToDeliverStage(task, Math.min(task.data.remainingAmount, currentEnergy));
             return false;
         }
 
@@ -88,9 +83,11 @@ function runCollectStage(creep, task) {
     const energyBefore = currentEnergy;
     const result = collectFromSource(creep, task, source);
     const collectedAmount = Math.max(0, resourceManager.getUsedEnergy(creep) - energyBefore);
+    let didChangePlanState = false;
 
     if (collectedAmount > 0) {
         task.data.collectRemainingAmount = Math.max(0, task.data.collectRemainingAmount - collectedAmount);
+        didChangePlanState = true;
     }
 
     if (result === OK) {
@@ -99,8 +96,12 @@ function runCollectStage(creep, task) {
             resourceManager.getFreeEnergyCapacity(creep) === 0 ||
             resourceManager.getUsedEnergy(creep) >= task.data.remainingAmount
         ) {
-            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-            task.data.collectRemainingAmount = 0;
+            switchToDeliverStage(task);
+            return false;
+        }
+
+        if (didChangePlanState) {
+            resourceManager.invalidateResourcePlanCache();
         }
 
         return false;
@@ -112,16 +113,16 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_FULL) {
-        task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-        task.data.collectRemainingAmount = 0;
+        switchToDeliverStage(task);
         return false;
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
         if (resourceManager.getUsedEnergy(creep) > 0) {
-            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-            task.data.remainingAmount = Math.min(task.data.remainingAmount, resourceManager.getUsedEnergy(creep));
-            task.data.collectRemainingAmount = 0;
+            switchToDeliverStage(
+                task,
+                Math.min(task.data.remainingAmount, resourceManager.getUsedEnergy(creep))
+            );
             return false;
         }
 
@@ -129,7 +130,14 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_BUSY) {
+        if (didChangePlanState) {
+            resourceManager.invalidateResourcePlanCache();
+        }
         return false;
+    }
+
+    if (didChangePlanState) {
+        resourceManager.invalidateResourcePlanCache();
     }
 
     return true;
@@ -173,6 +181,7 @@ function runDeliverStage(creep, task) {
 
     if (result === OK) {
         task.data.remainingAmount -= energyToSpend;
+        resourceManager.invalidateResourcePlanCache();
 
         if (task.data.remainingAmount <= 0) {
             return true;
@@ -293,7 +302,19 @@ function nextTaskId(type) {
 
 function addTask(task) {
     Memory.tasks[task.id] = task;
+    resourceManager.invalidateResourcePlanCache();
     console.log(`task added ${task.id}`);
+}
+
+function switchToDeliverStage(task, nextRemainingAmount) {
+    task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+    task.data.collectRemainingAmount = 0;
+
+    if (typeof nextRemainingAmount === "number") {
+        task.data.remainingAmount = nextRemainingAmount;
+    }
+
+    resourceManager.invalidateResourcePlanCache();
 }
 
 function isValidTransferEnergyTask(task) {
@@ -310,7 +331,12 @@ function isValidTransferEnergyTask(task) {
     );
 }
 
+function canExecute(executor, task) {
+    return isValidTransferEnergyTask(task) && typeof executor.moveTo === "function";
+}
+
 module.exports = {
+    canExecute,
     ensureTransferEnergyTask,
     run,
 };

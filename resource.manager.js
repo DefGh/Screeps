@@ -1,5 +1,27 @@
 const constants = require("./constants");
 
+const resourcePlanRoles = {
+    SOURCE: "source",
+    TARGET: "target",
+    BOTH: "both",
+};
+
+const resourceDemandModes = {
+    FINITE: "finite",
+    OPEN_ENDED: "openEnded",
+};
+
+const resourceSupplyModes = {
+    FINITE: "finite",
+    OPEN_ENDED: "openEnded",
+};
+
+let resourcePlanCache = {
+    tick: null,
+    version: 0,
+    plansByKey: {},
+};
+
 function buildTransferEnergyTaskData(creep) {
     if (!creep || !creep.room) {
         return null;
@@ -27,6 +49,7 @@ function buildTransferEnergyTaskData(creep) {
 
     if (startsWithEnergy) {
         return {
+            resourceType: RESOURCE_ENERGY,
             sourceId: null,
             sourceType: null,
             targetId: request.object.id,
@@ -44,13 +67,16 @@ function buildTransferEnergyTaskData(creep) {
         return null;
     }
 
-    amount = Math.min(amount, source.remainingAmount);
+    if (!isOpenEndedSourceType(source.type)) {
+        amount = Math.min(amount, source.remainingAmount);
+    }
 
     if (amount <= 0) {
         return null;
     }
 
     return {
+        resourceType: RESOURCE_ENERGY,
         sourceId: source.object.id,
         sourceType: source.type,
         targetId: request.object.id,
@@ -62,95 +88,135 @@ function buildTransferEnergyTaskData(creep) {
     };
 }
 
+function getRoomResourcePlan(room, resourceType) {
+    const targetResourceType = resourceType || RESOURCE_ENERGY;
+
+    if (!room || !room.name) {
+        return [];
+    }
+
+    if (resourcePlanCache.tick !== Game.time) {
+        resourcePlanCache.tick = Game.time;
+        resourcePlanCache.plansByKey = {};
+    }
+
+    const cacheKey = buildRoomPlanCacheKey(room.name, targetResourceType);
+
+    if (!resourcePlanCache.plansByKey[cacheKey]) {
+        resourcePlanCache.plansByKey[cacheKey] = buildRoomResourcePlan(room, targetResourceType);
+    }
+
+    return resourcePlanCache.plansByKey[cacheKey];
+}
+
+function invalidateResourcePlanCache() {
+    resourcePlanCache.version += 1;
+    resourcePlanCache.tick = null;
+    resourcePlanCache.plansByKey = {};
+}
+
 function getAvailableSourceEnergy(sourceType, source, currentTaskId) {
-    const available = getBaseSourceEnergy(sourceType, source) - getReservedOutgoing(source.id, currentTaskId);
-    return Math.max(0, available);
+    if (!source) {
+        return 0;
+    }
+
+    if (isOpenEndedSourceType(sourceType)) {
+        return Infinity;
+    }
+
+    const entry = getResourcePlanEntry(source.room, RESOURCE_ENERGY, source.id);
+    const baseAvailable = entry ? entry.baseAvailable : getBaseSourceEnergy(sourceType, source);
+    let available = entry ? entry.effectiveAvailable : baseAvailable;
+
+    if (currentTaskId) {
+        available += getTaskOutgoingReservationForObject(source.id, currentTaskId, RESOURCE_ENERGY);
+    }
+
+    return Math.max(0, Math.min(baseAvailable, available));
 }
 
 function getRemainingTargetDemand(targetType, target, creep, currentTaskId) {
-    const demand = getBaseTargetDemand(targetType, target, creep);
-
-    if (!shouldReserveIncoming(targetType)) {
-        return demand;
+    if (!target) {
+        return 0;
     }
 
-    return Math.max(0, demand - getReservedIncoming(target.id, currentTaskId));
+    if (isOpenEndedTargetType(targetType)) {
+        return getOpenEndedTargetDemand(targetType, target, creep);
+    }
+
+    const entry = getResourcePlanEntry(target.room, RESOURCE_ENERGY, target.id);
+    const baseDemand = entry ? entry.baseDemand : getBaseTargetDemand(targetType, target, creep);
+    let demand = entry ? entry.effectiveDemand : baseDemand;
+
+    if (currentTaskId && shouldReserveIncoming(targetType)) {
+        demand += getTaskIncomingReservationForObject(target.id, currentTaskId, RESOURCE_ENERGY);
+    }
+
+    return Math.max(0, Math.min(baseDemand, demand));
 }
 
 function findBestEnergyRequest(creep) {
     const room = creep.room;
     const targetTypes = constants.transferEnergyTargetTypes;
+    const plan = getRoomResourcePlan(room, RESOURCE_ENERGY);
 
-    const spawnOrExtension = chooseClosest(creep, room.find(FIND_MY_STRUCTURES, {
-        filter: function (structure) {
-            if (
-                structure.structureType !== STRUCTURE_SPAWN &&
-                structure.structureType !== STRUCTURE_EXTENSION
-            ) {
-                return false;
-            }
-
-            const type = getTargetTypeFromStructure(structure);
-            return getRemainingTargetDemand(type, structure, creep, null) > 0;
-        },
-    }));
+    const spawnOrExtension = chooseClosestPlanEntry(creep, plan, [
+        targetTypes.SPAWN,
+        targetTypes.EXTENSION,
+    ], function (entry) {
+        return getPlanEntryDemand(entry, creep, null) > 0;
+    });
 
     if (spawnOrExtension) {
         return {
-            type: getTargetTypeFromStructure(spawnOrExtension),
-            object: spawnOrExtension,
-            remainingAmount: getRemainingTargetDemand(
-                getTargetTypeFromStructure(spawnOrExtension),
-                spawnOrExtension,
-                creep,
-                null
-            ),
+            type: spawnOrExtension.objectType,
+            object: spawnOrExtension.object,
+            remainingAmount: getPlanEntryDemand(spawnOrExtension, creep, null),
         };
     }
 
     if (getActiveWorkParts(creep) > 0) {
-        const constructionSite = chooseClosest(creep, room.find(FIND_MY_CONSTRUCTION_SITES, {
-            filter: function (site) {
-                return getRemainingTargetDemand(targetTypes.CONSTRUCTION_SITE, site, creep, null) > 0;
-            },
-        }));
+        const constructionSite = chooseClosestPlanEntry(
+            creep,
+            plan,
+            [targetTypes.CONSTRUCTION_SITE],
+            function (entry) {
+                return getPlanEntryDemand(entry, creep, null) > 0;
+            }
+        );
 
         if (constructionSite) {
             return {
-                type: targetTypes.CONSTRUCTION_SITE,
-                object: constructionSite,
-                remainingAmount: getRemainingTargetDemand(
-                    targetTypes.CONSTRUCTION_SITE,
-                    constructionSite,
-                    creep,
-                    null
-                ),
+                type: constructionSite.objectType,
+                object: constructionSite.object,
+                remainingAmount: getPlanEntryDemand(constructionSite, creep, null),
             };
         }
     }
 
     if (room.controller && room.controller.my && getActiveWorkParts(creep) > 0) {
-        return {
-            type: targetTypes.CONTROLLER,
-            object: room.controller,
-            remainingAmount: getRemainingTargetDemand(targetTypes.CONTROLLER, room.controller, creep, null),
-        };
+        const controller = chooseClosestPlanEntry(creep, plan, [targetTypes.CONTROLLER], function (entry) {
+            return getPlanEntryDemand(entry, creep, null) > 0;
+        });
+
+        if (controller) {
+            return {
+                type: controller.objectType,
+                object: controller.object,
+                remainingAmount: getPlanEntryDemand(controller, creep, null),
+            };
+        }
     }
 
-    const container = chooseClosest(creep, room.find(FIND_STRUCTURES, {
-        filter: function (structure) {
-            return (
-                structure.structureType === STRUCTURE_CONTAINER &&
-                getRemainingTargetDemand(targetTypes.CONTAINER, structure, creep, null) > 0
-            );
-        },
-    }));
+    const container = chooseClosestPlanEntry(creep, plan, [targetTypes.CONTAINER], function (entry) {
+        return getPlanEntryDemand(entry, creep, null) > 0;
+    });
 
     if (container) {
         return {
-            type: targetTypes.CONTAINER,
-            object: container,
-            remainingAmount: getRemainingTargetDemand(targetTypes.CONTAINER, container, creep, null),
+            type: container.objectType,
+            object: container.object,
+            remainingAmount: getPlanEntryDemand(container, creep, null),
         };
     }
 
@@ -160,104 +226,335 @@ function findBestEnergyRequest(creep) {
 function findBestEnergySource(creep) {
     const room = creep.room;
     const sourceTypes = constants.transferEnergySourceTypes;
+    const plan = getRoomResourcePlan(room, RESOURCE_ENERGY);
 
-    const pile = chooseClosest(creep, room.find(FIND_DROPPED_RESOURCES, {
-        filter: function (resource) {
-            return (
-                resource.resourceType === RESOURCE_ENERGY &&
-                getAvailableSourceEnergy(sourceTypes.PILE, resource, null) > 0
-            );
-        },
-    }));
+    const nearbyStoredEnergy = chooseClosestPlanEntry(creep, plan, [sourceTypes.PILE, sourceTypes.CONTAINER], function (entry) {
+        return getPlanEntryAvailable(entry, null) > 0;
+    });
 
-    if (pile) {
+    if (nearbyStoredEnergy) {
         return {
-            type: sourceTypes.PILE,
-            object: pile,
-            remainingAmount: getAvailableSourceEnergy(sourceTypes.PILE, pile, null),
+            type: nearbyStoredEnergy.objectType,
+            object: nearbyStoredEnergy.object,
+            remainingAmount: getPlanEntryAvailable(nearbyStoredEnergy, null),
         };
     }
 
-    const container = chooseClosest(creep, room.find(FIND_STRUCTURES, {
-        filter: function (structure) {
-            return (
-                structure.structureType === STRUCTURE_CONTAINER &&
-                getAvailableSourceEnergy(sourceTypes.CONTAINER, structure, null) > 0
-            );
-        },
-    }));
-
-    if (container) {
-        return {
-            type: sourceTypes.CONTAINER,
-            object: container,
-            remainingAmount: getAvailableSourceEnergy(sourceTypes.CONTAINER, container, null),
-        };
-    }
-
-    const source = chooseClosest(creep, room.find(FIND_SOURCES_ACTIVE, {
-        filter: function (node) {
-            return getAvailableSourceEnergy(sourceTypes.SOURCE, node, null) > 0;
-        },
-    }));
+    const source = chooseClosestPlanEntry(creep, plan, [sourceTypes.SOURCE], function (entry) {
+        return getPlanEntryAvailable(entry, null) > 0;
+    });
 
     if (source) {
         return {
-            type: sourceTypes.SOURCE,
-            object: source,
-            remainingAmount: getAvailableSourceEnergy(sourceTypes.SOURCE, source, null),
+            type: source.objectType,
+            object: source.object,
+            remainingAmount: getPlanEntryAvailable(source, null),
         };
     }
 
     return null;
 }
 
-function getReservedIncoming(targetId, currentTaskId) {
-    let reserved = 0;
+function buildRoomResourcePlan(room, resourceType) {
+    const entriesById = {};
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
+    collectEnergySupplies(room, resourceType, entriesById);
+    collectEnergyDemands(room, resourceType, entriesById);
+    applyTaskReservations(entriesById, resourceType);
 
-        if (!isTransferEnergyTask(task)) {
-            continue;
-        }
+    const plan = [];
 
-        if (currentTaskId && task.id === currentTaskId) {
-            continue;
-        }
-
-        if (task.data.targetId !== targetId) {
-            continue;
-        }
-
-        reserved += getIncomingReservationAmount(task);
+    for (const objectId in entriesById) {
+        const entry = entriesById[objectId];
+        entry.effectiveAvailable = Math.max(0, entry.baseAvailable - entry.reservedOutgoing);
+        entry.effectiveDemand = entry.demandMode === resourceDemandModes.FINITE
+            ? Math.max(0, entry.baseDemand - entry.reservedIncoming)
+            : entry.baseDemand;
+        entry.role = getPlanEntryRole(entry);
+        delete entry.hasSupply;
+        delete entry.hasDemand;
+        plan.push(entry);
     }
 
-    return reserved;
+    return plan;
 }
 
-function getReservedOutgoing(sourceId, currentTaskId) {
-    let reserved = 0;
+function collectEnergySupplies(room, resourceType, entriesById) {
+    for (const source of room.find(FIND_SOURCES)) {
+        const entry = ensurePlanEntry(
+            entriesById,
+            source.id,
+            source,
+            constants.transferEnergySourceTypes.SOURCE,
+            resourceType
+        );
+        entry.baseAvailable = 0;
+        entry.supplyMode = resourceSupplyModes.OPEN_ENDED;
+        entry.hasSupply = true;
+    }
 
+    for (const pile of room.find(FIND_DROPPED_RESOURCES, {
+        filter: function (resource) {
+            return resource.resourceType === resourceType;
+        },
+    })) {
+        const entry = ensurePlanEntry(
+            entriesById,
+            pile.id,
+            pile,
+            constants.transferEnergySourceTypes.PILE,
+            resourceType
+        );
+        entry.baseAvailable = getBaseSourceEnergy(constants.transferEnergySourceTypes.PILE, pile);
+        entry.hasSupply = true;
+    }
+
+    for (const container of room.find(FIND_STRUCTURES, {
+        filter: function (structure) {
+            return structure.structureType === STRUCTURE_CONTAINER;
+        },
+    })) {
+        const entry = ensurePlanEntry(
+            entriesById,
+            container.id,
+            container,
+            constants.transferEnergyTargetTypes.CONTAINER,
+            resourceType
+        );
+        entry.baseAvailable = getBaseSourceEnergy(constants.transferEnergySourceTypes.CONTAINER, container);
+        entry.hasSupply = true;
+    }
+}
+
+function collectEnergyDemands(room, resourceType, entriesById) {
+    for (const structure of room.find(FIND_MY_STRUCTURES, {
+        filter: function (candidate) {
+            return (
+                candidate.structureType === STRUCTURE_SPAWN ||
+                candidate.structureType === STRUCTURE_EXTENSION
+            );
+        },
+    })) {
+        const targetType = getTargetTypeFromStructure(structure);
+        const entry = ensurePlanEntry(entriesById, structure.id, structure, targetType, resourceType);
+        entry.baseDemand = getBaseTargetDemand(targetType, structure, null);
+        entry.hasDemand = true;
+    }
+
+    for (const container of room.find(FIND_STRUCTURES, {
+        filter: function (structure) {
+            return structure.structureType === STRUCTURE_CONTAINER;
+        },
+    })) {
+        const entry = ensurePlanEntry(
+            entriesById,
+            container.id,
+            container,
+            constants.transferEnergyTargetTypes.CONTAINER,
+            resourceType
+        );
+        entry.baseDemand = getBaseTargetDemand(constants.transferEnergyTargetTypes.CONTAINER, container, null);
+        entry.hasDemand = true;
+    }
+
+    if (room.controller && room.controller.my) {
+        const controller = room.controller;
+        const entry = ensurePlanEntry(
+            entriesById,
+            controller.id,
+            controller,
+            constants.transferEnergyTargetTypes.CONTROLLER,
+            resourceType
+        );
+        entry.baseDemand = 0;
+        entry.demandMode = resourceDemandModes.OPEN_ENDED;
+        entry.hasDemand = true;
+    }
+
+    for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        const entry = ensurePlanEntry(
+            entriesById,
+            site.id,
+            site,
+            constants.transferEnergyTargetTypes.CONSTRUCTION_SITE,
+            resourceType
+        );
+        entry.baseDemand = getBaseTargetDemand(constants.transferEnergyTargetTypes.CONSTRUCTION_SITE, site, null);
+        entry.hasDemand = true;
+    }
+}
+
+function ensurePlanEntry(entriesById, objectId, object, objectType, resourceType) {
+    if (!entriesById[objectId]) {
+        entriesById[objectId] = {
+            objectId: objectId,
+            object: object,
+            objectType: objectType,
+            resourceType: resourceType,
+            role: resourcePlanRoles.TARGET,
+            baseAvailable: 0,
+            reservedOutgoing: 0,
+            effectiveAvailable: 0,
+            baseDemand: 0,
+            reservedIncoming: 0,
+            effectiveDemand: 0,
+            demandMode: resourceDemandModes.FINITE,
+            supplyMode: resourceSupplyModes.FINITE,
+            hasSupply: false,
+            hasDemand: false,
+        };
+    }
+
+    const entry = entriesById[objectId];
+    entry.object = object;
+    entry.objectType = objectType;
+    entry.resourceType = resourceType;
+
+    return entry;
+}
+
+function applyTaskReservations(entriesById, resourceType) {
     for (const taskId in Memory.tasks) {
         const task = Memory.tasks[taskId];
 
-        if (!isTransferEnergyTask(task)) {
+        if (!isTransferEnergyTask(task) || getTransferTaskResourceType(task) !== resourceType) {
             continue;
         }
 
-        if (currentTaskId && task.id === currentTaskId) {
-            continue;
+        if (task.data.sourceId && entriesById[task.data.sourceId]) {
+            entriesById[task.data.sourceId].reservedOutgoing += getOutgoingReservationAmount(task);
         }
 
-        if (task.data.sourceId !== sourceId) {
-            continue;
+        if (task.data.targetId && entriesById[task.data.targetId]) {
+            entriesById[task.data.targetId].reservedIncoming += getIncomingReservationAmount(task);
         }
+    }
+}
 
-        reserved += getOutgoingReservationAmount(task);
+function getPlanEntryRole(entry) {
+    if (entry.hasSupply && entry.hasDemand) {
+        return resourcePlanRoles.BOTH;
     }
 
-    return reserved;
+    if (entry.hasSupply) {
+        return resourcePlanRoles.SOURCE;
+    }
+
+    return resourcePlanRoles.TARGET;
+}
+
+function getResourcePlanEntry(room, resourceType, objectId) {
+    if (!room || !objectId) {
+        return null;
+    }
+
+    const plan = getRoomResourcePlan(room, resourceType);
+
+    for (const entry of plan) {
+        if (entry.objectId === objectId) {
+            return entry;
+        }
+    }
+
+    return null;
+}
+
+function chooseClosestPlanEntry(executor, plan, objectTypes, predicate) {
+    const matchingObjects = [];
+    const matchingEntriesById = {};
+
+    for (const entry of plan) {
+        if (!entry || !entry.object || !objectTypes.includes(entry.objectType)) {
+            continue;
+        }
+
+        if (predicate && !predicate(entry)) {
+            continue;
+        }
+
+        matchingObjects.push(entry.object);
+        matchingEntriesById[entry.objectId] = entry;
+    }
+
+    const closestObject = chooseClosest(executor, matchingObjects);
+
+    if (!closestObject) {
+        return null;
+    }
+
+    return matchingEntriesById[closestObject.id] || null;
+}
+
+function getPlanEntryAvailable(entry, currentTaskId) {
+    if (!entry) {
+        return 0;
+    }
+
+    if (entry.supplyMode === resourceSupplyModes.OPEN_ENDED) {
+        return Infinity;
+    }
+
+    let available = entry.effectiveAvailable;
+
+    if (currentTaskId) {
+        available += getTaskOutgoingReservationForObject(entry.objectId, currentTaskId, entry.resourceType);
+    }
+
+    return Math.max(0, Math.min(entry.baseAvailable, available));
+}
+
+function getPlanEntryDemand(entry, creep, currentTaskId) {
+    if (!entry) {
+        return 0;
+    }
+
+    if (entry.demandMode === resourceDemandModes.OPEN_ENDED) {
+        return getOpenEndedTargetDemand(entry.objectType, entry.object, creep);
+    }
+
+    let demand = entry.effectiveDemand;
+
+    if (currentTaskId && shouldReserveIncoming(entry.objectType)) {
+        demand += getTaskIncomingReservationForObject(entry.objectId, currentTaskId, entry.resourceType);
+    }
+
+    return Math.max(0, Math.min(entry.baseDemand, demand));
+}
+
+function getOpenEndedTargetDemand(targetType, target, creep) {
+    if (targetType === constants.transferEnergyTargetTypes.CONTROLLER) {
+        return Math.max(getEnergyCapacity(creep), getActiveWorkParts(creep));
+    }
+
+    return getBaseTargetDemand(targetType, target, creep);
+}
+
+function getTaskIncomingReservationForObject(targetId, currentTaskId, resourceType) {
+    const task = Memory.tasks[currentTaskId];
+
+    if (
+        !isTransferEnergyTask(task) ||
+        task.data.targetId !== targetId ||
+        getTransferTaskResourceType(task) !== resourceType
+    ) {
+        return 0;
+    }
+
+    return getIncomingReservationAmount(task);
+}
+
+function getTaskOutgoingReservationForObject(sourceId, currentTaskId, resourceType) {
+    const task = Memory.tasks[currentTaskId];
+
+    if (
+        !isTransferEnergyTask(task) ||
+        task.data.sourceId !== sourceId ||
+        getTransferTaskResourceType(task) !== resourceType
+    ) {
+        return 0;
+    }
+
+    return getOutgoingReservationAmount(task);
 }
 
 function getIncomingReservationAmount(task) {
@@ -274,6 +571,14 @@ function getOutgoingReservationAmount(task) {
 
 function shouldReserveIncoming(targetType) {
     return targetType !== constants.transferEnergyTargetTypes.CONTROLLER;
+}
+
+function getTransferTaskResourceType(task) {
+    if (task && task.data && typeof task.data.resourceType === "string") {
+        return task.data.resourceType;
+    }
+
+    return RESOURCE_ENERGY;
 }
 
 function getBaseSourceEnergy(sourceType, source) {
@@ -294,6 +599,10 @@ function getBaseSourceEnergy(sourceType, source) {
     }
 
     return 0;
+}
+
+function isOpenEndedSourceType(sourceType) {
+    return sourceType === constants.transferEnergySourceTypes.SOURCE;
 }
 
 function getBaseTargetDemand(targetType, target, creep) {
@@ -318,6 +627,10 @@ function getBaseTargetDemand(targetType, target, creep) {
     }
 
     return 0;
+}
+
+function isOpenEndedTargetType(targetType) {
+    return targetType === constants.transferEnergyTargetTypes.CONTROLLER;
 }
 
 function getTargetTypeFromStructure(structure) {
@@ -349,7 +662,7 @@ function chooseClosest(executor, objects) {
 }
 
 function getActiveWorkParts(creep) {
-    if (typeof creep.getActiveBodyparts === "function") {
+    if (creep && typeof creep.getActiveBodyparts === "function") {
         return creep.getActiveBodyparts(WORK);
     }
 
@@ -357,10 +670,14 @@ function getActiveWorkParts(creep) {
 }
 
 function getBuildPower() {
-    return typeof BUILD_POWER === "number" ? BUILD_POWER : 5;
+    return 1; //typeof BUILD_POWER === "number" ? BUILD_POWER : 1; 
 }
 
 function getUsedEnergy(object) {
+    if (!object) {
+        return 0;
+    }
+
     if (object.store && typeof object.store.getUsedCapacity === "function") {
         return object.store.getUsedCapacity(RESOURCE_ENERGY);
     }
@@ -377,6 +694,10 @@ function getUsedEnergy(object) {
 }
 
 function getFreeEnergyCapacity(object) {
+    if (!object) {
+        return 0;
+    }
+
     if (object.store && typeof object.store.getFreeCapacity === "function") {
         return object.store.getFreeCapacity(RESOURCE_ENERGY);
     }
@@ -389,6 +710,10 @@ function getFreeEnergyCapacity(object) {
 }
 
 function getEnergyCapacity(object) {
+    if (!object) {
+        return 0;
+    }
+
     if (object.store && typeof object.store.getCapacity === "function") {
         return object.store.getCapacity(RESOURCE_ENERGY);
     }
@@ -401,6 +726,10 @@ function getEnergyCapacity(object) {
 }
 
 function getFreeEnergyOfTarget(target) {
+    if (!target) {
+        return 0;
+    }
+
     if (target.store && typeof target.store.getFreeCapacity === "function") {
         return target.store.getFreeCapacity(RESOURCE_ENERGY);
     }
@@ -419,6 +748,10 @@ function isTransferEnergyTask(task) {
     return Boolean(task && task.type === constants.taskTypes.TRANSFER_ENERGY && task.data);
 }
 
+function buildRoomPlanCacheKey(roomName, resourceType) {
+    return `${Game.time}:${resourcePlanCache.version}:${roomName}:${resourceType}`;
+}
+
 module.exports = {
     buildTransferEnergyTaskData,
     getActiveWorkParts,
@@ -426,5 +759,7 @@ module.exports = {
     getEnergyCapacity,
     getFreeEnergyCapacity,
     getRemainingTargetDemand,
+    getRoomResourcePlan,
     getUsedEnergy,
+    invalidateResourcePlanCache,
 };

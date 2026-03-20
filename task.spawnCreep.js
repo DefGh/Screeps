@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
 
 function run(spawn, task) {
@@ -13,6 +14,7 @@ function run(spawn, task) {
     });
 
     if (result === OK) {
+        resourceManager.invalidateResourcePlanCache();
         return true;
     }
 
@@ -51,7 +53,10 @@ function ensureUniversalSpawnTask(spawn) {
 }
 
 function ensureMinerSpawnTask(spawn) {
-    if (!spawn || !spawn.room) {
+    const targetUniversals = Memory.colony.targetUniversals;
+    const aliveUniversals = countAliveUniversals();
+
+    if (aliveUniversals < targetUniversals) {
         return;
     }
 
@@ -302,7 +307,12 @@ function isValidSpawnTask(task) {
     );
 }
 
+function canExecute(executor, task) {
+    return isValidSpawnTask(task) && typeof executor.spawnCreep === "function";
+}
+
 module.exports = {
+    canExecute,
     ensureMinerSpawnTask,
     ensureUniversalSpawnTask,
     run,

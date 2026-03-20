@@ -45,22 +45,14 @@ function run(creep, task) {
         return false;
     }
 
-    const minerMoveDirection = miner.pos.getDirectionTo(creep);
-
     if (isExactPosition(creep.pos, task.data.minerPos)) {
-        const pullOutDirection = findPullOutDirection(creep, miner);
-
-        if (!pullOutDirection) {
-            return false;
-        }
-
-        creep.move(pullOutDirection);
-        miner.move(minerMoveDirection);
-        return false;
+         creep.move(miner);
+    }
+    else {
+        creep.moveTo(targetPos);
     }
 
-    creep.moveTo(targetPos);
-    miner.move(minerMoveDirection);
+    miner.move(creep);
 
     return false;
 }
@@ -202,9 +194,9 @@ function isExactPosition(position, targetPos) {
     return Boolean(
         position &&
         targetPos &&
-        position.x === targetPos.x &&
-        position.y === targetPos.y &&
-        position.roomName === targetPos.roomName
+        position.x == targetPos.x &&
+        position.y == targetPos.y &&
+        position.roomName == targetPos.roomName
     );
 }
 
@@ -222,6 +214,26 @@ function isValidTaxiTask(task) {
     );
 }
 
+function canExecute(executor, task) {
+    if (
+        !isValidTaxiTask(task) ||
+        typeof executor.moveTo !== "function" ||
+        typeof executor.pull !== "function" ||
+        typeof executor.move !== "function"
+    ) {
+        return false;
+    }
+
+    const miner = Game.creeps[task.data.minerName];
+
+    if (miner) {
+        return !miner.spawning;
+    }
+
+    return !hasPendingSpawnForMiner(task.data.minerName);
+}
+
 module.exports = {
+    canExecute,
     run,
 };

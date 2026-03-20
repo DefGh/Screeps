@@ -11,6 +11,7 @@ function runExecutor(executor) {
     const currentTask = getCurrentTask(executor, role);
 
     if (currentTask) {
+        say(executor)
         taskHandlers.executeTask(executor, currentTask);
         return;
     }
@@ -31,8 +32,15 @@ function runExecutor(executor) {
         return;
     }
 
+    say(executor)
     console.log(`${executor.name} assigned new task ${task.id}`);
     taskHandlers.executeTask(executor, task);
+}
+
+function say(executor) {
+    if (executor.say) {
+        executor.say(executor.memory.taskId)
+    }
 }
 
 function getCurrentTask(executor, role) {

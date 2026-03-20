@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
 
 function run(creep, task) {
@@ -23,6 +24,10 @@ function run(creep, task) {
     }
 
     const result = creep.harvest(source);
+
+    if (result === OK) {
+        resourceManager.invalidateResourcePlanCache();
+    }
 
     if (
         result === OK ||
@@ -64,6 +69,11 @@ function isValidMineTask(task) {
     );
 }
 
+function canExecute(executor, task) {
+    return isValidMineTask(task) && typeof executor.harvest === "function";
+}
+
 module.exports = {
+    canExecute,
     run,
 };
