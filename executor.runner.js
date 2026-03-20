@@ -26,10 +26,12 @@ function runExecutor(executor) {
     const task = dispatcher.getTask(role, executor);
 
     if (!task) {
+        // log new task assigment 
         executor.memory.waitUntil = Game.time + constants.dispatcher.WAIT_TICKS_ON_EMPTY_QUEUE;
         return;
     }
 
+    console.log(`${executor.name} assigned new task ${task.id}`);
     taskHandlers.executeTask(executor, task);
 }
 

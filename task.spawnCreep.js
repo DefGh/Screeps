@@ -92,32 +92,35 @@ function countQueuedUniversals() {
 }
 
 function buildUniversalBody(spawn) {
-    const body = [];
     const partSet = [WORK, CARRY, MOVE];
-    const setCost = 200;
+    const minimumCost = BODYPART_COST[WORK];
     const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
         ? spawn.room.energyCapacityAvailable
-        : setCost;
+        : minimumCost;
 
-    while (body.length + partSet.length <= MAX_CREEP_SIZE && bodyCost(body) + setCost <= capacity) {
-        body.push(WORK, CARRY, MOVE);
+    if (capacity < minimumCost) {
+        return [WORK];
     }
 
-    if (body.length === 0) {
-        return [WORK, CARRY, MOVE];
+    const body = [];
+    let remainingEnergy = capacity;
+    let nextPartIndex = 0;
+
+    while (body.length < MAX_CREEP_SIZE) {
+        nextPartIndex =  body.length % partSet.length;
+        
+        const nextPart = partSet[nextPartIndex];
+        const nextPartCost = BODYPART_COST[nextPart];
+
+        if (remainingEnergy < nextPartCost) {
+            break;
+        }
+
+        body.push(nextPart);
+        remainingEnergy -= nextPartCost;
     }
 
     return body;
-}
-
-function bodyCost(body) {
-    let total = 0;
-
-    for (const part of body) {
-        total += BODYPART_COST[part];
-    }
-
-    return total;
 }
 
 function buildCreepName(task) {

@@ -28,7 +28,6 @@ function runCreeps() {
 }
 
 module.exports.loop = function () {
-    console.log(1)
     bootstrap.bootstrapMemory();
     cleanup.cleanupDeadCreeps();
     runSpawns();

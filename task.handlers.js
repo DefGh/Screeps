@@ -1,8 +1,10 @@
 const constants = require("./constants");
 const spawnCreepTask = require("./task.spawnCreep");
+const transferEnergyTask = require("./task.transferEnergy");
 
 const handlersByType = {
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask.run,
+    [constants.taskTypes.TRANSFER_ENERGY]: transferEnergyTask.run,
 };
 
 function executeTask(executor, task) {

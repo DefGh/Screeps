@@ -6,6 +6,7 @@ module.exports = {
 
     taskTypes: {
         SPAWN_CREEP: "spawnCreep",
+        TRANSFER_ENERGY: "transferEnergy",
     },
 
     taskStatuses: {
@@ -23,5 +24,24 @@ module.exports = {
 
     spawnTaskStages: {
         WAITING: "waiting",
+    },
+
+    transferEnergyTaskStages: {
+        COLLECT: "collect",
+        DELIVER: "deliver",
+    },
+
+    transferEnergySourceTypes: {
+        SOURCE: "source",
+        PILE: "pile",
+        CONTAINER: "container",
+    },
+
+    transferEnergyTargetTypes: {
+        CONTAINER: "container",
+        SPAWN: "spawn",
+        EXTENSION: "extension",
+        CONTROLLER: "controller",
+        CONSTRUCTION_SITE: "constructionSite",
     },
 };

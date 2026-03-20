@@ -1,0 +1,311 @@
+const constants = require("./constants");
+const resourceManager = require("./resource.manager");
+
+function run(creep, task) {
+    if (!isValidTransferEnergyTask(task) || typeof creep.moveTo !== "function") {
+        return true;
+    }
+
+    if (task.data.remainingAmount <= 0) {
+        return true;
+    }
+
+    if (task.data.stage === constants.transferEnergyTaskStages.COLLECT) {
+        return runCollectStage(creep, task);
+    }
+
+    if (task.data.stage === constants.transferEnergyTaskStages.DELIVER) {
+        return runDeliverStage(creep, task);
+    }
+
+    return true;
+}
+
+function ensureTransferEnergyTask(creep) {
+    if (!creep.room || !creep.memory) {
+        return;
+    }
+
+    const taskData = resourceManager.buildTransferEnergyTaskData(creep);
+
+    if (!taskData) {
+        return;
+    }
+
+    const taskId = nextTaskId(constants.taskTypes.TRANSFER_ENERGY);
+    Memory.tasks[taskId] = {
+        id: taskId,
+        type: constants.taskTypes.TRANSFER_ENERGY,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.UNIVERSAL],
+        data: taskData,
+    };
+}
+
+function runCollectStage(creep, task) {
+    const currentEnergy = resourceManager.getUsedEnergy(creep);
+
+    if (
+        task.data.collectRemainingAmount <= 0 ||
+        currentEnergy >= task.data.remainingAmount ||
+        resourceManager.getFreeEnergyCapacity(creep) === 0
+    ) {
+        task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+        task.data.collectRemainingAmount = 0;
+        return false;
+    }
+
+    const source = resolveObject(task.data.sourceId);
+
+    if (!source) {
+        if (currentEnergy > 0) {
+            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+            task.data.remainingAmount = Math.min(task.data.remainingAmount, currentEnergy);
+            task.data.collectRemainingAmount = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    const availableEnergy = resourceManager.getAvailableSourceEnergy(
+        task.data.sourceType,
+        source,
+        task.id
+    );
+
+    if (availableEnergy <= 0) {
+        if (currentEnergy > 0) {
+            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+            task.data.remainingAmount = Math.min(task.data.remainingAmount, currentEnergy);
+            task.data.collectRemainingAmount = 0;
+            return false;
+        }
+
+        return shouldWaitForSource(task.data.sourceType);
+    }
+
+    const energyBefore = currentEnergy;
+    const result = collectFromSource(creep, task, source);
+    const collectedAmount = Math.max(0, resourceManager.getUsedEnergy(creep) - energyBefore);
+
+    if (collectedAmount > 0) {
+        task.data.collectRemainingAmount = Math.max(0, task.data.collectRemainingAmount - collectedAmount);
+    }
+
+    if (result === OK) {
+        if (
+            task.data.collectRemainingAmount <= 0 ||
+            resourceManager.getFreeEnergyCapacity(creep) === 0 ||
+            resourceManager.getUsedEnergy(creep) >= task.data.remainingAmount
+        ) {
+            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+            task.data.collectRemainingAmount = 0;
+        }
+
+        return false;
+    }
+
+    if (result === ERR_NOT_IN_RANGE) {
+        creep.moveTo(source);
+        return false;
+    }
+
+    if (result === ERR_FULL) {
+        task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+        task.data.collectRemainingAmount = 0;
+        return false;
+    }
+
+    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+        if (resourceManager.getUsedEnergy(creep) > 0) {
+            task.data.stage = constants.transferEnergyTaskStages.DELIVER;
+            task.data.remainingAmount = Math.min(task.data.remainingAmount, resourceManager.getUsedEnergy(creep));
+            task.data.collectRemainingAmount = 0;
+            return false;
+        }
+
+        return shouldWaitForSource(task.data.sourceType);
+    }
+
+    if (result === ERR_BUSY) {
+        return false;
+    }
+
+    return true;
+}
+
+function runDeliverStage(creep, task) {
+    if (task.data.remainingAmount <= 0) {
+        return true;
+    }
+
+    const currentEnergy = resourceManager.getUsedEnergy(creep);
+
+    if (currentEnergy <= 0) {
+        return true;
+    }
+
+    const target = resolveObject(task.data.targetId);
+
+    if (!target) {
+        return true;
+    }
+
+    const targetDemand = resourceManager.getRemainingTargetDemand(
+        task.data.targetType,
+        target,
+        creep,
+        task.id
+    );
+
+    if (targetDemand <= 0) {
+        return true;
+    }
+
+    const energyToSpend = calculateDeliveryAmount(creep, task, targetDemand);
+
+    if (energyToSpend <= 0) {
+        return true;
+    }
+
+    const result = deliverToTarget(creep, task, target, energyToSpend);
+
+    if (result === OK) {
+        task.data.remainingAmount -= energyToSpend;
+
+        if (task.data.remainingAmount <= 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    if (result === ERR_NOT_IN_RANGE) {
+        creep.moveTo(target);
+        return false;
+    }
+
+    if (result === ERR_BUSY) {
+        return false;
+    }
+
+    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+        return true;
+    }
+
+    if (result === ERR_FULL || result === ERR_INVALID_TARGET) {
+        return true;
+    }
+
+    return true;
+}
+
+function collectFromSource(creep, task, source) {
+    if (task.data.sourceType === constants.transferEnergySourceTypes.SOURCE) {
+        return creep.harvest(source);
+    }
+
+    if (task.data.sourceType === constants.transferEnergySourceTypes.PILE) {
+        return creep.pickup(source);
+    }
+
+    if (task.data.sourceType === constants.transferEnergySourceTypes.CONTAINER) {
+        const amount = Math.min(task.data.collectRemainingAmount, resourceManager.getFreeEnergyCapacity(creep));
+        return creep.withdraw(source, RESOURCE_ENERGY, amount);
+    }
+
+    return ERR_INVALID_TARGET;
+}
+
+function deliverToTarget(creep, task, target, energyToSpend) {
+    if (
+        task.data.targetType === constants.transferEnergyTargetTypes.SPAWN ||
+        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION ||
+        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+    ) {
+        return creep.transfer(target, RESOURCE_ENERGY, energyToSpend);
+    }
+
+    if (task.data.targetType === constants.transferEnergyTargetTypes.CONTROLLER) {
+        return creep.upgradeController(target);
+    }
+
+    if (task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE) {
+        return creep.build(target);
+    }
+
+    return ERR_INVALID_TARGET;
+}
+
+function calculateDeliveryAmount(creep, task, targetDemand) {
+    const currentEnergy = resourceManager.getUsedEnergy(creep);
+    const remainingAmount = task.data.remainingAmount;
+
+    if (
+        task.data.targetType === constants.transferEnergyTargetTypes.SPAWN ||
+        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION ||
+        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+    ) {
+        return Math.min(currentEnergy, remainingAmount, targetDemand);
+    }
+
+    if (task.data.targetType === constants.transferEnergyTargetTypes.CONTROLLER) {
+        const perTick = Math.min(
+            resourceManager.getActiveWorkParts(creep) * getUpgradeControllerPower(),
+            getControllerUpgradeLimit()
+        );
+        return Math.min(currentEnergy, remainingAmount, targetDemand, perTick);
+    }
+
+    if (task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE) {
+        const perTick = resourceManager.getActiveWorkParts(creep);
+        return Math.min(currentEnergy, remainingAmount, targetDemand, perTick);
+    }
+
+    return 0;
+}
+
+function resolveObject(objectId) {
+    if (!objectId) {
+        return null;
+    }
+
+    return Game.getObjectById(objectId);
+}
+
+function getUpgradeControllerPower() {
+    return typeof UPGRADE_CONTROLLER_POWER === "number" ? UPGRADE_CONTROLLER_POWER : 1;
+}
+
+function getControllerUpgradeLimit() {
+    return Infinity;
+}
+
+function shouldWaitForSource(sourceType) {
+    return sourceType === constants.transferEnergySourceTypes.SOURCE;
+}
+
+function nextTaskId(type) {
+    Memory.taskSequence += 1;
+    return type + ":" + Memory.taskSequence;
+}
+
+function isValidTransferEnergyTask(task) {
+    return Boolean(
+        task &&
+        task.type === constants.taskTypes.TRANSFER_ENERGY &&
+        task.data &&
+        typeof task.data.targetId === "string" &&
+        typeof task.data.targetType === "string" &&
+        typeof task.data.amount === "number" &&
+        typeof task.data.remainingAmount === "number" &&
+        typeof task.data.collectRemainingAmount === "number" &&
+        typeof task.data.stage === "string"
+    );
+}
+
+module.exports = {
+    ensureTransferEnergyTask,
+    run,
+};
