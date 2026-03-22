@@ -1,6 +1,6 @@
 const resourceManager = require("./resource.manager");
 
-const SQUARE_SIZE = 15;
+const SQUARE_SIZE = 10;
 const TEXT_X_PADDING = 0.45;
 const TEXT_Y_PADDING = 0.75;
 const TEXT_LINE_SPACING = 0.58;
@@ -139,15 +139,15 @@ function drawSquareGroup(visual, group) {
 
     visual.text(
         buildSupplyLine(group.supply),
-        group.square.left + TEXT_X_PADDING,
-        group.square.top + TEXT_Y_PADDING,
+        group.square.contentLeft + TEXT_X_PADDING,
+        group.square.contentTop + TEXT_Y_PADDING,
         SUPPLY_TEXT_STYLE
     );
 
     visual.text(
         buildDemandLine(group.demand),
-        group.square.left + TEXT_X_PADDING,
-        group.square.top + TEXT_Y_PADDING + TEXT_LINE_SPACING,
+        group.square.contentLeft + TEXT_X_PADDING,
+        group.square.contentTop + TEXT_Y_PADDING + TEXT_LINE_SPACING,
         DEMAND_TEXT_STYLE
     );
 }
@@ -179,12 +179,16 @@ function getFiniteAmount(value) {
 function getSquare(position) {
     const squareLeft = Math.floor(position.x / SQUARE_SIZE) * SQUARE_SIZE;
     const squareTop = Math.floor(position.y / SQUARE_SIZE) * SQUARE_SIZE;
+    const squareWidth = Math.min(SQUARE_SIZE, 50 - squareLeft);
+    const squareHeight = Math.min(SQUARE_SIZE, 50 - squareTop);
 
     return {
-        left: squareLeft,
-        top: squareTop,
-        width: Math.min(SQUARE_SIZE, 50 - squareLeft),
-        height: Math.min(SQUARE_SIZE, 50 - squareTop),
+        left: squareLeft - 0.5,
+        top: squareTop - 0.5,
+        width: squareWidth,
+        height: squareHeight,
+        contentLeft: squareLeft,
+        contentTop: squareTop,
     };
 }
 

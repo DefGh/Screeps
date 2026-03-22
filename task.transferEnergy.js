@@ -230,8 +230,7 @@ function collectFromSource(creep, task, source) {
 function deliverToTarget(creep, task, target, energyToSpend) {
     if (
         task.data.targetType === constants.transferEnergyTargetTypes.SPAWN ||
-        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION ||
-        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION
     ) {
         return creep.transfer(target, RESOURCE_ENERGY, energyToSpend);
     }
@@ -253,8 +252,7 @@ function calculateDeliveryAmount(creep, task, targetDemand) {
 
     if (
         task.data.targetType === constants.transferEnergyTargetTypes.SPAWN ||
-        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION ||
-        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+        task.data.targetType === constants.transferEnergyTargetTypes.EXTENSION
     ) {
         return Math.min(currentEnergy, remainingAmount, targetDemand);
     }

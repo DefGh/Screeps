@@ -208,18 +208,6 @@ function findBestEnergyRequest(creep) {
         }
     }
 
-    const container = chooseClosestPlanEntry(creep, plan, [targetTypes.CONTAINER], function (entry) {
-        return getPlanEntryDemand(entry, creep, null) > 0;
-    });
-
-    if (container) {
-        return {
-            type: container.objectType,
-            object: container.object,
-            remainingAmount: getPlanEntryDemand(container, creep, null),
-        };
-    }
-
     return null;
 }
 
@@ -318,7 +306,7 @@ function collectEnergySupplies(room, resourceType, entriesById) {
             entriesById,
             container.id,
             container,
-            constants.transferEnergyTargetTypes.CONTAINER,
+            constants.transferEnergySourceTypes.CONTAINER,
             resourceType
         );
         entry.baseAvailable = getBaseSourceEnergy(constants.transferEnergySourceTypes.CONTAINER, container);
@@ -338,22 +326,6 @@ function collectEnergyDemands(room, resourceType, entriesById) {
         const targetType = getTargetTypeFromStructure(structure);
         const entry = ensurePlanEntry(entriesById, structure.id, structure, targetType, resourceType);
         entry.baseDemand = getBaseTargetDemand(targetType, structure, null);
-        entry.hasDemand = true;
-    }
-
-    for (const container of room.find(FIND_STRUCTURES, {
-        filter: function (structure) {
-            return structure.structureType === STRUCTURE_CONTAINER;
-        },
-    })) {
-        const entry = ensurePlanEntry(
-            entriesById,
-            container.id,
-            container,
-            constants.transferEnergyTargetTypes.CONTAINER,
-            resourceType
-        );
-        entry.baseDemand = getBaseTargetDemand(constants.transferEnergyTargetTypes.CONTAINER, container, null);
         entry.hasDemand = true;
     }
 
@@ -640,10 +612,6 @@ function getTargetTypeFromStructure(structure) {
 
     if (structure.structureType === STRUCTURE_EXTENSION) {
         return constants.transferEnergyTargetTypes.EXTENSION;
-    }
-
-    if (structure.structureType === STRUCTURE_CONTAINER) {
-        return constants.transferEnergyTargetTypes.CONTAINER;
     }
 
     return null;

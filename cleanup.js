@@ -1,4 +1,27 @@
 const constants = require("./constants");
+const resourceManager = require("./resource.manager");
+
+function cleanupLegacyTransferTasks() {
+    const removedTaskIds = {};
+
+    for (const taskId in Memory.tasks) {
+        const task = Memory.tasks[taskId];
+
+        if (!isLegacyContainerTransferTask(task)) {
+            continue;
+        }
+
+        removedTaskIds[taskId] = true;
+        delete Memory.tasks[taskId];
+    }
+
+    if (Object.keys(removedTaskIds).length === 0) {
+        return;
+    }
+
+    cleanupExecutorTaskAssignments(removedTaskIds);
+    resourceManager.invalidateResourcePlanCache();
+}
 
 function cleanupDeadCreeps() {
     for (const name in Memory.creeps) {
@@ -49,6 +72,26 @@ function cleanupTaxiTasksForMiner(creepName, sourceId) {
     }
 }
 
+function cleanupExecutorTaskAssignments(removedTaskIds) {
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (creep && creep.memory && removedTaskIds[creep.memory.taskId]) {
+            delete creep.memory.taskId;
+        }
+    }
+}
+
+function isLegacyContainerTransferTask(task) {
+    return Boolean(
+        task &&
+        task.type === constants.taskTypes.TRANSFER_ENERGY &&
+        task.data &&
+        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+    );
+}
+
 module.exports = {
+    cleanupLegacyTransferTasks,
     cleanupDeadCreeps,
 };

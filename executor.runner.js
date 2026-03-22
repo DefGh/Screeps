@@ -38,9 +38,9 @@ function runExecutor(executor) {
 }
 
 function say(executor) {
-    if (executor.say) {
-        executor.say(executor.memory.taskId)
-    }
+    // if (executor.say) {
+    //     executor.say(executor.memory.taskId)
+    // }
 }
 
 function getCurrentTask(executor, role) {

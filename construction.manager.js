@@ -3,6 +3,7 @@ const sourceManager = require("./source.manager");
 const EXTENSION_SEARCH_RANGE = 8;
 const EXTENSION_MIN_COORD = 2;
 const EXTENSION_MAX_COORD = 47;
+const ROAD_HALF_WIDTH = 1;
 const ROAD_PLAIN_COST = 2;
 const ROAD_SWAMP_COST = 10;
 
@@ -124,7 +125,7 @@ function ensureRoadSite(room) {
             continue;
         }
 
-        for (const position of path) {
+        for (const position of getWideRoadPositions(path)) {
             if (!canPlaceRoadAt(room, position)) {
                 continue;
             }
@@ -354,6 +355,103 @@ function findRoadPath(room, origin, target, range) {
     return result.path || [];
 }
 
+function getWideRoadPositions(path) {
+    const positions = [];
+    const seenPositions = {};
+
+    for (let index = 0; index < path.length; index += 1) {
+        const previous = index > 0 ? path[index - 1] : null;
+        const current = path[index];
+        const next = index < path.length - 1 ? path[index + 1] : null;
+
+        for (const position of getRoadStripePositions(previous, current, next)) {
+            const key = buildPositionKey(position);
+
+            if (seenPositions[key]) {
+                continue;
+            }
+
+            seenPositions[key] = true;
+            positions.push(position);
+        }
+    }
+
+    return positions;
+}
+
+function getRoadStripePositions(previous, current, next) {
+    if (!current) {
+        return [];
+    }
+
+    const positions = [current];
+    const offsets = {};
+
+    addPerpendicularOffsets(offsets, getStepDirection(previous, current));
+    addPerpendicularOffsets(offsets, getStepDirection(current, next));
+
+    for (const key in offsets) {
+        const offset = offsets[key];
+        const position = {
+            x: current.x + offset.x,
+            y: current.y + offset.y,
+            roomName: current.roomName,
+        };
+
+        if (!isInsideRoom(position.x, position.y)) {
+            continue;
+        }
+
+        positions.push(position);
+    }
+
+    return positions;
+}
+
+function addPerpendicularOffsets(offsets, direction) {
+    if (!direction) {
+        return;
+    }
+
+    const left = {
+        x: -direction.dy * ROAD_HALF_WIDTH,
+        y: direction.dx * ROAD_HALF_WIDTH,
+    };
+    const right = {
+        x: direction.dy * ROAD_HALF_WIDTH,
+        y: -direction.dx * ROAD_HALF_WIDTH,
+    };
+
+    offsets[buildOffsetKey(left)] = left;
+    offsets[buildOffsetKey(right)] = right;
+}
+
+function getStepDirection(origin, target) {
+    if (!origin || !target) {
+        return null;
+    }
+
+    const dx = normalizeStep(target.x - origin.x);
+    const dy = normalizeStep(target.y - origin.y);
+
+    if (dx === 0 && dy === 0) {
+        return null;
+    }
+
+    return {
+        dx: dx,
+        dy: dy,
+    };
+}
+
+function normalizeStep(delta) {
+    if (delta === 0) {
+        return 0;
+    }
+
+    return delta > 0 ? 1 : -1;
+}
+
 function canPlaceExtensionAt(room, position, reservedPositions) {
     if (!position || position.roomName !== room.name) {
         return false;
@@ -395,7 +493,11 @@ function canPlaceExtensionAt(room, position, reservedPositions) {
 }
 
 function canPlaceRoadAt(room, position) {
-    if (!position || position.roomName !== room.name) {
+    if (
+        !position ||
+        position.roomName !== room.name ||
+        !isInsideRoom(position.x, position.y)
+    ) {
         return false;
     }
 
@@ -506,6 +608,14 @@ function getStructureLimit(structureType, controllerLevel) {
 
 function buildPositionKey(position) {
     return `${position.roomName}:${position.x}:${position.y}`;
+}
+
+function buildOffsetKey(offset) {
+    return `${offset.x}:${offset.y}`;
+}
+
+function isInsideRoom(x, y) {
+    return x >= 0 && x <= 49 && y >= 0 && y <= 49;
 }
 
 function createRoomPosition(position) {

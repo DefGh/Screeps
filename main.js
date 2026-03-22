@@ -33,6 +33,7 @@ function runCreeps() {
 
 module.exports.loop = function () {
     bootstrap.bootstrapMemory();
+    cleanup.cleanupLegacyTransferTasks();
     cleanup.cleanupDeadCreeps();
     colonyManager.refreshColonyTargets();
     sourceManager.refreshManagedSources();

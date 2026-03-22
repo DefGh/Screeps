@@ -18,14 +18,14 @@ module.exports = {
     },
 
     dispatcher: {
-        WAIT_TICKS_ON_EMPTY_QUEUE: 50,
+        WAIT_TICKS_ON_EMPTY_QUEUE: 15,
     },
 
     colony: {
         DEFAULT_TARGET_UNIVERSALS: 3,
         LOW_RESOURCE_THRESHOLD: 3000,
         MIN_TARGET_UNIVERSALS: 1,
-        TARGET_UNIVERSALS_RECALC_INTERVAL: 1500,
+        TARGET_UNIVERSALS_RECALC_INTERVAL: 500,
     },
 
     miners: {
