@@ -9,6 +9,7 @@ module.exports = {
         MINE: "mine",
         SPAWN_CREEP: "spawnCreep",
         TAXI: "taxi",
+        BUILD: "build",
         TRANSFER_ENERGY: "transferEnergy",
     },
 
@@ -39,6 +40,11 @@ module.exports = {
 
     spawnTaskStages: {
         WAITING: "waiting",
+    },
+
+    buildTaskStages: {
+        COLLECT: "collect",
+        BUILD: "build",
     },
 
     transferEnergyTaskStages: {

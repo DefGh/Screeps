@@ -7,7 +7,7 @@ function cleanupLegacyTransferTasks() {
     for (const taskId in Memory.tasks) {
         const task = Memory.tasks[taskId];
 
-        if (!isLegacyContainerTransferTask(task)) {
+        if (!isLegacyTransferTask(task)) {
             continue;
         }
 
@@ -82,12 +82,15 @@ function cleanupExecutorTaskAssignments(removedTaskIds) {
     }
 }
 
-function isLegacyContainerTransferTask(task) {
+function isLegacyTransferTask(task) {
     return Boolean(
         task &&
         task.type === constants.taskTypes.TRANSFER_ENERGY &&
         task.data &&
-        task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER
+        (
+            task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER ||
+            task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE
+        )
     );
 }
 

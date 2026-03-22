@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const buildTask = require("./task.build");
 const resourceManager = require("./resource.manager");
 const mineTask = require("./task.mine");
 const spawnCreepTask = require("./task.spawnCreep");
@@ -9,6 +10,7 @@ const taskModulesByType = {
     [constants.taskTypes.MINE]: mineTask,
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask,
     [constants.taskTypes.TAXI]: taxiTask,
+    [constants.taskTypes.BUILD]: buildTask,
     [constants.taskTypes.TRANSFER_ENERGY]: transferEnergyTask,
 };
 

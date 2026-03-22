@@ -23,13 +23,13 @@ function run(creep, task) {
 
 function ensureTransferEnergyTask(creep) {
     if (!creep.room || !creep.memory) {
-        return;
+        return false;
     }
 
     const taskData = resourceManager.buildTransferEnergyTaskData(creep);
 
     if (!taskData) {
-        return;
+        return false;
     }
 
     const taskId = nextTaskId(constants.taskTypes.TRANSFER_ENERGY);
@@ -40,6 +40,8 @@ function ensureTransferEnergyTask(creep) {
         canExecute: [constants.roles.UNIVERSAL],
         data: taskData,
     });
+
+    return true;
 }
 
 function runCollectStage(creep, task) {
@@ -54,7 +56,9 @@ function runCollectStage(creep, task) {
         return false;
     }
 
-    const source = resolveObject(task.data.sourceId);
+    let source = resolveObject(task.data.sourceId);
+
+    source = retargetSourceIfNeeded(creep, task, source);
 
     if (!source) {
         if (currentEnergy > 0) {
@@ -239,10 +243,6 @@ function deliverToTarget(creep, task, target, energyToSpend) {
         return creep.upgradeController(target);
     }
 
-    if (task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE) {
-        return creep.build(target);
-    }
-
     return ERR_INVALID_TARGET;
 }
 
@@ -265,12 +265,48 @@ function calculateDeliveryAmount(creep, task, targetDemand) {
         return Math.min(currentEnergy, remainingAmount, targetDemand, perTick);
     }
 
-    if (task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE) {
-        const perTick = resourceManager.getActiveWorkParts(creep);
-        return Math.min(currentEnergy, remainingAmount, targetDemand, perTick);
+    return 0;
+}
+
+function retargetSourceIfNeeded(creep, task, source) {
+    if (task.data.collectRemainingAmount <= 0) {
+        return source;
     }
 
-    return 0;
+    const currentAvailable = source
+        ? resourceManager.getAvailableSourceEnergy(task.data.sourceType, source, task.id)
+        : 0;
+
+    const alternativeSource = resourceManager.findBestEnergySource(
+        creep,
+        task.data.collectRemainingAmount,
+        task.data.sourceId
+    );
+
+    if (shouldUseAlternativeSource(task, currentAvailable, alternativeSource)) {
+        reassignSource(task, alternativeSource);
+        return alternativeSource.object;
+    }
+
+    return source;
+}
+
+function shouldUseAlternativeSource(task, currentAvailable, alternativeSource) {
+    if (!alternativeSource || alternativeSource.remainingAmount <= 0) {
+        return false;
+    }
+
+    if (currentAvailable <= 0) {
+        return true;
+    }
+
+    return currentAvailable < task.data.collectRemainingAmount && alternativeSource.canFullyReserve;
+}
+
+function reassignSource(task, source) {
+    task.data.sourceId = source.object.id;
+    task.data.sourceType = source.type;
+    resourceManager.invalidateResourcePlanCache();
 }
 
 function resolveObject(objectId) {
@@ -301,7 +337,7 @@ function nextTaskId(type) {
 function addTask(task) {
     Memory.tasks[task.id] = task;
     resourceManager.invalidateResourcePlanCache();
-    console.log(`task added ${task.id}`);
+    //console.log(`task added ${task.id}`);
 }
 
 function switchToDeliverStage(task, nextRemainingAmount) {

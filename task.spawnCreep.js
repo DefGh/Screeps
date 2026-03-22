@@ -134,7 +134,7 @@ function countQueuedByRole(role, roomName) {
 }
 
 function buildUniversalBody(spawn) {
-    const partSet = [MOVE, WORK, CARRY, MOVE] ;
+    const partSet = [MOVE, WORK, CARRY] ;
     const minimumCost = BODYPART_COST[WORK];
     const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
         ? spawn.room.energyCapacityAvailable
@@ -290,7 +290,7 @@ function cleanupLinkedTasks(task) {
 
 function addTask(task) {
     Memory.tasks[task.id] = task;
-    console.log(`task added ${task.id}`);
+    //console.log(`task added ${task.id}`);
 }
 
 function isValidSpawnTask(task) {

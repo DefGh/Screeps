@@ -1,6 +1,15 @@
 const constants = require("./constants");
+const buildTask = require("./task.build");
 const spawnCreepTask = require("./task.spawnCreep");
 const transferEnergyTask = require("./task.transferEnergy");
+
+function ensureUniversalTask(executor) {
+    if (buildTask.ensureBuildTask(executor)) {
+        return true;
+    }
+
+    return transferEnergyTask.ensureTransferEnergyTask(executor);
+}
 
 const providersByRole = {
     [constants.roles.SPAWNER]: [
@@ -8,7 +17,7 @@ const providersByRole = {
         spawnCreepTask.ensureMinerSpawnTask,
     ],
     [constants.roles.UNIVERSAL]: [
-        transferEnergyTask.ensureTransferEnergyTask
+        ensureUniversalTask,
     ],
 };
 

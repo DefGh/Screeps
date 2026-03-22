@@ -33,7 +33,7 @@ function runExecutor(executor) {
     }
 
     say(executor)
-    console.log(`${executor.name} assigned new task ${task.id}`);
+    //console.log(`${executor.name} assigned new task ${task.id}`);
     taskHandlers.executeTask(executor, task);
 }
 

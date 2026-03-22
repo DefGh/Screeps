@@ -23,7 +23,15 @@ function refreshColonyTargets() {
 
     const currentResourceAmount = getColonyResourceAmount();
 
-    if (currentResourceAmount > targetingMemory.lastResourceAmount) {
+    if (currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD)
+    {
+        Memory.colony.targetUniversals -= 1;   
+            console.log(
+            `target universals decreased to ${Memory.colony.targetUniversals} ` +
+            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
+        );
+    }
+    else if (currentResourceAmount > targetingMemory.lastResourceAmount) {
         Memory.colony.targetUniversals += 1;
         console.log(
             `target universals increased to ${Memory.colony.targetUniversals} ` +
