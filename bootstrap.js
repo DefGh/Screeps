@@ -21,6 +21,14 @@ function bootstrapMemory() {
         Memory.colony = {};
     }
 
+    if (!Memory.construction || typeof Memory.construction !== "object") {
+        Memory.construction = {};
+    }
+
+    if (!Memory.construction.rooms || typeof Memory.construction.rooms !== "object") {
+        Memory.construction.rooms = {};
+    }
+
     if (typeof Memory.colony.targetUniversals !== "number") {
         Memory.colony.targetUniversals = constants.colony.DEFAULT_TARGET_UNIVERSALS;
     }

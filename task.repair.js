@@ -1,118 +1,48 @@
+const buildTask = require("./task.build");
 const constants = require("./constants");
 const resourceManager = require("./resource.manager");
 
 function run(creep, task) {
-    if (!isValidBuildTask(task) || typeof creep.moveTo !== "function" || typeof creep.build !== "function") {
+    if (!isValidRepairTask(task) || typeof creep.moveTo !== "function" || typeof creep.repair !== "function") {
         return true;
+    }
+
+    if (task.data.stage === constants.repairTaskStages.PLAN) {
+        return runPlanStage(creep, task);
     }
 
     if (task.data.remainingAmount <= 0) {
         return true;
     }
 
-    if (task.data.stage === constants.buildTaskStages.COLLECT) {
+    if (task.data.stage === constants.repairTaskStages.COLLECT) {
         return runCollectStage(creep, task);
     }
 
-    if (task.data.stage === constants.buildTaskStages.BUILD) {
-        return runBuildStage(creep, task);
+    if (task.data.stage === constants.repairTaskStages.REPAIR) {
+        return runRepairStage(creep, task);
     }
 
     return true;
 }
 
-function ensureBuildTask(creep) {
-    const taskData = buildBuildTaskData(creep);
+function runPlanStage(creep, task) {
+    const taskData = buildRepairExecutionPlan(creep, task, task.id);
 
     if (!taskData) {
-        return false;
+        return true;
     }
 
-    addTask({
-        id: nextTaskId(constants.taskTypes.BUILD),
-        type: constants.taskTypes.BUILD,
-        status: constants.taskStatuses.PENDING,
-        canExecute: [constants.roles.UNIVERSAL],
-        data: taskData,
-    });
+    task.data.resourceType = taskData.resourceType;
+    task.data.sourceId = taskData.sourceId;
+    task.data.sourceType = taskData.sourceType;
+    task.data.amount = taskData.amount;
+    task.data.remainingAmount = taskData.remainingAmount;
+    task.data.collectRemainingAmount = taskData.collectRemainingAmount;
+    task.data.stage = taskData.stage;
+    resourceManager.invalidateResourcePlanCache();
 
-    return true;
-}
-
-function hasBuildWork(creep) {
-    return Boolean(buildBuildTaskData(creep));
-}
-
-function buildBuildTaskData(creep) {
-    if (!creep || !creep.room || !creep.memory) {
-        return null;
-    }
-
-    if (resourceManager.getActiveWorkParts(creep) <= 0) {
-        return null;
-    }
-
-    if (resourceManager.hasUrgentEnergyRequest(creep)) {
-        return null;
-    }
-
-    const target = findBestBuildTarget(creep);
-
-    if (!target || target.remainingAmount <= 0) {
-        return null;
-    }
-
-    const currentEnergy = resourceManager.getUsedEnergy(creep);
-    const startsWithEnergy = currentEnergy > 0;
-    const transportAmount = startsWithEnergy ? currentEnergy : resourceManager.getFreeEnergyCapacity(creep);
-
-    if (transportAmount <= 0) {
-        return null;
-    }
-
-    let amount = Math.min(transportAmount, target.remainingAmount);
-
-    if (amount <= 0) {
-        return null;
-    }
-
-    if (startsWithEnergy) {
-        return {
-            resourceType: RESOURCE_ENERGY,
-            sourceId: null,
-            sourceType: null,
-            targetId: target.object.id,
-            amount: amount,
-            remainingAmount: amount,
-            collectRemainingAmount: 0,
-            stage: constants.buildTaskStages.BUILD,
-        };
-    }
-
-    const source = resourceManager.findBestEnergySource(creep, amount);
-
-    if (!source || source.remainingAmount <= 0) {
-        return null;
-    }
-
-    if (!source.canFullyReserve) {
-        amount = Math.min(amount, source.remainingAmount);
-    }
-
-    if (amount <= 0) {
-        return null;
-    }
-
-    return {
-        resourceType: RESOURCE_ENERGY,
-        sourceId: source.object.id,
-        sourceType: source.type,
-        targetId: target.object.id,
-        amount: amount,
-        remainingAmount: amount,
-        collectRemainingAmount: amount,
-        stage: constants.buildTaskStages.COLLECT,
-    };
+    return run(creep, task);
 }
 
 function runCollectStage(creep, task) {
@@ -123,7 +53,7 @@ function runCollectStage(creep, task) {
         currentEnergy >= task.data.remainingAmount ||
         resourceManager.getFreeEnergyCapacity(creep) === 0
     ) {
-        switchToBuildStage(task);
+        switchToRepairStage(task);
         return false;
     }
 
@@ -133,7 +63,7 @@ function runCollectStage(creep, task) {
 
     if (!source) {
         if (currentEnergy > 0) {
-            switchToBuildStage(task, Math.min(task.data.remainingAmount, currentEnergy));
+            switchToRepairStage(task, Math.min(task.data.remainingAmount, currentEnergy));
             return false;
         }
 
@@ -148,7 +78,7 @@ function runCollectStage(creep, task) {
 
     if (availableEnergy <= 0) {
         if (currentEnergy > 0) {
-            switchToBuildStage(task, Math.min(task.data.remainingAmount, currentEnergy));
+            switchToRepairStage(task, Math.min(task.data.remainingAmount, currentEnergy));
             return false;
         }
 
@@ -171,7 +101,7 @@ function runCollectStage(creep, task) {
             resourceManager.getFreeEnergyCapacity(creep) === 0 ||
             resourceManager.getUsedEnergy(creep) >= task.data.remainingAmount
         ) {
-            switchToBuildStage(task);
+            switchToRepairStage(task);
             return false;
         }
 
@@ -188,13 +118,13 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_FULL) {
-        switchToBuildStage(task);
+        switchToRepairStage(task);
         return false;
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
         if (resourceManager.getUsedEnergy(creep) > 0) {
-            switchToBuildStage(
+            switchToRepairStage(
                 task,
                 Math.min(task.data.remainingAmount, resourceManager.getUsedEnergy(creep))
             );
@@ -219,7 +149,7 @@ function runCollectStage(creep, task) {
     return true;
 }
 
-function runBuildStage(creep, task) {
+function runRepairStage(creep, task) {
     if (task.data.remainingAmount <= 0) {
         return true;
     }
@@ -236,20 +166,20 @@ function runBuildStage(creep, task) {
         return true;
     }
 
-    const targetDemand = getRemainingBuildTargetDemand(target, task.id);
+    const targetDemand = getRemainingRepairTargetDemand(target, task.data.repairGoal, task.id);
 
     if (targetDemand <= 0) {
         return true;
     }
 
-    const energyToSpend = calculateBuildAmount(creep, task, targetDemand);
+    const energyToSpend = calculateRepairAmount(creep, task, targetDemand);
 
     if (energyToSpend <= 0) {
         return true;
     }
 
     const energyBefore = currentEnergy;
-    const result = creep.build(target);
+    const result = creep.repair(target);
 
     if (result === OK) {
         const spentEnergy = Math.max(0, energyBefore - resourceManager.getUsedEnergy(creep));
@@ -275,48 +205,93 @@ function runBuildStage(creep, task) {
         return false;
     }
 
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-        return true;
-    }
-
-    if (result === ERR_INVALID_TARGET) {
+    if (result === ERR_NOT_ENOUGH_RESOURCES || result === ERR_INVALID_TARGET) {
         return true;
     }
 
     return true;
 }
 
-function findBestBuildTarget(creep) {
-    const matchingSites = [];
-
-    for (const site of creep.room.find(FIND_MY_CONSTRUCTION_SITES)) {
-        if (getRemainingBuildTargetDemand(site, null) <= 0) {
-            continue;
-        }
-
-        matchingSites.push(site);
+function buildRepairExecutionPlan(creep, task, currentTaskId) {
+    if (!creep || !task || !task.data) {
+        return null;
     }
 
-    const closestSite = chooseClosest(creep, matchingSites);
+    if (resourceManager.getActiveWorkParts(creep) <= 0) {
+        return null;
+    }
 
-    if (!closestSite) {
+    const target = resolveObject(task.data.targetId);
+
+    if (!target) {
+        return null;
+    }
+
+    const targetDemand = getRemainingRepairTargetDemand(target, task.data.repairGoal, currentTaskId);
+
+    if (targetDemand <= 0) {
+        return null;
+    }
+
+    const currentEnergy = resourceManager.getUsedEnergy(creep);
+    const startsWithEnergy = currentEnergy > 0;
+    const transportAmount = startsWithEnergy ? currentEnergy : resourceManager.getFreeEnergyCapacity(creep);
+
+    if (transportAmount <= 0) {
+        return null;
+    }
+
+    let amount = Math.min(transportAmount, targetDemand);
+
+    if (amount <= 0) {
+        return null;
+    }
+
+    if (startsWithEnergy) {
+        return {
+            resourceType: RESOURCE_ENERGY,
+            sourceId: null,
+            sourceType: null,
+            amount: amount,
+            remainingAmount: amount,
+            collectRemainingAmount: 0,
+            stage: constants.repairTaskStages.REPAIR,
+        };
+    }
+
+    const source = resourceManager.findBestEnergySource(creep, amount);
+
+    if (!source || source.remainingAmount <= 0) {
+        return null;
+    }
+
+    if (!source.canFullyReserve) {
+        amount = Math.min(amount, source.remainingAmount);
+    }
+
+    if (amount <= 0) {
         return null;
     }
 
     return {
-        object: closestSite,
-        remainingAmount: getRemainingBuildTargetDemand(closestSite, null),
+        resourceType: RESOURCE_ENERGY,
+        sourceId: source.object.id,
+        sourceType: source.type,
+        amount: amount,
+        remainingAmount: amount,
+        collectRemainingAmount: amount,
+        stage: constants.repairTaskStages.COLLECT,
     };
 }
 
-function getRemainingBuildTargetDemand(target, currentTaskId) {
-    const baseDemand = getBaseBuildTargetDemand(target);
+function getRemainingRepairTargetDemand(target, repairGoal, currentTaskId) {
+    const baseDemand = getBaseRepairTargetDemand(target, repairGoal);
     let reservedDemand = 0;
 
     for (const taskId in Memory.tasks) {
         const task = Memory.tasks[taskId];
 
-        if (!isBuildTask(task) || taskId === currentTaskId) {
+        if (!isRepairTask(task) || taskId === currentTaskId) {
             continue;
         }
 
@@ -324,18 +299,22 @@ function getRemainingBuildTargetDemand(target, currentTaskId) {
             continue;
         }
 
-        reservedDemand += getBuildReservationAmount(task);
+        reservedDemand += getRepairReservationAmount(task);
     }
 
     return Math.max(0, baseDemand - reservedDemand);
 }
 
-function getBaseBuildTargetDemand(target) {
-    if (!target) {
+function getBaseRepairTargetDemand(target, repairGoal) {
+    if (
+        !target ||
+        typeof target.hits !== "number" ||
+        typeof repairGoal !== "number"
+    ) {
         return 0;
     }
 
-    return Math.max(0, Math.ceil((target.progressTotal - target.progress) / getBuildPower()));
+    return Math.max(0, Math.ceil((repairGoal - target.hits) / getRepairPower()));
 }
 
 function collectFromSource(creep, task, source) {
@@ -355,7 +334,7 @@ function collectFromSource(creep, task, source) {
     return ERR_INVALID_TARGET;
 }
 
-function calculateBuildAmount(creep, task, targetDemand) {
+function calculateRepairAmount(creep, task, targetDemand) {
     const currentEnergy = resourceManager.getUsedEnergy(creep);
     const remainingAmount = task.data.remainingAmount;
     const workParts = resourceManager.getActiveWorkParts(creep);
@@ -416,38 +395,12 @@ function resolveObject(objectId) {
     return Game.getObjectById(objectId);
 }
 
-function chooseClosest(executor, objects) {
-    if (!objects || objects.length === 0) {
-        return null;
-    }
-
-    if (executor.pos && typeof executor.pos.findClosestByRange === "function") {
-        return executor.pos.findClosestByRange(objects);
-    }
-
-    return objects[0];
-}
-
-function getBuildPower() {
-    return typeof BUILD_POWER === "number" ? BUILD_POWER : 1;
-}
-
 function shouldWaitForSource(sourceType) {
     return sourceType === constants.transferEnergySourceTypes.SOURCE;
 }
 
-function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return type + ":" + Memory.taskSequence;
-}
-
-function addTask(task) {
-    Memory.tasks[task.id] = task;
-    resourceManager.invalidateResourcePlanCache();
-}
-
-function switchToBuildStage(task, nextRemainingAmount) {
-    task.data.stage = constants.buildTaskStages.BUILD;
+function switchToRepairStage(task, nextRemainingAmount) {
+    task.data.stage = constants.repairTaskStages.REPAIR;
     task.data.collectRemainingAmount = 0;
 
     if (typeof nextRemainingAmount === "number") {
@@ -457,7 +410,7 @@ function switchToBuildStage(task, nextRemainingAmount) {
     resourceManager.invalidateResourcePlanCache();
 }
 
-function getBuildReservationAmount(task) {
+function getRepairReservationAmount(task) {
     return typeof task.data.remainingAmount === "number" ? task.data.remainingAmount : 0;
 }
 
@@ -469,16 +422,23 @@ function getTaskResourceType(task) {
     return RESOURCE_ENERGY;
 }
 
-function isBuildTask(task) {
-    return Boolean(task && task.type === constants.taskTypes.BUILD && task.data);
+function getRepairPower() {
+    return typeof REPAIR_POWER === "number" ? REPAIR_POWER : 1;
 }
 
-function isValidBuildTask(task) {
+function isRepairTask(task) {
+    return Boolean(task && task.type === constants.taskTypes.REPAIR && task.data);
+}
+
+function isValidRepairTask(task) {
     return Boolean(
         task &&
-        task.type === constants.taskTypes.BUILD &&
+        task.type === constants.taskTypes.REPAIR &&
         task.data &&
+        typeof task.data.roomName === "string" &&
         typeof task.data.targetId === "string" &&
+        typeof task.data.targetStructureType === "string" &&
+        typeof task.data.repairGoal === "number" &&
         typeof task.data.amount === "number" &&
         typeof task.data.remainingAmount === "number" &&
         typeof task.data.collectRemainingAmount === "number" &&
@@ -486,17 +446,39 @@ function isValidBuildTask(task) {
     );
 }
 
+function canPlanRepairTask(executor, task) {
+    if (resourceManager.hasUrgentEnergyRequest(executor)) {
+        return false;
+    }
+
+    if (buildTask.hasBuildWork(executor)) {
+        return false;
+    }
+
+    return Boolean(buildRepairExecutionPlan(executor, task, null));
+}
+
 function canExecute(executor, task) {
-    return (
-        isValidBuildTask(task) &&
-        typeof executor.moveTo === "function" &&
-        typeof executor.build === "function"
-    );
+    if (
+        !isValidRepairTask(task) ||
+        !executor ||
+        !executor.room ||
+        executor.room.name !== task.data.roomName ||
+        typeof executor.moveTo !== "function" ||
+        typeof executor.repair !== "function" ||
+        resourceManager.getActiveWorkParts(executor) <= 0
+    ) {
+        return false;
+    }
+
+    if (task.data.stage !== constants.repairTaskStages.PLAN) {
+        return true;
+    }
+
+    return canPlanRepairTask(executor, task);
 }
 
 module.exports = {
     canExecute,
-    ensureBuildTask,
-    hasBuildWork,
     run,
 };

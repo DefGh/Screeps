@@ -10,6 +10,7 @@ module.exports = {
         SPAWN_CREEP: "spawnCreep",
         TAXI: "taxi",
         BUILD: "build",
+        REPAIR: "repair",
         TRANSFER_ENERGY: "transferEnergy",
     },
 
@@ -45,6 +46,19 @@ module.exports = {
     buildTaskStages: {
         COLLECT: "collect",
         BUILD: "build",
+    },
+
+    repairTaskStages: {
+        PLAN: "plan",
+        COLLECT: "collect",
+        REPAIR: "repair",
+    },
+
+    repairs: {
+        MAX_ROOM_TASKS: 3,
+        REFRESH_INTERVAL: 300,
+        STRUCTURE_THRESHOLD: 0.8,
+        WALL_HITS_CAP: 50000,
     },
 
     transferEnergyTaskStages: {

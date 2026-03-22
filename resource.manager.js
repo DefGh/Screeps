@@ -192,6 +192,34 @@ function findBestEnergyRequest(creep) {
     return null;
 }
 
+function hasUrgentEnergyRequest(creep) {
+    if (!creep || !creep.room) {
+        return false;
+    }
+
+    const targetTypes = constants.transferEnergyTargetTypes;
+    const plan = getRoomResourcePlan(creep.room, RESOURCE_ENERGY);
+
+    for (const entry of plan) {
+        if (!entry || !entry.object) {
+            continue;
+        }
+
+        if (
+            entry.objectType !== targetTypes.SPAWN &&
+            entry.objectType !== targetTypes.EXTENSION
+        ) {
+            continue;
+        }
+
+        if (getPlanEntryDemand(entry, creep, null) > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function findBestEnergySource(creep, requiredAmount, excludedObjectId) {
     const room = creep.room;
     const sourceTypes = constants.transferEnergySourceTypes;
@@ -776,8 +804,12 @@ function isBuildTask(task) {
     return Boolean(task && task.type === constants.taskTypes.BUILD && task.data);
 }
 
+function isRepairTask(task) {
+    return Boolean(task && task.type === constants.taskTypes.REPAIR && task.data);
+}
+
 function isResourceSourceReservationTask(task) {
-    return isTransferEnergyTask(task) || isBuildTask(task);
+    return isTransferEnergyTask(task) || isBuildTask(task) || isRepairTask(task);
 }
 
 function buildRoomPlanCacheKey(roomName, resourceType) {
@@ -791,6 +823,7 @@ module.exports = {
     getAvailableSourceEnergy,
     getEnergyCapacity,
     getFreeEnergyCapacity,
+    hasUrgentEnergyRequest,
     getRemainingTargetDemand,
     getRoomResourcePlan,
     getUsedEnergy,
