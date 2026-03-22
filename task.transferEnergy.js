@@ -6,6 +6,8 @@ function run(creep, task) {
         return true;
     }
 
+    recordTransferRoadVisit(creep, task);
+
     if (task.data.remainingAmount <= 0) {
         return true;
     }
@@ -291,6 +293,30 @@ function retargetSourceIfNeeded(creep, task, source) {
     return source;
 }
 
+function recordTransferRoadVisit(creep, task) {
+    if (!creep || !creep.memory || !creep.pos || !creep.room || !isOwnedManagedRoom(creep.room)) {
+        clearTransferRoadTrack(creep);
+        return;
+    }
+
+    const roomName = resolveTransferTaskRoomName(creep, task);
+
+    if (!roomName || creep.room.name !== roomName) {
+        clearTransferRoadTrack(creep);
+        return;
+    }
+
+    const previousTrack = creep.memory.transferRoadTrack;
+
+    if (!shouldCountTransferRoadVisit(previousTrack, task, creep.pos)) {
+        updateTransferRoadTrack(creep, task, roomName);
+        return;
+    }
+
+    incrementRoadHeat(roomName, creep.pos);
+    updateTransferRoadTrack(creep, task, roomName);
+}
+
 function shouldUseAlternativeSource(task, currentAvailable, alternativeSource) {
     if (!alternativeSource || alternativeSource.remainingAmount <= 0) {
         return false;
@@ -307,6 +333,121 @@ function reassignSource(task, source) {
     task.data.sourceId = source.object.id;
     task.data.sourceType = source.type;
     resourceManager.invalidateResourcePlanCache();
+}
+
+function resolveTransferTaskRoomName(creep, task) {
+    const target = resolveObject(task.data.targetId);
+
+    if (target && target.room && typeof target.room.name === "string") {
+        return target.room.name;
+    }
+
+    const source = resolveObject(task.data.sourceId);
+
+    if (source && source.room && typeof source.room.name === "string") {
+        return source.room.name;
+    }
+
+    return creep.room && typeof creep.room.name === "string" ? creep.room.name : null;
+}
+
+function shouldCountTransferRoadVisit(previousTrack, task, position) {
+    if (!previousTrack) {
+        return false;
+    }
+
+    if (previousTrack.taskId !== task.id || previousTrack.tick !== Game.time - 1) {
+        return false;
+    }
+
+    return (
+        previousTrack.roomName !== position.roomName ||
+        previousTrack.x !== position.x ||
+        previousTrack.y !== position.y
+    );
+}
+
+function updateTransferRoadTrack(creep, task, roomName) {
+    creep.memory.transferRoadTrack = {
+        roomName: roomName,
+        x: creep.pos.x,
+        y: creep.pos.y,
+        taskId: task.id,
+        tick: Game.time,
+    };
+}
+
+function clearTransferRoadTrack(creep) {
+    if (creep && creep.memory && creep.memory.transferRoadTrack) {
+        delete creep.memory.transferRoadTrack;
+    }
+}
+
+function incrementRoadHeat(roomName, position) {
+    const roadHeat = getRoadHeatMemory(roomName);
+    const tickKey = String(Game.time);
+    const positionKey = buildRoadHeatPositionKey(roomName, position.x, position.y);
+
+    if (!roadHeat.bucketsByTick[tickKey] || typeof roadHeat.bucketsByTick[tickKey] !== "object") {
+        roadHeat.bucketsByTick[tickKey] = {};
+    }
+
+    if (typeof roadHeat.bucketsByTick[tickKey][positionKey] !== "number") {
+        roadHeat.bucketsByTick[tickKey][positionKey] = 0;
+    }
+
+    if (typeof roadHeat.totalsByPos[positionKey] !== "number") {
+        roadHeat.totalsByPos[positionKey] = 0;
+    }
+
+    roadHeat.bucketsByTick[tickKey][positionKey] += 1;
+    roadHeat.totalsByPos[positionKey] += 1;
+}
+
+function getRoadHeatMemory(roomName) {
+    const roomMemory = getConstructionRoomMemory(roomName);
+
+    if (!roomMemory.roadHeat || typeof roomMemory.roadHeat !== "object") {
+        roomMemory.roadHeat = {};
+    }
+
+    if (!roomMemory.roadHeat.totalsByPos || typeof roomMemory.roadHeat.totalsByPos !== "object") {
+        roomMemory.roadHeat.totalsByPos = {};
+    }
+
+    if (!roomMemory.roadHeat.bucketsByTick || typeof roomMemory.roadHeat.bucketsByTick !== "object") {
+        roomMemory.roadHeat.bucketsByTick = {};
+    }
+
+    if (typeof roomMemory.roadHeat.lastPrunedTick !== "number") {
+        roomMemory.roadHeat.lastPrunedTick = Game.time;
+    }
+
+    return roomMemory.roadHeat;
+}
+
+function getConstructionRoomMemory(roomName) {
+    if (!Memory.construction || typeof Memory.construction !== "object") {
+        Memory.construction = {};
+    }
+
+    if (!Memory.construction.rooms || typeof Memory.construction.rooms !== "object") {
+        Memory.construction.rooms = {};
+    }
+
+    if (!Memory.construction.rooms[roomName] || typeof Memory.construction.rooms[roomName] !== "object") {
+        Memory.construction.rooms[roomName] = {};
+    }
+
+    return Memory.construction.rooms[roomName];
+}
+
+function buildRoadHeatPositionKey(roomName, x, y) {
+    return `${roomName}:${x}:${y}`;
+}
+
+function isOwnedManagedRoom(room) {
+    return Boolean(room && room.controller && room.controller.my);
 }
 
 function resolveObject(objectId) {

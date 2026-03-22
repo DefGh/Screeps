@@ -5,9 +5,8 @@ const sourceManager = require("./source.manager");
 const EXTENSION_SEARCH_RANGE = 8;
 const EXTENSION_MIN_COORD = 2;
 const EXTENSION_MAX_COORD = 47;
-const ROAD_HALF_WIDTH = 1;
-const ROAD_PLAIN_COST = 2;
-const ROAD_SWAMP_COST = 10;
+const ROAD_HEAT_WINDOW = 300;
+const ROAD_MIN_VISITS = 10;
 const REPAIR_MAX_ROOM_TASKS = constants.repairs.MAX_ROOM_TASKS;
 const REPAIR_REFRESH_INTERVAL = constants.repairs.REFRESH_INTERVAL;
 const REPAIR_STRUCTURE_THRESHOLD = constants.repairs.STRUCTURE_THRESHOLD;
@@ -483,37 +482,119 @@ function ensureExtensionSite(room) {
 }
 
 function ensureRoadSite(room) {
-    const anchor = chooseRoadAnchor(room);
+    pruneRoadHeat(room.name);
 
-    if (!anchor) {
-        return false;
-    }
+    const anchor = chooseExtensionAnchor(room);
+    const candidates = getRoadCandidates(room, anchor);
 
-    for (const target of getRoadTargets(room)) {
-        const path = findRoadPath(room, anchor.pos, target.pos, target.range);
+    for (const candidate of candidates) {
+        if (candidate.count < ROAD_MIN_VISITS) {
+            break;
+        }
 
-        if (path.length === 0) {
+        if (!canPlaceRoadAt(room, candidate.position)) {
             continue;
         }
 
-        for (const position of getWideRoadPositions(path)) {
-            if (!canPlaceRoadAt(room, position)) {
-                continue;
-            }
+        const result = room.createConstructionSite(candidate.position.x, candidate.position.y, STRUCTURE_ROAD);
 
-            const result = room.createConstructionSite(position.x, position.y, STRUCTURE_ROAD);
-
-            if (result === OK) {
-                console.log(
-                    `construction planned ${STRUCTURE_ROAD} at ` +
-                    `${room.name} (${position.x},${position.y})`
-                );
-                return true;
-            }
+        if (result === OK) {
+            console.log(
+                `construction planned ${STRUCTURE_ROAD} at ` +
+                `${room.name} (${candidate.position.x},${candidate.position.y})`
+            );
+            return true;
         }
     }
 
     return false;
+}
+
+function pruneRoadHeat(roomName) {
+    const roadHeat = getRoadHeatMemory(roomName);
+    const cutoffTick = Game.time - ROAD_HEAT_WINDOW;
+
+    for (const tickKey in roadHeat.bucketsByTick) {
+        const tick = Number(tickKey);
+
+        if (!Number.isFinite(tick) || tick > cutoffTick) {
+            continue;
+        }
+
+        const bucket = roadHeat.bucketsByTick[tickKey];
+
+        for (const positionKey in bucket) {
+            if (roadHeat.totalsByPos[positionKey]) {
+                roadHeat.totalsByPos[positionKey] -= bucket[positionKey];
+
+                if (roadHeat.totalsByPos[positionKey] <= 0) {
+                    delete roadHeat.totalsByPos[positionKey];
+                }
+            }
+        }
+
+        delete roadHeat.bucketsByTick[tickKey];
+    }
+
+    roadHeat.lastPrunedTick = cutoffTick;
+}
+
+function getRoadCandidates(room, anchor) {
+    const roadHeat = getRoadHeatMemory(room.name);
+    const candidates = [];
+
+    for (const positionKey in roadHeat.totalsByPos) {
+        const count = roadHeat.totalsByPos[positionKey];
+        const position = parsePositionKey(positionKey);
+
+        if (!position || position.roomName !== room.name || count <= 0) {
+            continue;
+        }
+
+        candidates.push({
+            key: positionKey,
+            position: position,
+            count: count,
+        });
+    }
+
+    candidates.sort(function (left, right) {
+        if (right.count !== left.count) {
+            return right.count - left.count;
+        }
+
+        const distanceOrder = getAnchorRange(anchor, left.position) - getAnchorRange(anchor, right.position);
+
+        if (distanceOrder !== 0) {
+            return distanceOrder;
+        }
+
+        return left.key.localeCompare(right.key);
+    });
+
+    return candidates;
+}
+
+function getRoadHeatMemory(roomName) {
+    const roomMemory = getConstructionRoomMemory(roomName);
+
+    if (!roomMemory.roadHeat || typeof roomMemory.roadHeat !== "object") {
+        roomMemory.roadHeat = {};
+    }
+
+    if (!roomMemory.roadHeat.totalsByPos || typeof roomMemory.roadHeat.totalsByPos !== "object") {
+        roomMemory.roadHeat.totalsByPos = {};
+    }
+
+    if (!roomMemory.roadHeat.bucketsByTick || typeof roomMemory.roadHeat.bucketsByTick !== "object") {
+        roomMemory.roadHeat.bucketsByTick = {};
+    }
+
+    if (typeof roomMemory.roadHeat.lastPrunedTick !== "number") {
+        roomMemory.roadHeat.lastPrunedTick = Game.time - ROAD_HEAT_WINDOW;
+    }
+
+    return roomMemory.roadHeat;
 }
 
 function getManagedRoomNames() {
@@ -622,35 +703,6 @@ function chooseExtensionAnchor(room) {
     return spawns[0];
 }
 
-function chooseRoadAnchor(room) {
-    return chooseExtensionAnchor(room);
-}
-
-function getRoadTargets(room) {
-    const targets = [];
-    const minerSources = sourceManager.getMinerSourcesForRoom(room.name);
-
-    for (const sourceData of minerSources) {
-        if (!sourceData || !sourceData.minerPos) {
-            continue;
-        }
-
-        targets.push({
-            pos: createRoomPosition(sourceData.minerPos),
-            range: 1,
-        });
-    }
-
-    if (room.controller && room.controller.my) {
-        targets.push({
-            pos: room.controller.pos,
-            range: 1,
-        });
-    }
-
-    return targets;
-}
-
 function getReservedPositions(room) {
     const reservedPositions = {};
     const minerSources = sourceManager.getMinerSourcesForRoom(room.name);
@@ -697,130 +749,6 @@ function getExtensionCandidatePositions(anchorPos) {
     }
 
     return positions;
-}
-
-function findRoadPath(room, origin, target, range) {
-    if (!origin || !target) {
-        return [];
-    }
-
-    const result = PathFinder.search(
-        origin,
-        {
-            pos: target,
-            range: range,
-        },
-        {
-            plainCost: ROAD_PLAIN_COST,
-            swampCost: ROAD_SWAMP_COST,
-            roomCallback: function (roomName) {
-                if (roomName !== room.name) {
-                    return false;
-                }
-
-                return buildRoadCostMatrix(room);
-            },
-        }
-    );
-
-    return result.path || [];
-}
-
-function getWideRoadPositions(path) {
-    const positions = [];
-    const seenPositions = {};
-
-    for (let index = 0; index < path.length; index += 1) {
-        const previous = index > 0 ? path[index - 1] : null;
-        const current = path[index];
-        const next = index < path.length - 1 ? path[index + 1] : null;
-
-        for (const position of getRoadStripePositions(previous, current, next)) {
-            const key = buildPositionKey(position);
-
-            if (seenPositions[key]) {
-                continue;
-            }
-
-            seenPositions[key] = true;
-            positions.push(position);
-        }
-    }
-
-    return positions;
-}
-
-function getRoadStripePositions(previous, current, next) {
-    if (!current) {
-        return [];
-    }
-
-    const positions = [current];
-    const offsets = {};
-
-    addPerpendicularOffsets(offsets, getStepDirection(previous, current));
-    addPerpendicularOffsets(offsets, getStepDirection(current, next));
-
-    for (const key in offsets) {
-        const offset = offsets[key];
-        const position = {
-            x: current.x + offset.x,
-            y: current.y + offset.y,
-            roomName: current.roomName,
-        };
-
-        if (!isInsideRoom(position.x, position.y)) {
-            continue;
-        }
-
-        positions.push(position);
-    }
-
-    return positions;
-}
-
-function addPerpendicularOffsets(offsets, direction) {
-    if (!direction) {
-        return;
-    }
-
-    const left = {
-        x: -direction.dy * ROAD_HALF_WIDTH,
-        y: direction.dx * ROAD_HALF_WIDTH,
-    };
-    const right = {
-        x: direction.dy * ROAD_HALF_WIDTH,
-        y: -direction.dx * ROAD_HALF_WIDTH,
-    };
-
-    offsets[buildOffsetKey(left)] = left;
-    offsets[buildOffsetKey(right)] = right;
-}
-
-function getStepDirection(origin, target) {
-    if (!origin || !target) {
-        return null;
-    }
-
-    const dx = normalizeStep(target.x - origin.x);
-    const dy = normalizeStep(target.y - origin.y);
-
-    if (dx === 0 && dy === 0) {
-        return null;
-    }
-
-    return {
-        dx: dx,
-        dy: dy,
-    };
-}
-
-function normalizeStep(delta) {
-    if (delta === 0) {
-        return 0;
-    }
-
-    return delta > 0 ? 1 : -1;
 }
 
 function canPlaceExtensionAt(room, position, reservedPositions) {
@@ -921,41 +849,6 @@ function canPlaceRoadAt(room, position) {
     return true;
 }
 
-function buildRoadCostMatrix(room) {
-    const costs = new PathFinder.CostMatrix();
-
-    for (const structure of room.find(FIND_STRUCTURES)) {
-        if (structure.structureType === STRUCTURE_ROAD) {
-            costs.set(structure.pos.x, structure.pos.y, 1);
-            continue;
-        }
-
-        if (structure.structureType === STRUCTURE_CONTAINER) {
-            continue;
-        }
-
-        if (structure.structureType === STRUCTURE_RAMPART && structure.my) {
-            continue;
-        }
-
-        costs.set(structure.pos.x, structure.pos.y, 0xff);
-    }
-
-    for (const site of room.find(FIND_CONSTRUCTION_SITES)) {
-        if (
-            site.structureType === STRUCTURE_ROAD ||
-            site.structureType === STRUCTURE_CONTAINER ||
-            site.structureType === STRUCTURE_RAMPART
-        ) {
-            continue;
-        }
-
-        costs.set(site.pos.x, site.pos.y, 0xff);
-    }
-
-    return costs;
-}
-
 function isInsideExtensionBounds(x, y) {
     return (
         x >= EXTENSION_MIN_COORD &&
@@ -981,25 +874,33 @@ function buildPositionKey(position) {
     return `${position.roomName}:${position.x}:${position.y}`;
 }
 
-function buildOffsetKey(offset) {
-    return `${offset.x}:${offset.y}`;
-}
-
 function isInsideRoom(x, y) {
     return x >= 0 && x <= 49 && y >= 0 && y <= 49;
 }
 
-function createRoomPosition(position) {
-    if (
-        !position ||
-        typeof position.x !== "number" ||
-        typeof position.y !== "number" ||
-        typeof position.roomName !== "string"
-    ) {
+function parsePositionKey(positionKey) {
+    if (typeof positionKey !== "string") {
         return null;
     }
 
-    return new RoomPosition(position.x, position.y, position.roomName);
+    const parts = positionKey.split(":");
+
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const x = Number(parts[1]);
+    const y = Number(parts[2]);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+    }
+
+    return {
+        roomName: parts[0],
+        x: x,
+        y: y,
+    };
 }
 
 module.exports = {
