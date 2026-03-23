@@ -53,6 +53,74 @@ function ensureUniversalSpawnTask(spawn) {
     });
 }
 
+function ensureClaimerSpawnTask(spawn) {
+    const activeCandidate = Memory.expansion && Memory.expansion.activeCandidate;
+
+    if (
+        !activeCandidate ||
+        activeCandidate.originRoomName !== spawn.room.name ||
+        activeCandidate.status === "waitingForGcl"
+    ) {
+        return;
+    }
+
+    if (countAliveByRole(constants.roles.CLAIMER) + countQueuedByRole(constants.roles.CLAIMER) >= 1) {
+        return;
+    }
+
+    const taskId = nextSpawnTaskId(constants.roles.CLAIMER);
+    addTask({
+        id: taskId,
+        type: constants.taskTypes.SPAWN_CREEP,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.SPAWNER],
+        data: {
+            body: buildClaimerBody(),
+            memory: {
+                role: constants.roles.CLAIMER,
+                originRoomName: activeCandidate.originRoomName,
+            },
+            originRoomName: activeCandidate.originRoomName,
+            role: constants.roles.CLAIMER,
+            roomName: activeCandidate.originRoomName,
+            stage: constants.spawnTaskStages.WAITING,
+            targetRoomName: activeCandidate.targetRoomName,
+        },
+    });
+}
+
+function ensureScoutSpawnTask(spawn) {
+    const activeBranch = Memory.expansion && Memory.expansion.activeBranch;
+
+    if (!activeBranch || activeBranch.originRoomName !== spawn.room.name) {
+        return;
+    }
+
+    if (countAliveByRole(constants.roles.SCOUT) + countQueuedByRole(constants.roles.SCOUT) >= 1) {
+        return;
+    }
+
+    const taskId = nextSpawnTaskId(constants.roles.SCOUT);
+    addTask({
+        id: taskId,
+        type: constants.taskTypes.SPAWN_CREEP,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.SPAWNER],
+        data: {
+            body: buildScoutBody(),
+            memory: {
+                role: constants.roles.SCOUT,
+                originRoomName: activeBranch.originRoomName,
+            },
+            originRoomName: activeBranch.originRoomName,
+            role: constants.roles.SCOUT,
+            roomName: activeBranch.originRoomName,
+            rootRoomName: activeBranch.rootRoomName,
+            stage: constants.spawnTaskStages.WAITING,
+        },
+    });
+}
+
 function ensureMinerSpawnTask(spawn) {
     const targetUniversals = Memory.colony.targetUniversals;
     const aliveUniversals = countAliveUniversals();
@@ -168,6 +236,14 @@ function buildUniversalBody(spawn, useAvailableEnergy) {
     }
 
     return body;
+}
+
+function buildScoutBody() {
+    return [MOVE];
+}
+
+function buildClaimerBody() {
+    return [MOVE, CLAIM];
 }
 
 function getRoomEnergyBudget(room, useAvailableEnergy) {
@@ -351,12 +427,30 @@ function isValidSpawnTask(task) {
 }
 
 function canExecute(executor, task) {
-    return isValidSpawnTask(task) && typeof executor.spawnCreep === "function";
+    return (
+        isValidSpawnTask(task) &&
+        typeof executor.spawnCreep === "function" &&
+        canSpawnTaskInRoom(executor, task)
+    );
+}
+
+function canSpawnTaskInRoom(executor, task) {
+    if (
+        !task ||
+        !task.data ||
+        typeof task.data.roomName !== "string"
+    ) {
+        return true;
+    }
+
+    return Boolean(executor && executor.room && executor.room.name === task.data.roomName);
 }
 
 module.exports = {
     canExecute,
+    ensureClaimerSpawnTask,
     ensureMinerSpawnTask,
+    ensureScoutSpawnTask,
     ensureUniversalSpawnTask,
     run,
 };

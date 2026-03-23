@@ -2,15 +2,20 @@ module.exports = {
     roles: {
         SPAWNER: "spawner",
         MINER: "miner",
+        SCOUT: "scout",
+        CLAIMER: "claimer",
         UNIVERSAL: "universal",
     },
 
     taskTypes: {
         MINE: "mine",
         SPAWN_CREEP: "spawnCreep",
+        BOOTSTRAP_SPAWN: "bootstrapSpawn",
         TAXI: "taxi",
         BUILD: "build",
         REPAIR: "repair",
+        SCOUT_ROOM: "scoutRoom",
+        CLAIM_ROOM: "claimRoom",
         TRANSFER_ENERGY: "transferEnergy",
     },
 
@@ -30,6 +35,11 @@ module.exports = {
         TARGET_UNIVERSALS_RECALC_INTERVAL: 500,
     },
 
+    expansion: {
+        SEARCH_DEPTH: 6,
+        INTEL_TTL: 3000,
+    },
+
     construction: {
         DEFENSE_BORDER_OFFSET: 3,
     },
@@ -45,6 +55,12 @@ module.exports = {
 
     spawnTaskStages: {
         WAITING: "waiting",
+    },
+
+    bootstrapSpawnTaskStages: {
+        MOVE: "move",
+        COLLECT: "collect",
+        BUILD: "build",
     },
 
     buildTaskStages: {

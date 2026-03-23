@@ -15,6 +15,8 @@ const providersByRole = {
     [constants.roles.SPAWNER]: [
         spawnCreepTask.ensureUniversalSpawnTask,
         spawnCreepTask.ensureMinerSpawnTask,
+        spawnCreepTask.ensureClaimerSpawnTask,
+        spawnCreepTask.ensureScoutSpawnTask,
     ],
     [constants.roles.UNIVERSAL]: [
         ensureUniversalTask,

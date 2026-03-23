@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
 
@@ -48,7 +49,7 @@ const DEFENSE_SIDES = [
 ];
 
 function refreshManagedConstruction() {
-    for (const roomName of getManagedRoomNames()) {
+    for (const roomName of roomScope.getOperationalRoomNames()) {
         const room = Game.rooms[roomName];
 
         if (!room || !room.controller || !room.controller.my) {
@@ -294,10 +295,6 @@ function isEligibleRepairStructure(structure) {
 
     if (repairGoal <= 0 || structure.hits >= repairGoal) {
         return false;
-    }
-
-    if (isWallLikeStructure(structure.structureType)) {
-        return true;
     }
 
     return structure.hits < repairGoal * REPAIR_STRUCTURE_THRESHOLD;
@@ -1015,28 +1012,6 @@ function getRoadHeatMemory(roomName) {
     }
 
     return roomMemory.roadHeat;
-}
-
-function getManagedRoomNames() {
-    const roomNames = {};
-
-    for (const name in Game.spawns) {
-        const spawn = Game.spawns[name];
-
-        if (spawn && spawn.room) {
-            roomNames[spawn.room.name] = true;
-        }
-    }
-
-    for (const roomName in Game.rooms) {
-        const room = Game.rooms[roomName];
-
-        if (room.controller && room.controller.my) {
-            roomNames[roomName] = true;
-        }
-    }
-
-    return Object.keys(roomNames);
 }
 
 function hasStructureOrSiteAt(room, position, structureType) {

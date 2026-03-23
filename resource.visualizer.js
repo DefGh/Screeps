@@ -1,12 +1,14 @@
 const constructionManager = require("./construction.manager");
+const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
-const SQUARE_SIZE = 5;
+const SQUARE_SIZE = 50;
 const TEXT_X_PADDING = 0.45;
 const TEXT_Y_PADDING = 0.75;
 const TEXT_LINE_SPACING = 0.58;
 const SHOW_ROAD_HEAT_MAP = false;
 const SHOW_REPAIR_HEAT_MAP = true;
+const SHOW_RECOURCE_INFO = false;
 
 const SQUARE_STYLE = {
     fill: "transparent",
@@ -78,7 +80,10 @@ const REPAIR_HEAT_TEXT_STYLE = {
 };
 
 function drawManagedRoomsResourcePlans() {
-    for (const roomName of getManagedRoomNames()) {
+    if (!SHOW_RECOURCE_INFO) {
+        return;
+    }
+    for (const roomName of roomScope.getOperationalRoomNames()) {
         const room = Game.rooms[roomName];
 
         if (!room) {
@@ -434,28 +439,6 @@ function compareSquareGroups(left, right) {
     }
 
     return left.square.left - right.square.left;
-}
-
-function getManagedRoomNames() {
-    const roomNames = {};
-
-    for (const name in Game.spawns) {
-        const spawn = Game.spawns[name];
-
-        if (spawn && spawn.room) {
-            roomNames[spawn.room.name] = true;
-        }
-    }
-
-    for (const roomName in Game.rooms) {
-        const room = Game.rooms[roomName];
-
-        if (room.controller && room.controller.my) {
-            roomNames[roomName] = true;
-        }
-    }
-
-    return Object.keys(roomNames);
 }
 
 module.exports = {

@@ -21,6 +21,10 @@ function bootstrapMemory() {
         Memory.colony = {};
     }
 
+    if (!Memory.expansion || typeof Memory.expansion !== "object") {
+        Memory.expansion = {};
+    }
+
     if (!Memory.construction || typeof Memory.construction !== "object") {
         Memory.construction = {};
     }
@@ -40,6 +44,22 @@ function bootstrapMemory() {
 
     if (!Memory.colony.universalTargeting || typeof Memory.colony.universalTargeting !== "object") {
         Memory.colony.universalTargeting = {};
+    }
+
+    if (!Memory.expansion.roomIntel || typeof Memory.expansion.roomIntel !== "object") {
+        Memory.expansion.roomIntel = {};
+    }
+
+    if (!Memory.expansion.branchIntel || typeof Memory.expansion.branchIntel !== "object") {
+        Memory.expansion.branchIntel = {};
+    }
+
+    if (!Memory.expansion.activeBranch || typeof Memory.expansion.activeBranch !== "object") {
+        Memory.expansion.activeBranch = null;
+    }
+
+    if (!Memory.expansion.activeCandidate || typeof Memory.expansion.activeCandidate !== "object") {
+        Memory.expansion.activeCandidate = null;
     }
 
     if (typeof Memory.taskSequence !== "number") {

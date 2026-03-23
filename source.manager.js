@@ -1,7 +1,8 @@
 const constants = require("./constants");
+const roomScope = require("./room.scope");
 
 function refreshManagedSources() {
-    const roomNames = getManagedRoomNames();
+    const roomNames = roomScope.getOperationalRoomNames();
 
     for (const roomName of roomNames) {
         const room = Game.rooms[roomName];
@@ -157,28 +158,6 @@ function getSourceMemory(sourceId) {
     }
 
     return Memory.sources[sourceId];
-}
-
-function getManagedRoomNames() {
-    const roomNames = {};
-
-    for (const name in Game.spawns) {
-        const spawn = Game.spawns[name];
-
-        if (spawn && spawn.room) {
-            roomNames[spawn.room.name] = true;
-        }
-    }
-
-    for (const roomName in Game.rooms) {
-        const room = Game.rooms[roomName];
-
-        if (room.controller && room.controller.my) {
-            roomNames[roomName] = true;
-        }
-    }
-
-    return Object.keys(roomNames);
 }
 
 function getRoomThreats(room) {

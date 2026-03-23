@@ -51,6 +51,11 @@ function cleanupTaskOnCreepDeath(creepName, taskId) {
         return;
     }
 
+    if (task.type === constants.taskTypes.BOOTSTRAP_SPAWN) {
+        task.status = constants.taskStatuses.PENDING;
+        return;
+    }
+
     if (task.type === constants.taskTypes.MINE) {
         cleanupTaxiTasksForMiner(creepName, task.data && task.data.sourceId);
     }

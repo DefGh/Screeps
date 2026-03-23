@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
 function refreshColonyTargets() {
@@ -71,7 +72,7 @@ function getColonyResourceAmount() {
     let amount = 0;
     const seenRooms = {};
 
-    for (const roomName of getManagedRoomNames()) {
+    for (const roomName of roomScope.getOperationalRoomNames()) {
         const room = Game.rooms[roomName];
 
         if (!room || seenRooms[roomName]) {
@@ -115,28 +116,6 @@ function getRoomResourceAmount(room) {
     }
 
     return amount;
-}
-
-function getManagedRoomNames() {
-    const roomNames = {};
-
-    for (const name in Game.spawns) {
-        const spawn = Game.spawns[name];
-
-        if (spawn && spawn.room) {
-            roomNames[spawn.room.name] = true;
-        }
-    }
-
-    for (const roomName in Game.rooms) {
-        const room = Game.rooms[roomName];
-
-        if (room.controller && room.controller.my) {
-            roomNames[roomName] = true;
-        }
-    }
-
-    return Object.keys(roomNames);
 }
 
 function normalizeTargetUniversals(value) {

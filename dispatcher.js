@@ -23,10 +23,17 @@ function getTask(role, executor) {
 
 function findPendingTask(role, executor) {
     if (role === constants.roles.SPAWNER) {
-        const universalSpawnTask = findPendingUniversalSpawnTask(executor);
+        for (const targetRole of [
+            constants.roles.UNIVERSAL,
+            constants.roles.MINER,
+            constants.roles.CLAIMER,
+            constants.roles.SCOUT,
+        ]) {
+            const spawnTask = findPendingSpawnTaskByRole(targetRole, executor);
 
-        if (universalSpawnTask) {
-            return universalSpawnTask;
+            if (spawnTask) {
+                return spawnTask;
+            }
         }
     }
 
@@ -35,6 +42,16 @@ function findPendingTask(role, executor) {
 
         if (taxiTask) {
             return taxiTask;
+        }
+
+        const bootstrapSpawnTask = findPendingTaskByType(
+            role,
+            constants.taskTypes.BOOTSTRAP_SPAWN,
+            executor
+        );
+
+        if (bootstrapSpawnTask) {
+            return bootstrapSpawnTask;
         }
     }
 
@@ -57,10 +74,6 @@ function findPendingTask(role, executor) {
     }
 
     return null;
-}
-
-function findPendingUniversalSpawnTask(executor) {
-    return findPendingSpawnTaskByRole(constants.roles.UNIVERSAL, executor);
 }
 
 function findPendingSpawnTaskByRole(targetRole, executor) {

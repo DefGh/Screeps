@@ -3,6 +3,7 @@ const cleanup = require("./cleanup");
 const colonyManager = require("./colony.manager");
 const constructionManager = require("./construction.manager");
 const constants = require("./constants");
+const expansionManager = require("./expansion.manager");
 const executorRunner = require("./executor.runner");
 const sourceManager = require("./source.manager");
 const resourceVisualizer = require("./resource.visualizer");
@@ -38,6 +39,7 @@ module.exports.loop = function () {
     colonyManager.refreshColonyTargets();
     sourceManager.refreshManagedSources();
     constructionManager.refreshManagedConstruction();
+    expansionManager.refreshExpansion();
     runSpawns();
     runCreeps();
     resourceVisualizer.drawManagedRoomsResourcePlans();
