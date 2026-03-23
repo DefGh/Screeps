@@ -6,9 +6,9 @@ const SQUARE_SIZE = 50;
 const TEXT_X_PADDING = 0.45;
 const TEXT_Y_PADDING = 0.75;
 const TEXT_LINE_SPACING = 0.58;
-const SHOW_ROAD_HEAT_MAP = false;
+const SHOW_ROAD_HEAT_MAP = true;
 const SHOW_REPAIR_HEAT_MAP = true;
-const SHOW_RECOURCE_INFO = false;
+const SHOW_RECOURCE_INFO = true;
 
 const SQUARE_STYLE = {
     fill: "transparent",
