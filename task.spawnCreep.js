@@ -9,7 +9,8 @@ function run(spawn, task) {
 
     const creepName = task.data.creepName || buildCreepName(task);
     const spawnMemory = Object.assign({}, task.data.memory, { role: task.data.role });
-    const result = spawn.spawnCreep(task.data.body, creepName, {
+    const body = resolveSpawnBody(spawn, task);
+    const result = spawn.spawnCreep(body, creepName, {
         memory: spawnMemory,
     });
 
@@ -42,7 +43,7 @@ function ensureUniversalSpawnTask(spawn) {
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.SPAWNER],
         data: {
-            body: buildUniversalBody(spawn),
+            body: buildUniversalBody(spawn, shouldUseEmergencyUniversalBody(spawn)),
             memory: {
                 role: constants.roles.UNIVERSAL,
             },
@@ -74,6 +75,10 @@ function ensureMinerSpawnTask(spawn) {
 
 function countAliveUniversals() {
     return countAliveByRole(constants.roles.UNIVERSAL);
+}
+
+function countAliveCreeps() {
+    return Object.keys(Game.creeps).length;
 }
 
 function countQueuedUniversals() {
@@ -133,15 +138,15 @@ function countQueuedByRole(role, roomName) {
     return count;
 }
 
-function buildUniversalBody(spawn) {
+function buildUniversalBody(spawn, useAvailableEnergy) {
     const partSet = [MOVE, WORK, CARRY] ;
     const minimumCost = BODYPART_COST[WORK];
-    const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
-        ? spawn.room.energyCapacityAvailable
+    const capacity = spawn.room && typeof getRoomEnergyBudget(spawn.room, useAvailableEnergy) === "number"
+        ? getRoomEnergyBudget(spawn.room, useAvailableEnergy)
         : minimumCost;
 
-    if (capacity < minimumCost) {
-        return [WORK];
+    if (capacity < 200) {
+        return [MOVE, WORK, CARRY];
     }
 
     const body = [];
@@ -163,6 +168,44 @@ function buildUniversalBody(spawn) {
     }
 
     return body;
+}
+
+function getRoomEnergyBudget(room, useAvailableEnergy) {
+    if (!room) {
+        return 0;
+    }
+
+    if (useAvailableEnergy && typeof room.energyAvailable === "number") {
+        return room.energyAvailable;
+    }
+
+    if (typeof room.energyCapacityAvailable === "number") {
+        return room.energyCapacityAvailable;
+    }
+
+    return 0;
+}
+
+function shouldUseEmergencyUniversalBody(spawn) {
+    return countAliveCreeps() === 0;
+}
+
+function resolveSpawnBody(spawn, task) {
+    if (
+        task &&
+        task.data &&
+        task.data.role === constants.roles.UNIVERSAL &&
+        shouldUseEmergencyUniversalBody(spawn)
+    ) {
+        const emergencyBody = buildUniversalBody(spawn, true);
+
+        if (Array.isArray(emergencyBody) && emergencyBody.length > 0) {
+            task.data.body = emergencyBody;
+            return emergencyBody;
+        }
+    }
+
+    return task.data.body;
 }
 
 function buildMinerBody(spawn) {

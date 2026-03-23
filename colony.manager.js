@@ -6,6 +6,8 @@ function refreshColonyTargets() {
         return;
     }
 
+    Memory.colony.targetUniversals = normalizeTargetUniversals(Memory.colony.targetUniversals);
+
     const targetingMemory = Memory.colony.universalTargeting;
 
     if (
@@ -25,14 +27,21 @@ function refreshColonyTargets() {
 
     if (currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD)
     {
-        Memory.colony.targetUniversals -= 1;   
-            console.log(
-            `target universals decreased to ${Memory.colony.targetUniversals} ` +
-            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
+        const previousTargetUniversals = Memory.colony.targetUniversals;
+        Memory.colony.targetUniversals = normalizeTargetUniversals(
+            Memory.colony.targetUniversals - 1
         );
+        if (Memory.colony.targetUniversals < previousTargetUniversals) {
+            console.log(
+                `target universals decreased to ${Memory.colony.targetUniversals} ` +
+                `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
+            );
+        }
     }
     else if (currentResourceAmount > targetingMemory.lastResourceAmount) {
-        Memory.colony.targetUniversals += 1;
+        Memory.colony.targetUniversals = normalizeTargetUniversals(
+            Memory.colony.targetUniversals + 1
+        );
         console.log(
             `target universals increased to ${Memory.colony.targetUniversals} ` +
             `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
@@ -42,14 +51,16 @@ function refreshColonyTargets() {
         currentResourceAmount < targetingMemory.lastResourceAmount &&
         currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD
     ) {
-        Memory.colony.targetUniversals = Math.max(
-            constants.colony.MIN_TARGET_UNIVERSALS,
+        const previousTargetUniversals = Memory.colony.targetUniversals;
+        Memory.colony.targetUniversals = normalizeTargetUniversals(
             Memory.colony.targetUniversals - 1
         );
-        console.log(
-            `target universals decreased to ${Memory.colony.targetUniversals} ` +
-            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
-        );
+        if (Memory.colony.targetUniversals < previousTargetUniversals) {
+            console.log(
+                `target universals decreased to ${Memory.colony.targetUniversals} ` +
+                `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
+            );
+        }
     }
 
     targetingMemory.lastResourceAmount = currentResourceAmount;
@@ -126,6 +137,14 @@ function getManagedRoomNames() {
     }
 
     return Object.keys(roomNames);
+}
+
+function normalizeTargetUniversals(value) {
+    if (typeof value !== "number") {
+        return constants.colony.DEFAULT_TARGET_UNIVERSALS;
+    }
+
+    return Math.max(constants.colony.MIN_TARGET_UNIVERSALS, value);
 }
 
 module.exports = {

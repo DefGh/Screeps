@@ -11,6 +11,41 @@ const REPAIR_MAX_ROOM_TASKS = constants.repairs.MAX_ROOM_TASKS;
 const REPAIR_REFRESH_INTERVAL = constants.repairs.REFRESH_INTERVAL;
 const REPAIR_STRUCTURE_THRESHOLD = constants.repairs.STRUCTURE_THRESHOLD;
 const REPAIR_WALL_HITS_CAP = constants.repairs.WALL_HITS_CAP;
+const DEFENSE_BORDER_OFFSET = getNormalizedDefenseBorderOffset();
+const DEFENSE_SIDES = [
+    {
+        name: "top",
+        start: 0,
+        end: 49,
+        getBorderPosition: function (coordinate, roomName) {
+            return { roomName: roomName, x: coordinate, y: 0 };
+        },
+    },
+    {
+        name: "bottom",
+        start: 0,
+        end: 49,
+        getBorderPosition: function (coordinate, roomName) {
+            return { roomName: roomName, x: coordinate, y: 49 };
+        },
+    },
+    {
+        name: "left",
+        start: 1,
+        end: 48,
+        getBorderPosition: function (coordinate, roomName) {
+            return { roomName: roomName, x: 0, y: coordinate };
+        },
+    },
+    {
+        name: "right",
+        start: 1,
+        end: 48,
+        getBorderPosition: function (coordinate, roomName) {
+            return { roomName: roomName, x: 49, y: coordinate };
+        },
+    },
+];
 
 function refreshManagedConstruction() {
     for (const roomName of getManagedRoomNames()) {
@@ -32,15 +67,18 @@ function refreshRoomConstruction(room) {
     if (ensureExtensionSite(room)) {
         return;
     }
-
+    
     if (ensureSourceContainerSite(room)) {
         return;
     }
-
+    
     if (ensureRoadSite(room)) {
         return;
     }
-
+    
+    if (ensureDefenseSite(room)) {
+        return;
+    }
 }
 
 function refreshRoomRepairs(room) {
@@ -350,7 +388,15 @@ function compareRepairCandidates(left, right, anchor) {
 }
 
 function getRepairBucketPriority(structureType) {
-    return isWallLikeStructure(structureType) ? 1 : 0;
+    if (structureType === STRUCTURE_RAMPART) {
+        return 0;
+    }
+
+    if (structureType === STRUCTURE_WALL) {
+        return 1;
+    }
+
+    return 2;
 }
 
 function getRepairDamageRatio(target, repairGoal) {
@@ -364,6 +410,10 @@ function getRepairDamageRatio(target, repairGoal) {
     }
 
     return target.hits / repairGoal;
+}
+
+function getRepairIntegrityRatio(target, repairGoal) {
+    return Math.max(0, Math.min(1, getRepairDamageRatio(target, repairGoal)));
 }
 
 function getRepairStatusPriority(status) {
@@ -486,10 +536,15 @@ function ensureRoadSite(room) {
 
     const anchor = chooseExtensionAnchor(room);
     const candidates = getRoadCandidates(room, anchor);
+    const reservedDefensePositions = getDefenseReservedPositions(room);
 
     for (const candidate of candidates) {
         if (candidate.count < ROAD_MIN_VISITS) {
             break;
+        }
+
+        if (reservedDefensePositions[buildPositionKey(candidate.position)]) {
+            continue;
         }
 
         if (!canPlaceRoadAt(room, candidate.position)) {
@@ -508,6 +563,316 @@ function ensureRoadSite(room) {
     }
 
     return false;
+}
+
+function hasStartedDefensePerimeter(room) {
+    for (const structure of room.find(FIND_STRUCTURES)) {
+        if (
+            (structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART) &&
+            (!structure.owner || structure.my)
+        ) {
+            return true;
+        }
+    }
+
+    for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (site.structureType === STRUCTURE_WALL || site.structureType === STRUCTURE_RAMPART) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function shouldSeedDefensePerimeter(room) {
+    return !hasStartedDefensePerimeter(room) && getDefenseCandidates(room).length > 0;
+}
+
+function ensureDefenseSite(room) {
+    const wallLimit = getStructureLimit(STRUCTURE_WALL, room.controller.level);
+    const rampartLimit = getStructureLimit(STRUCTURE_RAMPART, room.controller.level);
+        
+    
+    if (wallLimit <= 0 && rampartLimit <= 0) {
+        return false;
+    }
+    
+    const wallCount = countRoomPlacedAndPlannedStructures(room, STRUCTURE_WALL);
+    const rampartCount = countRoomPlacedAndPlannedStructures(room, STRUCTURE_RAMPART);
+    const candidates = getDefenseCandidates(room);
+    
+    for (const candidate of candidates) {
+        if (candidate.structureType === STRUCTURE_WALL && wallCount >= wallLimit) {
+            continue;
+        }
+        
+        if (candidate.structureType === STRUCTURE_RAMPART && rampartCount >= rampartLimit) {
+            continue;
+        }
+        
+        if (isDefensePositionSatisfied(room, candidate.position, candidate.structureType)) {
+            continue;
+        }
+        
+        if (!canSatisfyDefensePosition(room, candidate.position, candidate.structureType)) {
+            continue;
+        }
+        console.log(candidate.structureType 
+        )
+
+        const result = room.createConstructionSite(
+            candidate.position.x,
+            candidate.position.y,
+            candidate.structureType
+        );
+
+        if (result === OK) {
+            console.log(
+                `construction planned ${candidate.structureType} at ` +
+                `${room.name} (${candidate.position.x},${candidate.position.y})`
+            );
+            return true;
+        }
+        else {
+            console.log(
+                `construction failed ${candidate.structureType} at ` +
+                `${room.name} (${candidate.position.x},${candidate.position.y})` + 
+                `${result}`
+            );
+        }
+    }
+
+    return false;
+}
+
+function getDefenseCandidates(room) {
+    const candidates = [];
+
+    for (const side of DEFENSE_SIDES) {
+        const segments = getDefenseSegmentsForSide(room, side);
+
+        for (const segment of segments) {
+            const segmentCandidates = buildDefenseCandidatesForSegment(room, segment);
+
+            for (const candidate of segmentCandidates) {
+                candidates.push(candidate);
+            }
+        }
+    }
+
+    return candidates;
+}
+
+function getDefenseReservedPositions(room) {
+    const reservedPositions = {};
+
+    for (const side of DEFENSE_SIDES) {
+        const segments = getDefenseSegmentsForSide(room, side);
+
+        for (const segment of segments) {
+            for (const position of segment) {
+                if (!isValidDefensePosition(room, position)) {
+                    continue;
+                }
+
+                reservedPositions[buildPositionKey(position)] = true;
+            }
+        }
+    }
+
+    return reservedPositions;
+}
+
+function getDefenseSegmentsForSide(room, side) {
+    const terrain = room.getTerrain();
+    const segments = [];
+    let currentSegment = [];
+
+    for (let coordinate = side.start; coordinate <= side.end; coordinate += 1) {
+        const borderPosition = side.getBorderPosition(coordinate, room.name);
+
+        if (terrain.get(borderPosition.x, borderPosition.y) === TERRAIN_MASK_WALL) {
+            if (currentSegment.length > 0) {
+                segments.push(currentSegment);
+                currentSegment = [];
+            }
+
+            continue;
+        }
+
+        currentSegment.push(getDefensePosition(side, coordinate, room.name));
+    }
+
+    if (currentSegment.length > 0) {
+        segments.push(currentSegment);
+    }
+
+    return segments;
+}
+
+function getDefensePosition(side, coordinate, roomName) {
+    if (!side || typeof side.name !== "string") {
+        return null;
+    }
+
+    if (side.name === "top") {
+        return {
+            roomName: roomName,
+            x: coordinate,
+            y: DEFENSE_BORDER_OFFSET,
+        };
+    }
+
+    if (side.name === "bottom") {
+        return {
+            roomName: roomName,
+            x: coordinate,
+            y: 49 - DEFENSE_BORDER_OFFSET,
+        };
+    }
+
+    if (side.name === "left") {
+        return {
+            roomName: roomName,
+            x: DEFENSE_BORDER_OFFSET,
+            y: coordinate,
+        };
+    }
+
+    if (side.name === "right") {
+        return {
+            roomName: roomName,
+            x: 49 - DEFENSE_BORDER_OFFSET,
+            y: coordinate,
+        };
+    }
+
+    return null;
+}
+
+function buildDefenseCandidatesForSegment(room, segment) {
+    const validEntries = [];
+
+    for (let index = 0; index < segment.length; index += 1) {
+        const position = segment[index];
+
+        if (!isValidDefensePosition(room, position)) {
+            continue;
+        }
+
+        validEntries.push({
+            index: index,
+            position: position,
+        });
+    }
+
+    if (validEntries.length === 0) {
+        return [];
+    }
+
+    const doorEntry = chooseDefenseDoorEntry(room, validEntries);
+
+    if (!doorEntry) {
+        return [];
+    }
+
+    const orderedEntries = validEntries.slice().sort(function (left, right) {
+        const distanceOrder =
+            Math.abs(left.index - doorEntry.index) - Math.abs(right.index - doorEntry.index);
+
+        if (distanceOrder !== 0) {
+            return distanceOrder;
+        }
+
+        return left.index - right.index;
+    });
+
+    const candidates = [];
+
+    for (const entry of orderedEntries) {
+        let structureType = entry.index === doorEntry.index
+            ? STRUCTURE_RAMPART
+            : STRUCTURE_WALL;
+
+        if (
+            structureType === STRUCTURE_WALL &&
+            !isDefensePositionSatisfied(room, entry.position, STRUCTURE_WALL) &&
+            !canPlaceWallAt(room, entry.position) &&
+            canPlaceRampartAt(room, entry.position)
+        ) {
+            structureType = STRUCTURE_RAMPART;
+        }
+
+        candidates.push({
+            position: entry.position,
+            structureType: structureType,
+        });
+    }
+
+    return candidates;
+}
+
+function chooseDefenseDoorEntry(room, entries) {
+    const rampartEntries = entries.filter(function (entry) {
+        return canSatisfyDefensePosition(room, entry.position, STRUCTURE_RAMPART);
+    });
+
+    if (rampartEntries.length === 0) {
+        return null;
+    }
+
+    return rampartEntries[Math.floor(rampartEntries.length / 2)];
+}
+
+function isValidDefensePosition(room, position) {
+    if (
+        !position ||
+        position.roomName !== room.name ||
+        !isInsideRoom(position.x, position.y)
+    ) {
+        return false;
+    }
+
+    if (room.getTerrain().get(position.x, position.y) === TERRAIN_MASK_WALL) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_SOURCES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_MINERALS, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.controller && room.controller.pos.x === position.x && room.controller.pos.y === position.y) {
+        return false;
+    }
+
+    return true;
+}
+
+function canSatisfyDefensePosition(room, position, structureType) {
+    if (isDefensePositionSatisfied(room, position, structureType)) {
+        return true;
+    }
+
+    if (structureType === STRUCTURE_WALL) {
+        return canPlaceWallAt(room, position);
+    }
+
+    return canPlaceRampartAt(room, position);
+}
+
+function isDefensePositionSatisfied(room, position, structureType) {
+    if (structureType === STRUCTURE_WALL) {
+        return (
+            hasStructureOrSiteAt(room, position, STRUCTURE_WALL) ||
+            hasStructureOrSiteAt(room, position, STRUCTURE_RAMPART)
+        );
+    }
+
+    return hasStructureOrSiteAt(room, position, STRUCTURE_RAMPART);
 }
 
 function pruneRoadHeat(roomName) {
@@ -573,6 +938,61 @@ function getRoadCandidates(room, anchor) {
     });
 
     return candidates;
+}
+
+function getRoadHeatOverlay(room) {
+    if (!room || !room.name) {
+        return {
+            minVisits: ROAD_MIN_VISITS,
+            candidates: [],
+        };
+    }
+
+    pruneRoadHeat(room.name);
+
+    return {
+        minVisits: ROAD_MIN_VISITS,
+        candidates: getRoadCandidates(room, chooseExtensionAnchor(room)),
+    };
+}
+
+function getRepairHeatOverlay(room) {
+    if (!room || !room.name) {
+        return {
+            candidates: [],
+        };
+    }
+
+    const candidates = [];
+    const candidatesByPositionKey = {};
+
+    for (const entry of getSortedRepairCandidates(room)) {
+        if (!entry || !entry.target || !entry.target.pos) {
+            continue;
+        }
+
+        const positionKey = buildPositionKey(entry.target.pos);
+
+        if (!candidatesByPositionKey[positionKey]) {
+            const integrityRatio = getRepairIntegrityRatio(entry.target, entry.repairGoal);
+            const overlayCandidate = {
+                key: positionKey,
+                position: entry.target.pos,
+                structureType: entry.target.structureType,
+                hits: entry.target.hits,
+                repairGoal: entry.repairGoal,
+                integrityRatio: integrityRatio,
+                integrityPercent: Math.max(0, Math.min(100, Math.round(integrityRatio * 100))),
+            };
+
+            candidatesByPositionKey[positionKey] = overlayCandidate;
+            candidates.push(overlayCandidate);
+        }
+    }
+
+    return {
+        candidates: candidates,
+    };
 }
 
 function getRoadHeatMemory(roomName) {
@@ -680,6 +1100,24 @@ function countRoomStructuresAndSites(room, structureType) {
 
     for (const structure of room.find(FIND_MY_STRUCTURES)) {
         if (structure.structureType === structureType) {
+            count += 1;
+        }
+    }
+
+    for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (site.structureType === structureType) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function countRoomPlacedAndPlannedStructures(room, structureType) {
+    let count = 0;
+
+    for (const structure of room.find(FIND_STRUCTURES)) {
+        if (structure.structureType === structureType && (!structure.owner || structure.my)) {
             count += 1;
         }
     }
@@ -849,6 +1287,58 @@ function canPlaceRoadAt(room, position) {
     return true;
 }
 
+function canPlaceWallAt(room, position) {
+    if (!isValidDefensePosition(room, position)) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_STRUCTURES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_CONSTRUCTION_SITES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    return true;
+}
+
+function canPlaceRampartAt(room, position) {
+    if (!isValidDefensePosition(room, position)) {
+        return false;
+    }
+
+    const structures = room.lookForAt(LOOK_STRUCTURES, position.x, position.y);
+
+    for (const structure of structures) {
+        if (
+            structure.structureType === STRUCTURE_WALL ||
+            structure.structureType === STRUCTURE_RAMPART
+        ) {
+            return false;
+        }
+
+        if (structure.owner && !structure.my) {
+            return false;
+        }
+    }
+
+    const constructionSites = room.lookForAt(LOOK_CONSTRUCTION_SITES, position.x, position.y);
+
+    for (const site of constructionSites) {
+        if (
+            site.structureType === STRUCTURE_WALL ||
+            site.structureType === STRUCTURE_RAMPART
+        ) {
+            return false;
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
 function isInsideExtensionBounds(x, y) {
     return (
         x >= EXTENSION_MIN_COORD &&
@@ -868,6 +1358,16 @@ function getStructureLimit(structureType, controllerLevel) {
     }
 
     return CONTROLLER_STRUCTURES[structureType][controllerLevel];
+}
+
+function getNormalizedDefenseBorderOffset() {
+    const rawOffset =
+        constants.construction &&
+        typeof constants.construction.DEFENSE_BORDER_OFFSET === "number"
+            ? constants.construction.DEFENSE_BORDER_OFFSET
+            : 1;
+
+    return Math.max(1, Math.min(24, Math.floor(rawOffset)));
 }
 
 function buildPositionKey(position) {
@@ -904,5 +1404,7 @@ function parsePositionKey(positionKey) {
 }
 
 module.exports = {
+    getRepairHeatOverlay,
+    getRoadHeatOverlay,
     refreshManagedConstruction,
 };

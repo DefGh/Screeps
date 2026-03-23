@@ -690,7 +690,7 @@ function getActiveWorkParts(creep) {
 }
 
 function getBuildPower() {
-    return typeof BUILD_POWER === "number" ? BUILD_POWER : 1;
+    return 1;
 }
 
 function normalizeRequiredAmount(requiredAmount) {

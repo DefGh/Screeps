@@ -2,11 +2,28 @@ const constants = require("./constants");
 const resourceManager = require("./resource.manager");
 
 function run(creep, task) {
-    if (!isValidBuildTask(task) || typeof creep.moveTo !== "function" || typeof creep.build !== "function") {
+    if (!isValidBuildTask(task) || typeof creep.moveTo !== "function") {
         return true;
     }
 
-    if (task.data.remainingAmount <= 0) {
+    if (
+        task.data.stage !== constants.buildTaskStages.FINISH_REPAIR &&
+        typeof creep.build !== "function"
+    ) {
+        return true;
+    }
+
+    if (
+        task.data.stage === constants.buildTaskStages.FINISH_REPAIR &&
+        typeof creep.repair !== "function"
+    ) {
+        return true;
+    }
+
+    if (
+        task.data.stage !== constants.buildTaskStages.FINISH_REPAIR &&
+        task.data.remainingAmount <= 0
+    ) {
         return true;
     }
 
@@ -16,6 +33,10 @@ function run(creep, task) {
 
     if (task.data.stage === constants.buildTaskStages.BUILD) {
         return runBuildStage(creep, task);
+    }
+
+    if (task.data.stage === constants.buildTaskStages.FINISH_REPAIR) {
+        return runFinishRepairStage(creep, task);
     }
 
     return true;
@@ -48,6 +69,10 @@ function buildBuildTaskData(creep) {
         return null;
     }
 
+    if (isBuildTaskCapReached()) {
+        return null;
+    }
+
     if (resourceManager.getActiveWorkParts(creep) <= 0) {
         return null;
     }
@@ -63,25 +88,30 @@ function buildBuildTaskData(creep) {
     }
 
     const currentEnergy = resourceManager.getUsedEnergy(creep);
-    const startsWithEnergy = currentEnergy > 0;
-    const transportAmount = startsWithEnergy ? currentEnergy : resourceManager.getFreeEnergyCapacity(creep);
-
-    if (transportAmount <= 0) {
-        return null;
-    }
-
-    let amount = Math.min(transportAmount, target.remainingAmount);
+    const freeEnergyCapacity = resourceManager.getFreeEnergyCapacity(creep);
+    const targetStructureType = getBuildTargetStructureType(target.object);
+    const shouldMaximizeLoad = shouldMaximizeBuildTaskLoad(targetStructureType);
+    const amount = getDesiredBuildTaskAmount(
+        creep,
+        currentEnergy,
+        freeEnergyCapacity,
+        target.remainingAmount,
+        shouldMaximizeLoad
+    );
+    const collectAmount = Math.max(0, amount - currentEnergy);
 
     if (amount <= 0) {
         return null;
     }
 
-    if (startsWithEnergy) {
+    if (collectAmount <= 0) {
         return {
             resourceType: RESOURCE_ENERGY,
             sourceId: null,
             sourceType: null,
             targetId: target.object.id,
+            targetStructureType: targetStructureType,
+            targetPos: serializeTargetPosition(target.object.pos),
             amount: amount,
             remainingAmount: amount,
             collectRemainingAmount: 0,
@@ -89,17 +119,36 @@ function buildBuildTaskData(creep) {
         };
     }
 
-    const source = resourceManager.findBestEnergySource(creep, amount);
+    const source = resourceManager.findBestEnergySource(creep, collectAmount);
 
     if (!source || source.remainingAmount <= 0) {
-        return null;
+        if (currentEnergy <= 0) {
+            return null;
+        }
+
+        return {
+            resourceType: RESOURCE_ENERGY,
+            sourceId: null,
+            sourceType: null,
+            targetId: target.object.id,
+            targetStructureType: targetStructureType,
+            targetPos: serializeTargetPosition(target.object.pos),
+            amount: currentEnergy,
+            remainingAmount: currentEnergy,
+            collectRemainingAmount: 0,
+            stage: constants.buildTaskStages.BUILD,
+        };
     }
+
+    let reservedCollectAmount = collectAmount;
+    let reservedAmount = amount;
 
     if (!source.canFullyReserve) {
-        amount = Math.min(amount, source.remainingAmount);
+        reservedCollectAmount = Math.min(collectAmount, source.remainingAmount);
+        reservedAmount = currentEnergy + reservedCollectAmount;
     }
 
-    if (amount <= 0) {
+    if (reservedAmount <= 0 || reservedCollectAmount <= 0) {
         return null;
     }
 
@@ -108,9 +157,11 @@ function buildBuildTaskData(creep) {
         sourceId: source.object.id,
         sourceType: source.type,
         targetId: target.object.id,
-        amount: amount,
-        remainingAmount: amount,
-        collectRemainingAmount: amount,
+        targetStructureType: targetStructureType,
+        targetPos: serializeTargetPosition(target.object.pos),
+        amount: reservedAmount,
+        remainingAmount: reservedAmount,
+        collectRemainingAmount: reservedCollectAmount,
         stage: constants.buildTaskStages.COLLECT,
     };
 }
@@ -233,6 +284,10 @@ function runBuildStage(creep, task) {
     const target = resolveObject(task.data.targetId);
 
     if (!target) {
+        if (switchToFinishRepairStage(task, currentEnergy)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -252,11 +307,16 @@ function runBuildStage(creep, task) {
     const result = creep.build(target);
 
     if (result === OK) {
-        const spentEnergy = Math.max(0, energyBefore - resourceManager.getUsedEnergy(creep));
+        const currentEnergyAfterBuild = resourceManager.getUsedEnergy(creep);
+        const spentEnergy = Math.max(0, energyBefore - currentEnergyAfterBuild);
 
         if (spentEnergy > 0) {
             task.data.remainingAmount = Math.max(0, task.data.remainingAmount - spentEnergy);
             resourceManager.invalidateResourcePlanCache();
+        }
+
+        if (!resolveObject(task.data.targetId) && switchToFinishRepairStage(task, currentEnergyAfterBuild)) {
+            return false;
         }
 
         if (task.data.remainingAmount <= 0) {
@@ -280,7 +340,58 @@ function runBuildStage(creep, task) {
     }
 
     if (result === ERR_INVALID_TARGET) {
+        if (switchToFinishRepairStage(task, currentEnergy)) {
+            return false;
+        }
+
         return true;
+    }
+
+    return true;
+}
+
+function runFinishRepairStage(creep, task) {
+    if (task.data.remainingAmount <= 0) {
+        return true;
+    }
+
+    const currentEnergy = resourceManager.getUsedEnergy(creep);
+
+    if (currentEnergy <= 0) {
+        return true;
+    }
+
+    const target = resolveFinishedBuildTarget(creep, task);
+
+    if (!target) {
+        return true;
+    }
+
+    const energyBefore = currentEnergy;
+    const result = creep.repair(target);
+
+    if (result === OK) {
+        const spentEnergy = Math.max(0, energyBefore - resourceManager.getUsedEnergy(creep));
+
+        if (spentEnergy > 0) {
+            task.data.remainingAmount = Math.max(0, task.data.remainingAmount - spentEnergy);
+            resourceManager.invalidateResourcePlanCache();
+        }
+
+        if (task.data.remainingAmount <= 0 || resourceManager.getUsedEnergy(creep) <= 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    if (result === ERR_NOT_IN_RANGE) {
+        creep.moveTo(target);
+        return false;
+    }
+
+    if (result === ERR_BUSY) {
+        return false;
     }
 
     return true;
@@ -428,8 +539,111 @@ function chooseClosest(executor, objects) {
     return objects[0];
 }
 
+function switchToFinishRepairStage(task, currentEnergy) {
+    if (!canFinishBuildAsRepair(task, currentEnergy)) {
+        return false;
+    }
+
+    task.data.stage = constants.buildTaskStages.FINISH_REPAIR;
+    task.data.collectRemainingAmount = 0;
+    task.data.remainingAmount = currentEnergy;
+    resourceManager.invalidateResourcePlanCache();
+    return true;
+}
+
+function canFinishBuildAsRepair(task, currentEnergy) {
+    return (
+        isRepairAfterBuildTargetType(task.data.targetStructureType) &&
+        hasTargetPosition(task.data.targetPos) &&
+        typeof currentEnergy === "number" &&
+        currentEnergy > 0
+    );
+}
+
+function resolveFinishedBuildTarget(creep, task) {
+    if (!hasTargetPosition(task.data.targetPos) || !isRepairAfterBuildTargetType(task.data.targetStructureType)) {
+        return null;
+    }
+
+    const room =
+        creep &&
+        creep.room &&
+        creep.room.name === task.data.targetPos.roomName
+            ? creep.room
+            : Game.rooms[task.data.targetPos.roomName];
+
+    if (!room || typeof room.lookForAt !== "function") {
+        return null;
+    }
+
+    const structures = room.lookForAt(
+        LOOK_STRUCTURES,
+        task.data.targetPos.x,
+        task.data.targetPos.y
+    );
+
+    for (const structure of structures) {
+        if (structure.structureType === task.data.targetStructureType) {
+            return structure;
+        }
+    }
+
+    return null;
+}
+
+function getBuildTargetStructureType(target) {
+    return target && typeof target.structureType === "string"
+        ? target.structureType
+        : null;
+}
+
+function getDesiredBuildTaskAmount(creep, currentEnergy, freeEnergyCapacity, targetRemainingAmount, shouldMaximizeLoad) {
+    if (shouldMaximizeLoad) {
+        return resourceManager.getEnergyCapacity(creep);
+    }
+
+    if (currentEnergy > 0) {
+        return Math.min(currentEnergy, targetRemainingAmount);
+    }
+
+    return Math.min(freeEnergyCapacity, targetRemainingAmount);
+}
+
+function serializeTargetPosition(position) {
+    if (
+        !position ||
+        typeof position.x !== "number" ||
+        typeof position.y !== "number"
+    ) {
+        return null;
+    }
+
+    return {
+        roomName: typeof position.roomName === "string" ? position.roomName : null,
+        x: position.x,
+        y: position.y,
+    };
+}
+
+function hasTargetPosition(position) {
+    return Boolean(
+        position &&
+        typeof position.roomName === "string" &&
+        typeof position.x === "number" &&
+        typeof position.y === "number"
+    );
+}
+
+function isRepairAfterBuildTargetType(structureType) {
+    return structureType === STRUCTURE_WALL || structureType === STRUCTURE_RAMPART;
+}
+
+function shouldMaximizeBuildTaskLoad(structureType) {
+    return isRepairAfterBuildTargetType(structureType);
+}
+
 function getBuildPower() {
-    return typeof BUILD_POWER === "number" ? BUILD_POWER : 1;
+    return 1;
 }
 
 function shouldWaitForSource(sourceType) {
@@ -461,6 +675,47 @@ function getBuildReservationAmount(task) {
     return typeof task.data.remainingAmount === "number" ? task.data.remainingAmount : 0;
 }
 
+function getMaxBuildTaskCount() {
+    const targetUniversals =
+        Memory &&
+        Memory.colony &&
+        typeof Memory.colony.targetUniversals === "number"
+            ? Memory.colony.targetUniversals
+            : constants.colony.DEFAULT_TARGET_UNIVERSALS;
+
+    return Math.max(1, Math.floor(targetUniversals / 2));
+}
+
+function getCurrentBuildTaskCount() {
+    if (!Memory || !Memory.tasks) {
+        return 0;
+    }
+
+    let count = 0;
+
+    for (const taskId in Memory.tasks) {
+        if (isActiveBuildTask(Memory.tasks[taskId])) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function isBuildTaskCapReached() {
+    return getCurrentBuildTaskCount() >= getMaxBuildTaskCount();
+}
+
+function isActiveBuildTask(task) {
+    return (
+        isBuildTask(task) &&
+        (
+            task.status === constants.taskStatuses.PENDING ||
+            task.status === constants.taskStatuses.IN_PROGRESS
+        )
+    );
+}
+
 function getTaskResourceType(task) {
     if (task && task.data && typeof task.data.resourceType === "string") {
         return task.data.resourceType;
@@ -482,7 +737,14 @@ function isValidBuildTask(task) {
         typeof task.data.amount === "number" &&
         typeof task.data.remainingAmount === "number" &&
         typeof task.data.collectRemainingAmount === "number" &&
-        typeof task.data.stage === "string"
+        typeof task.data.stage === "string" &&
+        (
+            task.data.stage !== constants.buildTaskStages.FINISH_REPAIR ||
+            (
+                typeof task.data.targetStructureType === "string" &&
+                hasTargetPosition(task.data.targetPos)
+            )
+        )
     );
 }
 

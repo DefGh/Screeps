@@ -33,6 +33,11 @@ function bootstrapMemory() {
         Memory.colony.targetUniversals = constants.colony.DEFAULT_TARGET_UNIVERSALS;
     }
 
+    Memory.colony.targetUniversals = Math.max(
+        constants.colony.MIN_TARGET_UNIVERSALS,
+        Memory.colony.targetUniversals
+    );
+
     if (!Memory.colony.universalTargeting || typeof Memory.colony.universalTargeting !== "object") {
         Memory.colony.universalTargeting = {};
     }

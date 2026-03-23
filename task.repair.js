@@ -455,7 +455,58 @@ function canPlanRepairTask(executor, task) {
         return false;
     }
 
+    if (hasHigherPriorityPendingRepairTask(executor, task)) {
+        return false;
+    }
+
     return Boolean(buildRepairExecutionPlan(executor, task, null));
+}
+
+function hasHigherPriorityPendingRepairTask(executor, task) {
+    if (!task || !task.data || typeof task.data.roomName !== "string") {
+        return false;
+    }
+
+    const currentPriority = getRepairStructurePriority(task.data.targetStructureType);
+
+    if (currentPriority <= 0) {
+        return false;
+    }
+
+    for (const taskId in Memory.tasks) {
+        const otherTask = Memory.tasks[taskId];
+
+        if (
+            !isValidRepairTask(otherTask) ||
+            otherTask.id === task.id ||
+            otherTask.status !== constants.taskStatuses.PENDING ||
+            otherTask.data.roomName !== task.data.roomName
+        ) {
+            continue;
+        }
+
+        if (getRepairStructurePriority(otherTask.data.targetStructureType) >= currentPriority) {
+            continue;
+        }
+
+        if (buildRepairExecutionPlan(executor, otherTask, null)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function getRepairStructurePriority(structureType) {
+    if (structureType === STRUCTURE_RAMPART) {
+        return 0;
+    }
+
+    if (structureType === STRUCTURE_WALL) {
+        return 1;
+    }
+
+    return 2;
 }
 
 function canExecute(executor, task) {

@@ -30,6 +30,10 @@ module.exports = {
         TARGET_UNIVERSALS_RECALC_INTERVAL: 500,
     },
 
+    construction: {
+        DEFENSE_BORDER_OFFSET: 3,
+    },
+
     miners: {
         MAX_WORK_PARTS: 5,
     },
@@ -46,6 +50,7 @@ module.exports = {
     buildTaskStages: {
         COLLECT: "collect",
         BUILD: "build",
+        FINISH_REPAIR: "finishRepair",
     },
 
     repairTaskStages: {
