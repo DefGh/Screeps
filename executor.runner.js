@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const dispatcher = require("./dispatcher");
 const taskHandlers = require("./task.handlers");
+const taskStore = require("./task.store");
 
 function runExecutor(executor) {
     if (!executor || !executor.memory || !executor.memory.role) {
@@ -27,13 +28,11 @@ function runExecutor(executor) {
     const task = dispatcher.getTask(role, executor);
 
     if (!task) {
-        // log new task assigment 
         executor.memory.waitUntil = Game.time + constants.dispatcher.WAIT_TICKS_ON_EMPTY_QUEUE;
         return;
     }
 
     say(executor, task);
-    //console.log(`${executor.name} assigned new task ${task.id}`);
     taskHandlers.executeTask(executor, task);
 }
 
@@ -53,20 +52,36 @@ function getCurrentTask(executor, role) {
         return null;
     }
 
-    const task = Memory.tasks[taskId];
+    const task = taskStore.getTask(taskId);
 
     if (!task) {
-        delete executor.memory.taskId;
+        taskStore.clearTaskAssignment(executor);
+        return null;
+    }
+
+    if (!taskHandlers.validateTask(task)) {
+        taskStore.removeTask(task.id, {
+            clearAssignments: true,
+        });
         return null;
     }
 
     if (!Array.isArray(task.canExecute) || !task.canExecute.includes(role)) {
-        delete executor.memory.taskId;
+        taskStore.requeueTask(task.id, {
+            clearAssignments: true,
+        });
+        return null;
+    }
+
+    if (!taskHandlers.canExecuteTask(executor, task)) {
+        taskStore.requeueTask(task.id, {
+            clearAssignments: true,
+        });
         return null;
     }
 
     if (task.status !== constants.taskStatuses.IN_PROGRESS) {
-        task.status = constants.taskStatuses.IN_PROGRESS;
+        taskStore.setTaskStatus(task.id, constants.taskStatuses.IN_PROGRESS);
     }
 
     return task;

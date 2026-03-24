@@ -3,7 +3,6 @@ const bootstrapSpawnTask = require("./task.bootstrapSpawn");
 const buildTask = require("./task.build");
 const claimRoomTask = require("./task.claimRoom");
 const defendRoomTask = require("./task.defendRoom");
-const resourceManager = require("./resource.manager");
 const mineTask = require("./task.mine");
 const repairTask = require("./task.repair");
 const scoutRoomTask = require("./task.scoutRoom");

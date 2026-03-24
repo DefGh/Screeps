@@ -1,27 +1,6 @@
 const constants = require("./constants");
-const resourceManager = require("./resource.manager");
-
-function cleanupLegacyTransferTasks() {
-    const removedTaskIds = {};
-
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!isLegacyTransferTask(task)) {
-            continue;
-        }
-
-        removedTaskIds[taskId] = true;
-        delete Memory.tasks[taskId];
-    }
-
-    if (Object.keys(removedTaskIds).length === 0) {
-        return;
-    }
-
-    cleanupExecutorTaskAssignments(removedTaskIds);
-    resourceManager.invalidateResourcePlanCache();
-}
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 function cleanupDeadCreeps() {
     for (const name in Memory.creeps) {
@@ -31,7 +10,7 @@ function cleanupDeadCreeps() {
 
         const creepMemory = Memory.creeps[name];
 
-        if (creepMemory && creepMemory.taskId && Memory.tasks[creepMemory.taskId]) {
+        if (creepMemory && typeof creepMemory.taskId === "string") {
             cleanupTaskOnCreepDeath(name, creepMemory.taskId);
         }
 
@@ -40,19 +19,19 @@ function cleanupDeadCreeps() {
 }
 
 function cleanupTaskOnCreepDeath(creepName, taskId) {
-    const task = Memory.tasks[taskId];
+    const task = taskStore.getTask(taskId);
 
     if (!task) {
         return;
     }
 
-    if (task.type === constants.taskTypes.TAXI) {
-        task.status = constants.taskStatuses.PENDING;
-        return;
-    }
-
-    if (task.type === constants.taskTypes.BOOTSTRAP_SPAWN) {
-        task.status = constants.taskStatuses.PENDING;
+    if (
+        task.type === constants.taskTypes.TAXI ||
+        task.type === constants.taskTypes.BOOTSTRAP_SPAWN
+    ) {
+        taskStore.requeueTask(taskId, {
+            clearAssignments: true,
+        });
         return;
     }
 
@@ -60,46 +39,33 @@ function cleanupTaskOnCreepDeath(creepName, taskId) {
         cleanupTaxiTasksForMiner(creepName, task.data && task.data.sourceId);
     }
 
-    delete Memory.tasks[taskId];
+    taskStore.removeTask(taskId, {
+        clearAssignments: true,
+    });
 }
 
 function cleanupTaxiTasksForMiner(creepName, sourceId) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
+    const removedTaskIds = [];
 
-        if (!task || task.type !== constants.taskTypes.TAXI || !task.data) {
-            continue;
-        }
-
-        if (task.data.minerName === creepName || task.data.sourceId === sourceId) {
-            delete Memory.tasks[taskId];
-        }
-    }
-}
-
-function cleanupExecutorTaskAssignments(removedTaskIds) {
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (creep && creep.memory && removedTaskIds[creep.memory.taskId]) {
-            delete creep.memory.taskId;
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.TAXI)) {
+        if (
+            task.data.minerName === creepName ||
+            (
+                typeof sourceId === "string" &&
+                task.data.sourceId === sourceId
+            )
+        ) {
+            removedTaskIds.push(task.id);
         }
     }
-}
 
-function isLegacyTransferTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.TRANSFER_ENERGY &&
-        task.data &&
-        (
-            task.data.targetType === constants.transferEnergyTargetTypes.CONTAINER ||
-            task.data.targetType === constants.transferEnergyTargetTypes.CONSTRUCTION_SITE
-        )
-    );
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
+    }
 }
 
 module.exports = {
-    cleanupLegacyTransferTasks,
     cleanupDeadCreeps,
 };

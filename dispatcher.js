@@ -1,6 +1,8 @@
 const constants = require("./constants");
 const taskHandlers = require("./task.handlers");
+const taskIndex = require("./task.index");
 const taskProviders = require("./task.providers");
+const taskStore = require("./task.store");
 
 function getTask(role, executor) {
     let task = findPendingTask(role, executor);
@@ -14,11 +16,7 @@ function getTask(role, executor) {
         return null;
     }
 
-    task.status = constants.taskStatuses.IN_PROGRESS;
-    executor.memory.taskId = task.id;
-    delete executor.memory.waitUntil;
-
-    return task;
+    return taskStore.assignTask(executor, task);
 }
 
 function findPendingTask(role, executor) {
@@ -39,14 +37,13 @@ function findPendingTask(role, executor) {
     }
 
     if (role === constants.roles.UNIVERSAL) {
-        const taxiTask = findPendingTaskByType(role, constants.taskTypes.TAXI, executor);
+        const taxiTask = findPendingTaskByType(constants.taskTypes.TAXI, executor);
 
         if (taxiTask) {
             return taxiTask;
         }
 
         const bootstrapSpawnTask = findPendingTaskByType(
-            role,
             constants.taskTypes.BOOTSTRAP_SPAWN,
             executor
         );
@@ -56,17 +53,7 @@ function findPendingTask(role, executor) {
         }
     }
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.status !== constants.taskStatuses.PENDING) {
-            continue;
-        }
-
-        if (!Array.isArray(task.canExecute) || !task.canExecute.includes(role)) {
-            continue;
-        }
-
+    for (const task of taskIndex.getPendingTasksByRole(role)) {
         if (!taskHandlers.canExecuteTask(executor, task)) {
             continue;
         }
@@ -78,49 +65,21 @@ function findPendingTask(role, executor) {
 }
 
 function findPendingSpawnTaskByRole(targetRole, executor) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
+    const roomName = executor && executor.room ? executor.room.name : null;
 
-        if (!task || task.status !== constants.taskStatuses.PENDING) {
+    for (const task of taskIndex.getPendingSpawnTasksByRoleAndRoom(targetRole, roomName)) {
+        if (!taskHandlers.canExecuteTask(executor, task)) {
             continue;
         }
 
-        if (task.type !== constants.taskTypes.SPAWN_CREEP || !task.data) {
-            continue;
-        }
-
-        if (!Array.isArray(task.canExecute) || !task.canExecute.includes(constants.roles.SPAWNER)) {
-            continue;
-        }
-
-        if (task.data.role === targetRole) {
-            if (!taskHandlers.canExecuteTask(executor, task)) {
-                continue;
-            }
-
-            return task;
-        }
+        return task;
     }
 
     return null;
 }
 
-function findPendingTaskByType(role, taskType, executor) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.status !== constants.taskStatuses.PENDING) {
-            continue;
-        }
-
-        if (task.type !== taskType) {
-            continue;
-        }
-
-        if (!Array.isArray(task.canExecute) || !task.canExecute.includes(role)) {
-            continue;
-        }
-
+function findPendingTaskByType(taskType, executor) {
+    for (const task of taskIndex.getPendingTasksByType(taskType)) {
         if (!taskHandlers.canExecuteTask(executor, task)) {
             continue;
         }

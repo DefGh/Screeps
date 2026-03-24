@@ -1,5 +1,7 @@
 const constants = require("./constants");
 const roomScope = require("./room.scope");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 const BRANCH_DECISION_CLAIMED = "claimed";
 const BRANCH_DECISION_INVALID = "invalid";
@@ -338,8 +340,8 @@ function ensureScoutRoomTask(branch, frontierEntry) {
 
     cleanupExpansionTasks(constants.taskTypes.SCOUT_ROOM);
 
-    addTask({
-        id: nextTaskId(constants.taskTypes.SCOUT_ROOM),
+    taskStore.addTask({
+        id: taskStore.nextTaskId(constants.taskTypes.SCOUT_ROOM),
         type: constants.taskTypes.SCOUT_ROOM,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.SCOUT],
@@ -370,8 +372,8 @@ function ensureClaimRoomTask(candidate) {
 
     cleanupExpansionTasks(constants.taskTypes.CLAIM_ROOM);
 
-    addTask({
-        id: nextTaskId(constants.taskTypes.CLAIM_ROOM),
+    taskStore.addTask({
+        id: taskStore.nextTaskId(constants.taskTypes.CLAIM_ROOM),
         type: constants.taskTypes.CLAIM_ROOM,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.CLAIMER],
@@ -621,12 +623,13 @@ function getBranchKey(originRoomName, rootRoomName) {
 
 function findMatchingExpansionTask(taskType, predicate) {
     let matchedTask = null;
-    const removedTaskIds = {};
+    const removedTaskIds = [];
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.type !== taskType || task.status !== constants.taskStatuses.PENDING && task.status !== constants.taskStatuses.IN_PROGRESS) {
+    for (const task of taskIndex.getTasksByType(taskType)) {
+        if (
+            task.status !== constants.taskStatuses.PENDING &&
+            task.status !== constants.taskStatuses.IN_PROGRESS
+        ) {
             continue;
         }
 
@@ -635,77 +638,49 @@ function findMatchingExpansionTask(taskType, predicate) {
             continue;
         }
 
-        removedTaskIds[taskId] = true;
-        delete Memory.tasks[taskId];
+        removedTaskIds.push(task.id);
     }
 
-    if (Object.keys(removedTaskIds).length > 0) {
-        cleanupExecutorAssignments(removedTaskIds);
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
     }
 
     return matchedTask;
 }
 
 function cleanupExpansionTasks(taskType) {
-    const removedTaskIds = {};
+    const removedTaskIds = taskIndex.getTasksByType(taskType).map(function (task) {
+        return task.id;
+    });
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.type !== taskType) {
-            continue;
-        }
-
-        removedTaskIds[taskId] = true;
-        delete Memory.tasks[taskId];
-    }
-
-    if (Object.keys(removedTaskIds).length > 0) {
-        cleanupExecutorAssignments(removedTaskIds);
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
     }
 }
 
 function cleanupExpansionSpawnTasks(role) {
-    const removedTaskIds = {};
+    const removedTaskIds = [];
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.SPAWN_CREEP)) {
         if (
-            !task ||
-            task.type !== constants.taskTypes.SPAWN_CREEP ||
             !task.data ||
             task.data.role !== role
         ) {
             continue;
         }
 
-        removedTaskIds[taskId] = true;
-        delete Memory.tasks[taskId];
+        removedTaskIds.push(task.id);
     }
 
-    if (Object.keys(removedTaskIds).length > 0) {
-        cleanupExecutorAssignments(removedTaskIds);
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
     }
-}
-
-function cleanupExecutorAssignments(removedTaskIds) {
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (creep && creep.memory && removedTaskIds[creep.memory.taskId]) {
-            delete creep.memory.taskId;
-        }
-    }
-}
-
-function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return `${type}:${Memory.taskSequence}`;
-}
-
-function addTask(task) {
-    Memory.tasks[task.id] = task;
 }
 
 module.exports = {

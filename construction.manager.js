@@ -2,6 +2,8 @@ const constants = require("./constants");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 const EXTENSION_SEARCH_RANGE = 8;
 const EXTENSION_MIN_COORD = 2;
@@ -181,8 +183,12 @@ function normalizeRoomRepairTasks(room) {
         keptTargetIds[entry.task.data.targetId] = true;
     }
 
-    for (const taskId in removedTaskIds) {
-        delete Memory.tasks[taskId];
+    const removedIds = Object.keys(removedTaskIds);
+
+    if (removedIds.length > 0) {
+        taskStore.removeTasks(removedIds, {
+            clearAssignments: true,
+        });
         didMutate = true;
     }
 
@@ -192,15 +198,8 @@ function normalizeRoomRepairTasks(room) {
 function getRoomRepairTasks(roomName) {
     const tasks = [];
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (
-            task &&
-            task.type === constants.taskTypes.REPAIR &&
-            task.data &&
-            task.data.roomName === roomName
-        ) {
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.REPAIR)) {
+        if (task.data && task.data.roomName === roomName) {
             tasks.push(task);
         }
     }
@@ -231,10 +230,8 @@ function getSortedRepairCandidates(room) {
 }
 
 function addRepairTask(room, target, repairGoal) {
-    const taskId = nextTaskId(constants.taskTypes.REPAIR);
-
-    Memory.tasks[taskId] = {
-        id: taskId,
+    const task = {
+        id: taskStore.nextTaskId(constants.taskTypes.REPAIR),
         type: constants.taskTypes.REPAIR,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.UNIVERSAL],
@@ -253,7 +250,8 @@ function addRepairTask(room, target, repairGoal) {
         },
     };
 
-    return Memory.tasks[taskId];
+    taskStore.addTask(task);
+    return task;
 }
 
 function shouldRefreshRoomRepairs(roomMemory) {
@@ -447,11 +445,6 @@ function getAnchorRange(anchor, position) {
     }
 
     return Math.max(Math.abs(anchor.pos.x - position.x), Math.abs(anchor.pos.y - position.y));
-}
-
-function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return type + ":" + Memory.taskSequence;
 }
 
 function ensureSourceContainerSite(room) {

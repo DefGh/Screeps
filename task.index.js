@@ -1,5 +1,4 @@
 const constants = require("./constants");
-const taskHandlers = require("./task.handlers");
 const taskStore = require("./task.store");
 
 let cachedTick = null;
@@ -21,6 +20,10 @@ function getIndex() {
     cachedTick = Game.time;
     cachedTaskVersion = taskVersion;
     return cachedIndex;
+}
+
+function getTaskHandlers() {
+    return require("./task.handlers");
 }
 
 function getTaskById(taskId) {
@@ -97,6 +100,7 @@ function getActiveTask(taskId) {
 }
 
 function buildIndex() {
+    const taskHandlers = getTaskHandlers();
     const index = {
         activeByTaskId: {},
         byId: {},
