@@ -1,5 +1,9 @@
+const colonyManager = require("./colony.manager");
 const constants = require("./constants");
+const movement = require("./movement");
 const resourceManager = require("./resource.manager");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 function run(creep, task) {
     if (!isValidBuildTask(task) || typeof creep.moveTo !== "function") {
@@ -50,7 +54,7 @@ function ensureBuildTask(creep) {
     }
 
     addTask({
-        id: nextTaskId(constants.taskTypes.BUILD),
+        id: taskStore.nextTaskId(constants.taskTypes.BUILD),
         type: constants.taskTypes.BUILD,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.UNIVERSAL],
@@ -69,7 +73,9 @@ function buildBuildTaskData(creep) {
         return null;
     }
 
-    if (isBuildTaskCapReached()) {
+    const roomName = typeof creep.room.name === "string" ? creep.room.name : null;
+
+    if (!roomName || isBuildTaskCapReached(roomName)) {
         return null;
     }
 
@@ -106,6 +112,7 @@ function buildBuildTaskData(creep) {
 
     if (collectAmount <= 0) {
         return {
+            roomName: roomName,
             resourceType: RESOURCE_ENERGY,
             sourceId: null,
             sourceType: null,
@@ -127,6 +134,7 @@ function buildBuildTaskData(creep) {
         }
 
         return {
+            roomName: roomName,
             resourceType: RESOURCE_ENERGY,
             sourceId: null,
             sourceType: null,
@@ -153,6 +161,7 @@ function buildBuildTaskData(creep) {
     }
 
     return {
+        roomName: roomName,
         resourceType: RESOURCE_ENERGY,
         sourceId: source.object.id,
         sourceType: source.type,
@@ -234,7 +243,7 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(source);
+        movement.moveTo(creep, source);
         return false;
     }
 
@@ -327,7 +336,7 @@ function runBuildStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(target);
+        movement.moveTo(creep, target);
         return false;
     }
 
@@ -386,7 +395,7 @@ function runFinishRepairStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(target);
+        movement.moveTo(creep, target);
         return false;
     }
 
@@ -424,10 +433,8 @@ function getRemainingBuildTargetDemand(target, currentTaskId) {
     const baseDemand = getBaseBuildTargetDemand(target);
     let reservedDemand = 0;
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!isBuildTask(task) || taskId === currentTaskId) {
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.BUILD)) {
+        if (!isBuildTask(task) || task.id === currentTaskId) {
             continue;
         }
 
@@ -656,8 +663,7 @@ function nextTaskId(type) {
 }
 
 function addTask(task) {
-    Memory.tasks[task.id] = task;
-    resourceManager.invalidateResourcePlanCache();
+    taskStore.addTask(task);
 }
 
 function switchToBuildStage(task, nextRemainingAmount) {
@@ -675,35 +681,26 @@ function getBuildReservationAmount(task) {
     return typeof task.data.remainingAmount === "number" ? task.data.remainingAmount : 0;
 }
 
-function getMaxBuildTaskCount() {
-    const targetUniversals =
-        Memory &&
-        Memory.colony &&
-        typeof Memory.colony.targetUniversals === "number"
-            ? Memory.colony.targetUniversals
-            : constants.colony.DEFAULT_TARGET_UNIVERSALS;
-
-    return Math.max(1, Math.floor(targetUniversals / 2));
+function getMaxBuildTaskCount(roomName) {
+    return Math.max(1, Math.floor(colonyManager.getTargetUniversalsForRoom(roomName) / 2));
 }
 
-function getCurrentBuildTaskCount() {
-    if (!Memory || !Memory.tasks) {
-        return 0;
-    }
-
+function getCurrentBuildTaskCount(roomName) {
     let count = 0;
 
-    for (const taskId in Memory.tasks) {
-        if (isActiveBuildTask(Memory.tasks[taskId])) {
-            count += 1;
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.BUILD)) {
+        if (roomName && resolveBuildTaskRoomName(task) !== roomName) {
+            continue;
         }
+
+        count += 1;
     }
 
     return count;
 }
 
-function isBuildTaskCapReached() {
-    return getCurrentBuildTaskCount() >= getMaxBuildTaskCount();
+function isBuildTaskCapReached(roomName) {
+    return getCurrentBuildTaskCount(roomName) >= getMaxBuildTaskCount(roomName);
 }
 
 function isActiveBuildTask(task) {
@@ -728,11 +725,16 @@ function isBuildTask(task) {
     return Boolean(task && task.type === constants.taskTypes.BUILD && task.data);
 }
 
+function resolveBuildTaskRoomName(task) {
+    return validate(task) ? task.data.roomName : null;
+}
+
 function isValidBuildTask(task) {
     return Boolean(
         task &&
         task.type === constants.taskTypes.BUILD &&
         task.data &&
+        typeof task.data.roomName === "string" &&
         typeof task.data.targetId === "string" &&
         typeof task.data.amount === "number" &&
         typeof task.data.remainingAmount === "number" &&
@@ -749,16 +751,32 @@ function isValidBuildTask(task) {
 }
 
 function canExecute(executor, task) {
+    const taskRoomName = resolveBuildTaskRoomName(task);
+
     return (
-        isValidBuildTask(task) &&
+        validate(task) &&
+        executor &&
+        executor.memory &&
         typeof executor.moveTo === "function" &&
-        typeof executor.build === "function"
+        typeof executor.build === "function" &&
+        typeof taskRoomName === "string" &&
+        executor.memory.originRoomName === taskRoomName
     );
+}
+
+function validate(task) {
+    return isValidBuildTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.roomName : null;
 }
 
 module.exports = {
     canExecute,
     ensureBuildTask,
+    getOwnerRoom,
     hasBuildWork,
     run,
+    validate,
 };

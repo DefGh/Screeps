@@ -24,6 +24,7 @@ function getTask(role, executor) {
 function findPendingTask(role, executor) {
     if (role === constants.roles.SPAWNER) {
         for (const targetRole of [
+            constants.roles.ATTACKER,
             constants.roles.UNIVERSAL,
             constants.roles.MINER,
             constants.roles.CLAIMER,

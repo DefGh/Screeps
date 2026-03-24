@@ -1,6 +1,8 @@
 const buildTask = require("./task.build");
 const constants = require("./constants");
+const movement = require("./movement");
 const resourceManager = require("./resource.manager");
+const taskIndex = require("./task.index");
 
 function run(creep, task) {
     if (!isValidRepairTask(task) || typeof creep.moveTo !== "function" || typeof creep.repair !== "function") {
@@ -113,7 +115,7 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(source);
+        movement.moveTo(creep, source);
         return false;
     }
 
@@ -197,7 +199,7 @@ function runRepairStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(target);
+        movement.moveTo(creep, target);
         return false;
     }
 
@@ -288,10 +290,8 @@ function getRemainingRepairTargetDemand(target, repairGoal, currentTaskId) {
     const baseDemand = getBaseRepairTargetDemand(target, repairGoal);
     let reservedDemand = 0;
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!isRepairTask(task) || taskId === currentTaskId) {
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.REPAIR)) {
+        if (!isRepairTask(task) || task.id === currentTaskId) {
             continue;
         }
 
@@ -473,13 +473,10 @@ function hasHigherPriorityPendingRepairTask(executor, task) {
         return false;
     }
 
-    for (const taskId in Memory.tasks) {
-        const otherTask = Memory.tasks[taskId];
-
+    for (const otherTask of taskIndex.getPendingTasksByType(constants.taskTypes.REPAIR)) {
         if (
             !isValidRepairTask(otherTask) ||
             otherTask.id === task.id ||
-            otherTask.status !== constants.taskStatuses.PENDING ||
             otherTask.data.roomName !== task.data.roomName
         ) {
             continue;
@@ -511,10 +508,12 @@ function getRepairStructurePriority(structureType) {
 
 function canExecute(executor, task) {
     if (
-        !isValidRepairTask(task) ||
+        !validate(task) ||
         !executor ||
+        !executor.memory ||
         !executor.room ||
         executor.room.name !== task.data.roomName ||
+        executor.memory.originRoomName !== task.data.roomName ||
         typeof executor.moveTo !== "function" ||
         typeof executor.repair !== "function" ||
         resourceManager.getActiveWorkParts(executor) <= 0
@@ -529,7 +528,17 @@ function canExecute(executor, task) {
     return canPlanRepairTask(executor, task);
 }
 
+function validate(task) {
+    return isValidRepairTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.roomName : null;
+}
+
 module.exports = {
     canExecute,
+    getOwnerRoom,
     run,
+    validate,
 };

@@ -1,5 +1,8 @@
 const constants = require("./constants");
+const movement = require("./movement");
 const resourceManager = require("./resource.manager");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 const PRIMARY_ANCHOR_MIN_COORD = 4;
 const PRIMARY_ANCHOR_MAX_COORD = 45;
@@ -18,7 +21,7 @@ function run(creep, task) {
 
     if (!creep.room || creep.room.name !== task.data.targetRoomName) {
         task.data.stage = constants.bootstrapSpawnTaskStages.MOVE;
-        creep.moveTo(new RoomPosition(25, 25, task.data.targetRoomName));
+        movement.moveTo(creep, new RoomPosition(25, 25, task.data.targetRoomName));
         return false;
     }
 
@@ -44,17 +47,16 @@ function run(creep, task) {
         return false;
     }
 
-    if (resourceManager.getUsedEnergy(creep) > 0) {
-        task.data.stage = constants.bootstrapSpawnTaskStages.BUILD;
-        return runBuildStage(creep, task, spawnSite);
+    if (task.data.stage === constants.bootstrapSpawnTaskStages.COLLECT) {
+        return runCollectStage(creep, task);
     }
 
-    task.data.stage = constants.bootstrapSpawnTaskStages.COLLECT;
-    return runCollectStage(creep, task);
+    if (task.data.stage === constants.bootstrapSpawnTaskStages.BUILD) {
+        return runBuildStage(creep, task, spawnSite);
+    }
 }
 
 function ensureBootstrapSpawnTask(originRoomName, targetRoomName) {
-    console.log(originRoomName, " -> ", targetRoomName)
     if (
         typeof originRoomName !== "string" ||
         typeof targetRoomName !== "string" ||
@@ -69,7 +71,7 @@ function ensureBootstrapSpawnTask(originRoomName, targetRoomName) {
         return existingTask;
     }
 
-    const taskId = nextTaskId(constants.taskTypes.BOOTSTRAP_SPAWN);
+    const taskId = taskStore.nextTaskId(constants.taskTypes.BOOTSTRAP_SPAWN);
     const task = {
         id: taskId,
         type: constants.taskTypes.BOOTSTRAP_SPAWN,
@@ -83,18 +85,18 @@ function ensureBootstrapSpawnTask(originRoomName, targetRoomName) {
         },
     };
 
-    addTask(task);
+    taskStore.addTask(task);
     return task;
 }
 
 function canExecute(executor, task) {
     return Boolean(
-        isValidBootstrapSpawnTask(task) &&
+        validate(task) &&
         executor &&
+        executor.memory &&
         typeof executor.moveTo === "function" &&
         typeof executor.build === "function" &&
-        executor.room &&
-        executor.room.name === task.data.originRoomName
+        executor.memory.originRoomName === task.data.originRoomName
     );
 }
 
@@ -132,7 +134,7 @@ function runCollectStage(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(sourceSelection.object);
+        movement.moveTo(creep, sourceSelection.object);
         return false;
     }
 
@@ -173,7 +175,7 @@ function runBuildStage(creep, task, spawnSite) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(spawnSite);
+        movement.moveTo(creep, spawnSite);
         return false;
     }
 
@@ -587,15 +589,10 @@ function serializePosition(position) {
 
 function findBootstrapSpawnTask(targetRoomName) {
     let matchedTask = null;
-    const removedTaskIds = {};
+    const removedTaskIds = [];
 
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.BOOTSTRAP_SPAWN)) {
         if (
-            !task ||
-            task.type !== constants.taskTypes.BOOTSTRAP_SPAWN ||
-            !task.data ||
             task.data.targetRoomName !== targetRoomName ||
             (
                 task.status !== constants.taskStatuses.PENDING &&
@@ -610,34 +607,16 @@ function findBootstrapSpawnTask(targetRoomName) {
             continue;
         }
 
-        removedTaskIds[taskId] = true;
-        delete Memory.tasks[taskId];
+        removedTaskIds.push(task.id);
     }
 
-    if (Object.keys(removedTaskIds).length > 0) {
-        cleanupExecutorAssignments(removedTaskIds);
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
     }
 
     return matchedTask;
-}
-
-function cleanupExecutorAssignments(removedTaskIds) {
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (creep && creep.memory && removedTaskIds[creep.memory.taskId]) {
-            delete creep.memory.taskId;
-        }
-    }
-}
-
-function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return `${type}:${Memory.taskSequence}`;
-}
-
-function addTask(task) {
-    Memory.tasks[task.id] = task;
 }
 
 function isValidBootstrapSpawnTask(task) {
@@ -660,8 +639,18 @@ function isValidBootstrapSpawnTask(task) {
     );
 }
 
+function validate(task) {
+    return isValidBootstrapSpawnTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.originRoomName : null;
+}
+
 module.exports = {
     canExecute,
     ensureBootstrapSpawnTask,
+    getOwnerRoom,
     run,
+    validate,
 };

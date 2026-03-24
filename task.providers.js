@@ -1,9 +1,19 @@
 const constants = require("./constants");
 const buildTask = require("./task.build");
+const defendRoomTask = require("./task.defendRoom");
 const spawnCreepTask = require("./task.spawnCreep");
 const transferEnergyTask = require("./task.transferEnergy");
 
 function ensureUniversalTask(executor) {
+    if (
+        !executor ||
+        !executor.room ||
+        !executor.memory ||
+        executor.memory.originRoomName !== executor.room.name
+    ) {
+        return false;
+    }
+
     if (buildTask.ensureBuildTask(executor)) {
         return true;
     }
@@ -13,10 +23,14 @@ function ensureUniversalTask(executor) {
 
 const providersByRole = {
     [constants.roles.SPAWNER]: [
+        spawnCreepTask.ensureAttackerSpawnTask,
         spawnCreepTask.ensureUniversalSpawnTask,
         spawnCreepTask.ensureMinerSpawnTask,
         spawnCreepTask.ensureClaimerSpawnTask,
         spawnCreepTask.ensureScoutSpawnTask,
+    ],
+    [constants.roles.ATTACKER]: [
+        defendRoomTask.ensureDefendRoomTask,
     ],
     [constants.roles.UNIVERSAL]: [
         ensureUniversalTask,

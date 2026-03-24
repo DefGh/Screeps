@@ -2,6 +2,7 @@ const constants = require("./constants");
 const bootstrapSpawnTask = require("./task.bootstrapSpawn");
 const buildTask = require("./task.build");
 const claimRoomTask = require("./task.claimRoom");
+const defendRoomTask = require("./task.defendRoom");
 const resourceManager = require("./resource.manager");
 const mineTask = require("./task.mine");
 const repairTask = require("./task.repair");
@@ -17,30 +18,45 @@ const taskModulesByType = {
     [constants.taskTypes.TAXI]: taxiTask,
     [constants.taskTypes.BUILD]: buildTask,
     [constants.taskTypes.REPAIR]: repairTask,
+    [constants.taskTypes.DEFEND_ROOM]: defendRoomTask,
     [constants.taskTypes.SCOUT_ROOM]: scoutRoomTask,
     [constants.taskTypes.CLAIM_ROOM]: claimRoomTask,
     [constants.taskTypes.TRANSFER_ENERGY]: transferEnergyTask,
 };
 
-function executeTask(executor, task) {
-    const taskModule = taskModulesByType[task && task.type];
+function getTaskModule(task) {
+    return taskModulesByType[task && task.type] || null;
+}
 
-    if (!taskModule || typeof taskModule.run !== "function") {
-        discardTask(executor, task && task.id);
+function executeTask(executor, task) {
+    const taskStore = require("./task.store");
+    const taskModule = getTaskModule(task);
+
+    if (!validateTask(task) || !taskModule || typeof taskModule.run !== "function") {
+        if (task && task.id) {
+            taskStore.removeTask(task.id, {
+                clearAssignments: true,
+            });
+        }
+        else {
+            taskStore.clearTaskAssignment(executor);
+        }
         return;
     }
 
     const isCompleted = taskModule.run(executor, task) === true;
 
     if (isCompleted) {
-        discardTask(executor, task && task.id);
+        taskStore.removeTask(task.id, {
+            clearAssignments: true,
+        });
     }
 }
 
 function canExecuteTask(executor, task) {
-    const taskModule = taskModulesByType[task && task.type];
+    const taskModule = getTaskModule(task);
 
-    if (!taskModule) {
+    if (!validateTask(task) || !taskModule) {
         return false;
     }
 
@@ -51,16 +67,45 @@ function canExecuteTask(executor, task) {
     return taskModule.canExecute(executor, task) !== false;
 }
 
-function discardTask(executor, taskId) {
-    if (taskId && Memory.tasks[taskId]) {
-        delete Memory.tasks[taskId];
-        resourceManager.invalidateResourcePlanCache();
+function validateTask(task) {
+    const taskModule = getTaskModule(task);
+
+    if (
+        !taskModule ||
+        !task ||
+        typeof task.id !== "string" ||
+        typeof task.type !== "string" ||
+        (
+            task.status !== constants.taskStatuses.PENDING &&
+            task.status !== constants.taskStatuses.IN_PROGRESS
+        ) ||
+        !Array.isArray(task.canExecute) ||
+        task.canExecute.length === 0 ||
+        !task.data ||
+        typeof task.data !== "object" ||
+        typeof taskModule.validate !== "function"
+    ) {
+        return false;
     }
 
-    delete executor.memory.taskId;
+    return taskModule.validate(task) !== false;
+}
+
+function getTaskOwnerRoom(task) {
+    const taskModule = getTaskModule(task);
+
+    if (!validateTask(task) || !taskModule || typeof taskModule.getOwnerRoom !== "function") {
+        return null;
+    }
+
+    const ownerRoom = taskModule.getOwnerRoom(task);
+    return typeof ownerRoom === "string" ? ownerRoom : null;
 }
 
 module.exports = {
     canExecuteTask,
     executeTask,
+    getTaskModule,
+    getTaskOwnerRoom,
+    validateTask,
 };

@@ -1,9 +1,16 @@
+const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 function run(spawn, task) {
     if (!isValidSpawnTask(task) || typeof spawn.spawnCreep !== "function") {
+        return true;
+    }
+
+    if (shouldDiscardAttackerSpawnTask(spawn, task)) {
         return true;
     }
 
@@ -27,10 +34,53 @@ function run(spawn, task) {
     return true;
 }
 
+function ensureAttackerSpawnTask(spawn) {
+    if (!spawn || !spawn.room) {
+        return;
+    }
+
+    const roomName = spawn.room.name;
+    const hostileCreeps = spawn.room.find(FIND_HOSTILE_CREEPS);
+
+    if (!hostileCreeps || hostileCreeps.length === 0) {
+        cleanupAttackerSpawnTasks(roomName);
+        return;
+    }
+
+    if (
+        countAliveAttackers(roomName) + countQueuedAttackers(roomName) >= constants.attackers.MAX_PER_ROOM
+    ) {
+        return;
+    }
+
+    const taskId = nextSpawnTaskId(constants.roles.ATTACKER);
+    addTask({
+        id: taskId,
+        type: constants.taskTypes.SPAWN_CREEP,
+        status: constants.taskStatuses.PENDING,
+        canExecute: [constants.roles.SPAWNER],
+        data: {
+            body: buildAttackerBody(spawn),
+            memory: {
+                role: constants.roles.ATTACKER,
+                originRoomName: roomName,
+            },
+            role: constants.roles.ATTACKER,
+            roomName: roomName,
+            stage: constants.spawnTaskStages.WAITING,
+        },
+    });
+}
+
 function ensureUniversalSpawnTask(spawn) {
-    const targetUniversals = Memory.colony.targetUniversals;
-    const aliveUniversals = countAliveUniversals();
-    const queuedUniversals = countQueuedUniversals();
+    if (!spawn || !spawn.room) {
+        return;
+    }
+
+    const roomName = spawn.room.name;
+    const targetUniversals = colonyManager.getTargetUniversalsForRoom(roomName);
+    const aliveUniversals = countAliveUniversals(roomName);
+    const queuedUniversals = countQueuedUniversals(roomName);
 
     if (aliveUniversals + queuedUniversals >= targetUniversals) {
         return;
@@ -46,8 +96,10 @@ function ensureUniversalSpawnTask(spawn) {
             body: buildUniversalBody(spawn, shouldUseEmergencyUniversalBody(spawn)),
             memory: {
                 role: constants.roles.UNIVERSAL,
+                originRoomName: roomName,
             },
             role: constants.roles.UNIVERSAL,
+            roomName: roomName,
             stage: constants.spawnTaskStages.WAITING,
         },
     });
@@ -122,14 +174,18 @@ function ensureScoutSpawnTask(spawn) {
 }
 
 function ensureMinerSpawnTask(spawn) {
-    const targetUniversals = Memory.colony.targetUniversals;
-    const aliveUniversals = countAliveUniversals();
+    if (!spawn || !spawn.room) {
+        return;
+    }
+
+    const roomName = spawn.room.name;
+    const targetUniversals = colonyManager.getTargetUniversalsForRoom(roomName);
+    const aliveUniversals = countAliveUniversals(roomName);
 
     if (aliveUniversals < targetUniversals) {
         return;
     }
 
-    const roomName = spawn.room.name;
     const minerSources = sourceManager.getMinerSourcesForRoom(roomName);
 
     for (const sourceData of minerSources) {
@@ -141,16 +197,56 @@ function ensureMinerSpawnTask(spawn) {
     }
 }
 
-function countAliveUniversals() {
-    return countAliveByRole(constants.roles.UNIVERSAL);
+function countAliveAttackers(roomName) {
+    let count = 0;
+
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (!creep.memory || creep.memory.role !== constants.roles.ATTACKER) {
+            continue;
+        }
+
+        if (creep.memory.originRoomName !== roomName) {
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
 }
 
 function countAliveCreeps() {
     return Object.keys(Game.creeps).length;
 }
 
-function countQueuedUniversals() {
-    return countQueuedByRole(constants.roles.UNIVERSAL);
+function countAliveUniversals(roomName) {
+    let count = 0;
+
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (!creep.memory || creep.memory.role !== constants.roles.UNIVERSAL) {
+            continue;
+        }
+
+        if (roomName && creep.memory.originRoomName !== roomName) {
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
+}
+
+function countQueuedAttackers(roomName) {
+    return taskIndex.getQueuedSpawnTasksByRoleAndRoom(constants.roles.ATTACKER, roomName).length;
+}
+
+function countQueuedUniversals(roomName) {
+    return taskIndex.getQueuedSpawnTasksByRoleAndRoom(constants.roles.UNIVERSAL, roomName).length;
 }
 
 function countAliveByRole(role, roomName) {
@@ -174,36 +270,7 @@ function countAliveByRole(role, roomName) {
 }
 
 function countQueuedByRole(role, roomName) {
-    let count = 0;
-
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task) {
-            continue;
-        }
-
-        if (task.type !== constants.taskTypes.SPAWN_CREEP) {
-            continue;
-        }
-
-        if (!task.data || task.data.role !== role) {
-            continue;
-        }
-
-        if (roomName && task.data.roomName && task.data.roomName !== roomName) {
-            continue;
-        }
-
-        if (
-            task.status === constants.taskStatuses.PENDING ||
-            task.status === constants.taskStatuses.IN_PROGRESS
-        ) {
-            count += 1;
-        }
-    }
-
-    return count;
+    return taskIndex.getQueuedSpawnTasksByRoleAndRoom(role, roomName).length;
 }
 
 function buildUniversalBody(spawn, useAvailableEnergy) {
@@ -236,6 +303,27 @@ function buildUniversalBody(spawn, useAvailableEnergy) {
     }
 
     return body;
+}
+
+function buildAttackerBody(spawn) {
+    const pairCost = BODYPART_COST[MOVE] + BODYPART_COST[ATTACK];
+    const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
+        ? spawn.room.energyCapacityAvailable
+        : pairCost;
+
+    if (capacity < pairCost) {
+        return [MOVE, ATTACK];
+    }
+
+    const body = [];
+    let remainingEnergy = capacity;
+
+    while (body.length + 2 <= MAX_CREEP_SIZE && remainingEnergy >= pairCost) {
+        body.push(MOVE, ATTACK);
+        remainingEnergy -= pairCost;
+    }
+
+    return body.length > 0 ? body : [MOVE, ATTACK];
 }
 
 function buildScoutBody() {
@@ -284,6 +372,14 @@ function resolveSpawnBody(spawn, task) {
     return task.data.body;
 }
 
+function shouldDiscardAttackerSpawnTask(spawn, task) {
+    if (!isAttackerSpawnTask(task) || !spawn || !spawn.room) {
+        return false;
+    }
+
+    return spawn.room.find(FIND_HOSTILE_CREEPS).length === 0;
+}
+
 function buildMinerBody(spawn) {
     const minimumCost = BODYPART_COST[WORK];
     const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
@@ -321,6 +417,7 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
         status: constants.taskStatuses.IN_PROGRESS,
         canExecute: [constants.roles.MINER],
         data: {
+            roomName: minerPos.roomName,
             sourceId: sourceId,
         },
     });
@@ -332,6 +429,7 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
         canExecute: [constants.roles.UNIVERSAL],
         data: {
             minerName: creepName,
+            roomName: minerPos.roomName,
             sourceId: sourceId,
             minerPos: minerPos,
         },
@@ -346,6 +444,7 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
             body: buildMinerBody(spawn),
             creepName: creepName,
             memory: {
+                originRoomName: spawn.room.name,
                 role: constants.roles.MINER,
                 taskId: mineTaskId,
             },
@@ -368,23 +467,15 @@ function buildPlannedCreepName(role, taskId) {
 }
 
 function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return type + ":" + Memory.taskSequence;
+    return taskStore.nextTaskId(type);
 }
 
 function nextSpawnTaskId(role) {
-    Memory.taskSequence += 1;
-    return "spawn:" + role + ":" + Memory.taskSequence;
+    return taskStore.nextSpawnTaskId(role);
 }
 
 function hasMineTaskForSource(sourceId) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.type !== constants.taskTypes.MINE || !task.data) {
-            continue;
-        }
-
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.MINE)) {
         if (task.data.sourceId === sourceId) {
             return true;
         }
@@ -394,22 +485,77 @@ function hasMineTaskForSource(sourceId) {
 }
 
 function cleanupLinkedTasks(task) {
+    const linkedTaskIds = [];
+
     if (!task || !task.data) {
         return;
     }
 
-    if (task.data.mineTaskId && Memory.tasks[task.data.mineTaskId]) {
-        delete Memory.tasks[task.data.mineTaskId];
+    if (task.data.mineTaskId && taskStore.getTask(task.data.mineTaskId)) {
+        linkedTaskIds.push(task.data.mineTaskId);
     }
 
-    if (task.data.taxiTaskId && Memory.tasks[task.data.taxiTaskId]) {
-        delete Memory.tasks[task.data.taxiTaskId];
+    if (task.data.taxiTaskId && taskStore.getTask(task.data.taxiTaskId)) {
+        linkedTaskIds.push(task.data.taxiTaskId);
+    }
+
+    if (linkedTaskIds.length > 0) {
+        taskStore.removeTasks(linkedTaskIds, {
+            clearAssignments: true,
+        });
+    }
+}
+
+function cleanupAttackerSpawnTasks(roomName) {
+    const taskIds = [];
+
+    for (const task of taskIndex.getPendingSpawnTasksByRoleAndRoom(constants.roles.ATTACKER, roomName)) {
+        if (task.data && task.data.roomName === roomName) {
+            taskIds.push(task.id);
+        }
+    }
+
+    if (taskIds.length > 0) {
+        taskStore.removeTasks(taskIds, {
+            clearAssignments: true,
+        });
     }
 }
 
 function addTask(task) {
-    Memory.tasks[task.id] = task;
-    //console.log(`task added ${task.id}`);
+    taskStore.addTask(task);
+}
+
+function isAttackerSpawnTask(task) {
+    return Boolean(
+        task &&
+        task.type === constants.taskTypes.SPAWN_CREEP &&
+        task.data &&
+        task.data.role === constants.roles.ATTACKER
+    );
+}
+
+function isUniversalSpawnTask(task) {
+    return Boolean(
+        task &&
+        task.type === constants.taskTypes.SPAWN_CREEP &&
+        task.data &&
+        task.data.role === constants.roles.UNIVERSAL
+    );
+}
+
+function resolveUniversalSpawnTaskRoomName(task) {
+    if (!isUniversalSpawnTask(task)) {
+        return null;
+    }
+
+    if (typeof task.data.roomName === "string") {
+        return task.data.roomName;
+    }
+
+    return task.data.memory && typeof task.data.memory.originRoomName === "string"
+        ? task.data.memory.originRoomName
+        : null;
 }
 
 function isValidSpawnTask(task) {
@@ -422,13 +568,14 @@ function isValidSpawnTask(task) {
         task.data.memory &&
         typeof task.data.memory === "object" &&
         typeof task.data.role === "string" &&
+        typeof task.data.roomName === "string" &&
         typeof task.data.stage === "string"
     );
 }
 
 function canExecute(executor, task) {
     return (
-        isValidSpawnTask(task) &&
+        validate(task) &&
         typeof executor.spawnCreep === "function" &&
         canSpawnTaskInRoom(executor, task)
     );
@@ -440,17 +587,32 @@ function canSpawnTaskInRoom(executor, task) {
         !task.data ||
         typeof task.data.roomName !== "string"
     ) {
-        return true;
+        return false;
+    }
+
+    if (isAttackerSpawnTask(task) && executor.room.find(FIND_HOSTILE_CREEPS).length === 0) {
+        return false;
     }
 
     return Boolean(executor && executor.room && executor.room.name === task.data.roomName);
 }
 
+function validate(task) {
+    return isValidSpawnTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.roomName : null;
+}
+
 module.exports = {
     canExecute,
+    ensureAttackerSpawnTask,
     ensureClaimerSpawnTask,
     ensureMinerSpawnTask,
     ensureScoutSpawnTask,
     ensureUniversalSpawnTask,
+    getOwnerRoom,
     run,
+    validate,
 };

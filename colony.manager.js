@@ -3,20 +3,36 @@ const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
 function refreshColonyTargets() {
-    if (!Memory.colony || !Memory.colony.universalTargeting) {
+    if (
+        !Memory.colony ||
+        !Memory.colony.targetUniversalsByRoom ||
+        !Memory.colony.universalTargetingByRoom
+    ) {
         return;
     }
 
-    Memory.colony.targetUniversals = normalizeTargetUniversals(Memory.colony.targetUniversals);
+    for (const roomName of roomScope.getOperationalRoomNames()) {
+        const room = Game.rooms[roomName];
 
-    const targetingMemory = Memory.colony.universalTargeting;
+        if (!room) {
+            continue;
+        }
+
+        refreshRoomTargetUniversals(roomName, room);
+    }
+}
+
+function refreshRoomTargetUniversals(roomName, room) {
+    const targetingMemory = getUniversalTargetingMemoryForRoom(roomName);
+    const previousTargetUniversals = getTargetUniversalsForRoom(roomName);
 
     if (
         typeof targetingMemory.lastResourceAmount !== "number" ||
         typeof targetingMemory.lastSampleTick !== "number"
     ) {
-        targetingMemory.lastResourceAmount = getColonyResourceAmount();
+        targetingMemory.lastResourceAmount = getRoomResourceAmount(room);
         targetingMemory.lastSampleTick = Game.time;
+        Memory.colony.targetUniversalsByRoom[roomName] = previousTargetUniversals;
         return;
     }
 
@@ -24,66 +40,78 @@ function refreshColonyTargets() {
         return;
     }
 
-    const currentResourceAmount = getColonyResourceAmount();
+    const currentResourceAmount = getRoomResourceAmount(room);
+    let nextTargetUniversals = previousTargetUniversals;
 
-    if (currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD)
-    {
-        const previousTargetUniversals = Memory.colony.targetUniversals;
-        Memory.colony.targetUniversals = normalizeTargetUniversals(
-            Memory.colony.targetUniversals - 1
-        );
-        if (Memory.colony.targetUniversals < previousTargetUniversals) {
-            console.log(
-                `target universals decreased to ${Memory.colony.targetUniversals} ` +
-                `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
-            );
-        }
+    if (currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD) {
+        nextTargetUniversals = normalizeTargetUniversals(previousTargetUniversals - 1);
     }
     else if (currentResourceAmount > targetingMemory.lastResourceAmount) {
-        Memory.colony.targetUniversals = normalizeTargetUniversals(
-            Memory.colony.targetUniversals + 1
-        );
-        console.log(
-            `target universals increased to ${Memory.colony.targetUniversals} ` +
-            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
-        );
+        nextTargetUniversals = normalizeTargetUniversals(previousTargetUniversals + 1);
     }
     else if (
         currentResourceAmount < targetingMemory.lastResourceAmount &&
         currentResourceAmount < constants.colony.LOW_RESOURCE_THRESHOLD
     ) {
-        const previousTargetUniversals = Memory.colony.targetUniversals;
-        Memory.colony.targetUniversals = normalizeTargetUniversals(
-            Memory.colony.targetUniversals - 1
+        nextTargetUniversals = normalizeTargetUniversals(previousTargetUniversals - 1);
+    }
+
+    Memory.colony.targetUniversalsByRoom[roomName] = nextTargetUniversals;
+
+    if (nextTargetUniversals < previousTargetUniversals) {
+        console.log(
+            `[${roomName}] target universals decreased to ${nextTargetUniversals} ` +
+            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
         );
-        if (Memory.colony.targetUniversals < previousTargetUniversals) {
-            console.log(
-                `target universals decreased to ${Memory.colony.targetUniversals} ` +
-                `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
-            );
-        }
+    }
+    else if (nextTargetUniversals > previousTargetUniversals) {
+        console.log(
+            `[${roomName}] target universals increased to ${nextTargetUniversals} ` +
+            `(resources ${targetingMemory.lastResourceAmount} -> ${currentResourceAmount})`
+        );
     }
 
     targetingMemory.lastResourceAmount = currentResourceAmount;
     targetingMemory.lastSampleTick = Game.time;
 }
 
-function getColonyResourceAmount() {
-    let amount = 0;
-    const seenRooms = {};
-
-    for (const roomName of roomScope.getOperationalRoomNames()) {
-        const room = Game.rooms[roomName];
-
-        if (!room || seenRooms[roomName]) {
-            continue;
-        }
-
-        seenRooms[roomName] = true;
-        amount += getRoomResourceAmount(room);
+function getUniversalTargetingMemoryForRoom(roomName) {
+    if (!Memory.colony.universalTargetingByRoom || typeof Memory.colony.universalTargetingByRoom !== "object") {
+        Memory.colony.universalTargetingByRoom = {};
     }
 
-    return amount;
+    if (
+        !Memory.colony.universalTargetingByRoom[roomName] ||
+        typeof Memory.colony.universalTargetingByRoom[roomName] !== "object"
+    ) {
+        Memory.colony.universalTargetingByRoom[roomName] = {};
+    }
+
+    return Memory.colony.universalTargetingByRoom[roomName];
+}
+
+function getTargetUniversalsForRoom(roomName) {
+    const legacyTarget = normalizeTargetUniversals(
+        Memory && Memory.colony ? Memory.colony.targetUniversals : undefined
+    );
+
+    if (
+        !Memory ||
+        !Memory.colony ||
+        !Memory.colony.targetUniversalsByRoom ||
+        typeof roomName !== "string"
+    ) {
+        return legacyTarget;
+    }
+
+    if (typeof Memory.colony.targetUniversalsByRoom[roomName] !== "number") {
+        Memory.colony.targetUniversalsByRoom[roomName] = legacyTarget;
+        return legacyTarget;
+    }
+
+    const normalizedTarget = normalizeTargetUniversals(Memory.colony.targetUniversalsByRoom[roomName]);
+    Memory.colony.targetUniversalsByRoom[roomName] = normalizedTarget;
+    return normalizedTarget;
 }
 
 function getRoomResourceAmount(room) {
@@ -127,5 +155,6 @@ function normalizeTargetUniversals(value) {
 }
 
 module.exports = {
+    getTargetUniversalsForRoom,
     refreshColonyTargets,
 };

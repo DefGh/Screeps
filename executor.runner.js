@@ -11,7 +11,7 @@ function runExecutor(executor) {
     const currentTask = getCurrentTask(executor, role);
 
     if (currentTask) {
-        say(executor)
+        say(executor, currentTask);
         taskHandlers.executeTask(executor, currentTask);
         return;
     }
@@ -32,15 +32,18 @@ function runExecutor(executor) {
         return;
     }
 
-    say(executor)
+    say(executor, task);
     //console.log(`${executor.name} assigned new task ${task.id}`);
     taskHandlers.executeTask(executor, task);
 }
 
-function say(executor) {
-    // if (executor.say) {
-    //     executor.say(executor.memory.taskId)
-    // }
+function say(executor, task) {
+    if (!task || typeof executor.say !== "function") {
+        return;
+    }
+
+    const icon = constants.taskIcons[task.type] || constants.taskIcons.default;
+    executor.say(icon);
 }
 
 function getCurrentTask(executor, role) {

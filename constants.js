@@ -1,6 +1,7 @@
 module.exports = {
     roles: {
         SPAWNER: "spawner",
+        ATTACKER: "attacker",
         MINER: "miner",
         SCOUT: "scout",
         CLAIMER: "claimer",
@@ -14,9 +15,24 @@ module.exports = {
         TAXI: "taxi",
         BUILD: "build",
         REPAIR: "repair",
+        DEFEND_ROOM: "defendRoom",
         SCOUT_ROOM: "scoutRoom",
         CLAIM_ROOM: "claimRoom",
         TRANSFER_ENERGY: "transferEnergy",
+    },
+
+    taskIcons: {
+        mine: "⛏",
+        spawnCreep: "🐣",
+        bootstrapSpawn: "🏗",
+        taxi: "🚕",
+        build: "🔨",
+        repair: "🔧",
+        defendRoom: "⚔",
+        scoutRoom: "👁",
+        claimRoom: "🚩",
+        transferEnergy: "⚡",
+        default: "?",
     },
 
     taskStatuses: {
@@ -46,6 +62,10 @@ module.exports = {
 
     miners: {
         MAX_WORK_PARTS: 5,
+    },
+
+    attackers: {
+        MAX_PER_ROOM: 1,
     },
 
     sources: {

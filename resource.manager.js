@@ -1,4 +1,6 @@
 const constants = require("./constants");
+const taskIndex = require("./task.index");
+const taskStore = require("./task.store");
 
 const resourcePlanRoles = {
     SOURCE: "source",
@@ -49,6 +51,7 @@ function buildTransferEnergyTaskData(creep) {
 
     if (startsWithEnergy) {
         return {
+            roomName: creep.room.name,
             resourceType: RESOURCE_ENERGY,
             sourceId: null,
             sourceType: null,
@@ -76,6 +79,7 @@ function buildTransferEnergyTaskData(creep) {
     }
 
     return {
+        roomName: creep.room.name,
         resourceType: RESOURCE_ENERGY,
         sourceId: source.object.id,
         sourceType: source.type,
@@ -113,6 +117,7 @@ function invalidateResourcePlanCache() {
     resourcePlanCache.version += 1;
     resourcePlanCache.tick = null;
     resourcePlanCache.plansByKey = {};
+    taskStore.bumpTaskVersion();
 }
 
 function getAvailableSourceEnergy(sourceType, source, currentTaskId) {
@@ -399,20 +404,9 @@ function ensurePlanEntry(entriesById, objectId, object, objectType, resourceType
 }
 
 function applyTaskReservations(entriesById, resourceType) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!isResourceSourceReservationTask(task) || getResourceTaskResourceType(task) !== resourceType) {
-            continue;
-        }
-
-        if (task.data.sourceId && entriesById[task.data.sourceId]) {
-            entriesById[task.data.sourceId].reservedOutgoing += getOutgoingReservationAmount(task);
-        }
-
-        if (isTransferEnergyTask(task) && task.data.targetId && entriesById[task.data.targetId]) {
-            entriesById[task.data.targetId].reservedIncoming += getIncomingReservationAmount(task);
-        }
+    for (const objectId in entriesById) {
+        entriesById[objectId].reservedOutgoing = taskIndex.getReservedOutgoing(objectId, resourceType);
+        entriesById[objectId].reservedIncoming = taskIndex.getReservedIncoming(objectId, resourceType);
     }
 }
 
@@ -554,7 +548,7 @@ function getOpenEndedTargetDemand(targetType, target, creep) {
 }
 
 function getTaskIncomingReservationForObject(targetId, currentTaskId, resourceType) {
-    const task = Memory.tasks[currentTaskId];
+    const task = taskStore.getTask(currentTaskId);
 
     if (
         !isTransferEnergyTask(task) ||
@@ -568,7 +562,7 @@ function getTaskIncomingReservationForObject(targetId, currentTaskId, resourceTy
 }
 
 function getTaskOutgoingReservationForObject(sourceId, currentTaskId, resourceType) {
-    const task = Memory.tasks[currentTaskId];
+    const task = taskStore.getTask(currentTaskId);
 
     if (
         !isResourceSourceReservationTask(task) ||

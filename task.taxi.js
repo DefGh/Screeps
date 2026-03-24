@@ -1,4 +1,6 @@
 const constants = require("./constants");
+const movement = require("./movement");
+const taskIndex = require("./task.index");
 
 function run(creep, task) {
     if (
@@ -30,14 +32,14 @@ function run(creep, task) {
     }
 
     if (!creep.pos.isNearTo(miner)) {
-        creep.moveTo(miner);
+        movement.moveTo(creep, miner);
         return false;
     }
 
     const pullResult = creep.pull(miner);
 
     if (pullResult === ERR_NOT_IN_RANGE) {
-        creep.moveTo(miner);
+        movement.moveTo(creep, miner);
         return false;
     }
 
@@ -49,7 +51,7 @@ function run(creep, task) {
          creep.move(miner);
     }
     else {
-        creep.moveTo(targetPos);
+        movement.moveTo(creep, targetPos);
     }
 
     miner.move(creep);
@@ -155,10 +157,8 @@ function isImpassableStructure(structure) {
 }
 
 function hasPendingSpawnForMiner(minerName) {
-    for (const taskId in Memory.tasks) {
-        const task = Memory.tasks[taskId];
-
-        if (!task || task.type !== constants.taskTypes.SPAWN_CREEP || !task.data) {
+    for (const task of taskIndex.getTasksByType(constants.taskTypes.SPAWN_CREEP)) {
+        if (!task.data) {
             continue;
         }
 
@@ -205,6 +205,7 @@ function isValidTaxiTask(task) {
         task &&
         task.type === constants.taskTypes.TAXI &&
         task.data &&
+        typeof task.data.roomName === "string" &&
         typeof task.data.minerName === "string" &&
         typeof task.data.sourceId === "string" &&
         task.data.minerPos &&
@@ -214,13 +215,23 @@ function isValidTaxiTask(task) {
     );
 }
 
+function resolveTaxiTaskRoomName(task) {
+    return validate(task) ? task.data.roomName : null;
+}
+
 function canExecute(executor, task) {
     if (
-        !isValidTaxiTask(task) ||
+        !validate(task) ||
+        !executor ||
+        !executor.memory ||
         typeof executor.moveTo !== "function" ||
         typeof executor.pull !== "function" ||
         typeof executor.move !== "function"
     ) {
+        return false;
+    }
+
+    if (executor.memory.originRoomName !== resolveTaxiTaskRoomName(task)) {
         return false;
     }
 
@@ -233,7 +244,17 @@ function canExecute(executor, task) {
     return !hasPendingSpawnForMiner(task.data.minerName);
 }
 
+function validate(task) {
+    return isValidTaxiTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.roomName : null;
+}
+
 module.exports = {
     canExecute,
+    getOwnerRoom,
     run,
+    validate,
 };

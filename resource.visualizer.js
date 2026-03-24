@@ -2,11 +2,11 @@ const constructionManager = require("./construction.manager");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
-const SQUARE_SIZE = 50;
+const SQUARE_SIZE = 5;
 const TEXT_X_PADDING = 0.45;
 const TEXT_Y_PADDING = 0.75;
 const TEXT_LINE_SPACING = 0.58;
-const SHOW_ROAD_HEAT_MAP = true;
+const SHOW_ROAD_HEAT_MAP = false;
 const SHOW_REPAIR_HEAT_MAP = true;
 const SHOW_RECOURCE_INFO = true;
 
@@ -80,9 +80,7 @@ const REPAIR_HEAT_TEXT_STYLE = {
 };
 
 function drawManagedRoomsResourcePlans() {
-    if (!SHOW_RECOURCE_INFO) {
-        return;
-    }
+
     for (const roomName of roomScope.getOperationalRoomNames()) {
         const room = Game.rooms[roomName];
 
@@ -98,16 +96,19 @@ function drawRoomResourcePlan(room) {
     if (!room || !room.visual) {
         return;
     }
+    drawRoomRoadHeat(room);
+    drawRoomRepairHeat(room);
 
+    if (!SHOW_RECOURCE_INFO) {
+        return;
+    }
     const plan = resourceManager.getRoomResourcePlan(room, RESOURCE_ENERGY);
     const squareGroups = buildSquareGroups(plan);
-    drawRoomRoadHeat(room);
 
     for (const group of squareGroups) {
         drawSquareGroup(room.visual, group);
     }
 
-    drawRoomRepairHeat(room);
 }
 
 function drawRoomRoadHeat(room) {

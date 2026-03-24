@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const bootstrapSpawnTask = require("./task.bootstrapSpawn");
+const movement = require("./movement");
 
 function run(creep, task) {
     if (!isValidClaimTask(task) || !creep || typeof creep.moveTo !== "function" || typeof creep.claimController !== "function") {
@@ -8,7 +9,7 @@ function run(creep, task) {
 
     if (!Game.rooms[task.data.targetRoomName] || !Game.rooms[task.data.targetRoomName].controller) {
         if (!creep.room || creep.room.name !== task.data.targetRoomName) {
-            creep.moveTo(new RoomPosition(25, 25, task.data.targetRoomName));
+            movement.moveTo(creep, new RoomPosition(25, 25, task.data.targetRoomName));
             return false;
         }
     }
@@ -40,7 +41,7 @@ function run(creep, task) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(controller);
+        movement.moveTo(creep, controller);
         return false;
     }
 
@@ -59,10 +60,12 @@ function run(creep, task) {
 
 function canExecute(executor, task) {
     return (
-        isValidClaimTask(task) &&
+        validate(task) &&
         executor &&
+        executor.memory &&
         typeof executor.moveTo === "function" &&
-        typeof executor.claimController === "function"
+        typeof executor.claimController === "function" &&
+        executor.memory.originRoomName === task.data.originRoomName
     );
 }
 
@@ -122,7 +125,17 @@ function isValidClaimTask(task) {
     );
 }
 
+function validate(task) {
+    return isValidClaimTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.originRoomName : null;
+}
+
 module.exports = {
     canExecute,
+    getOwnerRoom,
     run,
+    validate,
 };

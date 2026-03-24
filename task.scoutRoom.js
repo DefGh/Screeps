@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const expansionManager = require("./expansion.manager");
+const movement = require("./movement");
 
 function run(creep, task) {
     if (!isValidScoutTask(task) || !creep || typeof creep.moveTo !== "function") {
@@ -11,12 +12,18 @@ function run(creep, task) {
         return true;
     }
 
-    creep.moveTo(new RoomPosition(25, 25, task.data.targetRoomName));
+    movement.moveTo(creep, new RoomPosition(25, 25, task.data.targetRoomName));
     return false;
 }
 
 function canExecute(executor, task) {
-    return isValidScoutTask(task) && executor && typeof executor.moveTo === "function";
+    return Boolean(
+        validate(task) &&
+        executor &&
+        executor.memory &&
+        typeof executor.moveTo === "function" &&
+        executor.memory.originRoomName === task.data.originRoomName
+    );
 }
 
 function isValidScoutTask(task) {
@@ -31,7 +38,17 @@ function isValidScoutTask(task) {
     );
 }
 
+function validate(task) {
+    return isValidScoutTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.originRoomName : null;
+}
+
 module.exports = {
     canExecute,
+    getOwnerRoom,
     run,
+    validate,
 };

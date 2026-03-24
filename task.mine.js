@@ -65,15 +65,32 @@ function isValidMineTask(task) {
         task &&
         task.type === constants.taskTypes.MINE &&
         task.data &&
+        typeof task.data.roomName === "string" &&
         typeof task.data.sourceId === "string"
     );
 }
 
 function canExecute(executor, task) {
-    return isValidMineTask(task) && typeof executor.harvest === "function";
+    return Boolean(
+        validate(task) &&
+        executor &&
+        executor.memory &&
+        typeof executor.harvest === "function" &&
+        executor.memory.originRoomName === task.data.roomName
+    );
+}
+
+function validate(task) {
+    return isValidMineTask(task);
+}
+
+function getOwnerRoom(task) {
+    return validate(task) ? task.data.roomName : null;
 }
 
 module.exports = {
     canExecute,
+    getOwnerRoom,
     run,
+    validate,
 };
