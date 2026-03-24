@@ -47,8 +47,8 @@ module.exports = {
     },
 
     renew: {
-        UNIVERSAL_START_TTL: 400,
-        UNIVERSAL_TARGET_TTL: 1000,
+        UNIVERSAL_START_TTL: 600,
+        UNIVERSAL_TARGET_TTL: 1100,
     },
 
     colony: {

@@ -1,6 +1,8 @@
+const constants = require("./constants");
 const constructionManager = require("./construction.manager");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
+const taskIndex = require("./task.index");
 
 const SQUARE_SIZE = 5;
 const TEXT_X_PADDING = 0.45;
@@ -9,6 +11,15 @@ const TEXT_LINE_SPACING = 0.58;
 const SHOW_ROAD_HEAT_MAP = false;
 const SHOW_REPAIR_HEAT_MAP = true;
 const SHOW_RECOURCE_INFO = false;
+const SHOW_ROOM_TASK_PANEL = true;
+const TASK_PANEL_LEFT = 0.35 + 15;
+const TASK_PANEL_TOP = 0.35 + 18;
+const TASK_PANEL_WIDTH = 4.8;
+const TASK_PANEL_HEADER_HEIGHT = 0.7;
+const TASK_PANEL_ROW_HEIGHT = 0.6;
+const TASK_PANEL_TEXT_X = TASK_PANEL_LEFT + 0.25;
+const TASK_PANEL_HEADER_Y = TASK_PANEL_TOP + 0.47;
+const TASK_PANEL_FIRST_ROW_Y = TASK_PANEL_TOP + 1.02;
 
 const SQUARE_STYLE = {
     fill: "transparent",
@@ -79,6 +90,31 @@ const REPAIR_HEAT_TEXT_STYLE = {
     strokeWidth: 0.12,
 };
 
+const TASK_PANEL_STYLE = {
+    fill: "#111111",
+    opacity: 0.72,
+    stroke: "#65d46e",
+    strokeWidth: 0.06,
+};
+
+const TASK_PANEL_HEADER_STYLE = {
+    align: "left",
+    color: "#d6f5da",
+    font: 0.42,
+    opacity: 0.95,
+    stroke: "#111111",
+    strokeWidth: 0.12,
+};
+
+const TASK_PANEL_TEXT_STYLE = {
+    align: "left",
+    color: "#ffffff",
+    font: 0.46,
+    opacity: 0.95,
+    stroke: "#111111",
+    strokeWidth: 0.12,
+};
+
 function drawManagedRoomsResourcePlans() {
 
     for (const roomName of roomScope.getOperationalRoomNames()) {
@@ -96,12 +132,15 @@ function drawRoomResourcePlan(room) {
     if (!room || !room.visual) {
         return;
     }
+
     drawRoomRoadHeat(room);
     drawRoomRepairHeat(room);
+    drawRoomTaskPanel(room);
 
     if (!SHOW_RECOURCE_INFO) {
         return;
     }
+
     const plan = resourceManager.getRoomResourcePlan(room, RESOURCE_ENERGY);
     const squareGroups = buildSquareGroups(plan);
 
@@ -109,6 +148,96 @@ function drawRoomResourcePlan(room) {
         drawSquareGroup(room.visual, group);
     }
 
+}
+
+function drawRoomTaskPanel(room) {
+    if (!SHOW_ROOM_TASK_PANEL) {
+        return;
+    }
+
+    const taskRows = buildRoomTaskRows(room.name);
+
+    if (taskRows.length === 0) {
+        return;
+    }
+
+    const panelHeight = TASK_PANEL_HEADER_HEIGHT + taskRows.length * TASK_PANEL_ROW_HEIGHT + 0.2;
+
+    room.visual.rect(
+        TASK_PANEL_LEFT,
+        TASK_PANEL_TOP,
+        TASK_PANEL_WIDTH,
+        panelHeight,
+        TASK_PANEL_STYLE
+    );
+
+    room.visual.text(
+        "Tasks P/A",
+        TASK_PANEL_TEXT_X,
+        TASK_PANEL_HEADER_Y,
+        TASK_PANEL_HEADER_STYLE
+    );
+
+    for (let index = 0; index < taskRows.length; index += 1) {
+        room.visual.text(
+            buildTaskRowLabel(taskRows[index]),
+            TASK_PANEL_TEXT_X,
+            TASK_PANEL_FIRST_ROW_Y + index * TASK_PANEL_ROW_HEIGHT,
+            TASK_PANEL_TEXT_STYLE
+        );
+    }
+}
+
+function buildRoomTaskRows(roomName) {
+    const countsByType = {};
+    const pendingTasks = taskIndex.getPendingTasksByOwnerRoom(roomName);
+    const tasks = taskIndex.getTasksByOwnerRoom(roomName);
+
+    for (const taskType of Object.values(constants.taskTypes)) {
+        countsByType[taskType] = {
+            active: 0,
+            pending: 0,
+            taskType: taskType,
+        };
+    }
+
+    for (const task of pendingTasks) {
+        if (!countsByType[task.type]) {
+            continue;
+        }
+
+        countsByType[task.type].pending += 1;
+    }
+
+    for (const task of tasks) {
+        if (
+            !countsByType[task.type] ||
+            task.status !== constants.taskStatuses.IN_PROGRESS
+        ) {
+            continue;
+        }
+
+        countsByType[task.type].active += 1;
+    }
+
+    const rows = [];
+
+    for (const taskType of Object.values(constants.taskTypes)) {
+        const row = countsByType[taskType];
+
+        if (!row || (row.pending === 0 && row.active === 0)) {
+            continue;
+        }
+
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+function buildTaskRowLabel(taskRow) {
+    const icon = constants.taskIcons[taskRow.taskType] || constants.taskIcons.default;
+    return `${icon} ${taskRow.pending}/${taskRow.active}`;
 }
 
 function drawRoomRoadHeat(room) {

@@ -16,6 +16,12 @@ function run(creep, task) {
         return true;
     }
 
+    const visibleTargetRoom = Game.rooms[task.data.targetRoomName];
+
+    if (visibleTargetRoom && visibleTargetRoom.controller && !visibleTargetRoom.controller.my) {
+        return true;
+    }
+
     if (hasOwnedSpawnInRoom(task.data.targetRoomName)) {
         return true;
     }

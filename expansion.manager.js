@@ -231,7 +231,7 @@ function seedNextBranch() {
             const branchDecision = getFreshBranchDecision(originRoomName, neighborRoomName);
 
             if (branchDecision) {
-                if (branchDecision.status === BRANCH_DECISION_VALID) {
+                if (shouldActivateBranchDecision(branchDecision)) {
                     activateCandidate(
                         originRoomName,
                         neighborRoomName,
@@ -461,6 +461,16 @@ function getFreshBranchDecision(originRoomName, rootRoomName) {
     }
 
     return branchIntel;
+}
+
+function shouldActivateBranchDecision(branchDecision) {
+    return Boolean(
+        branchDecision &&
+        (
+            branchDecision.status === BRANCH_DECISION_VALID ||
+            branchDecision.status === BRANCH_DECISION_CLAIMED
+        )
+    );
 }
 
 function setBranchDecision(originRoomName, rootRoomName, status, branchRooms) {

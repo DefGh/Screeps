@@ -45,7 +45,13 @@ function ensureRenewTtlTask(executor) {
         return false;
     }
 
-    return Boolean(findRenewTaskForCreep(executor.name) || taskHelpers.addTask({
+    const existingTask = findManagedRenewTask(executor.name);
+
+    if (existingTask) {
+        return existingTask.data.creepName === executor.name;
+    }
+
+    return Boolean(taskHelpers.addTask({
         id: taskHelpers.nextTaskId(constants.taskTypes.RENEW_TTL),
         type: constants.taskTypes.RENEW_TTL,
         status: constants.taskStatuses.PENDING,
@@ -129,22 +135,45 @@ function findRenewTaskForCreep(creepName) {
         return null;
     }
 
-    let matchedTask = null;
-    const removedTaskIds = [];
+    const managedTask = findManagedRenewTask(creepName);
+
+    return managedTask && managedTask.data.creepName === creepName
+        ? managedTask
+        : null;
+}
+
+function findManagedRenewTask(preferredCreepName) {
+    const renewTasks = [];
 
     for (const task of taskIndex.getTasksByType(constants.taskTypes.RENEW_TTL)) {
         if (
-            task.data.creepName !== creepName ||
-            (
-                task.status !== constants.taskStatuses.PENDING &&
-                task.status !== constants.taskStatuses.IN_PROGRESS
-            )
+            task.status !== constants.taskStatuses.PENDING &&
+            task.status !== constants.taskStatuses.IN_PROGRESS
         ) {
             continue;
         }
 
-        if (!matchedTask) {
-            matchedTask = task;
+        renewTasks.push(task);
+    }
+
+    if (renewTasks.length === 0) {
+        return null;
+    }
+
+    const matchedTask =
+        findRenewTaskByStatusAndCreepName(
+            renewTasks,
+            constants.taskStatuses.IN_PROGRESS,
+            preferredCreepName
+        ) ||
+        findRenewTaskByStatus(renewTasks, constants.taskStatuses.IN_PROGRESS) ||
+        findRenewTaskByCreepName(renewTasks, preferredCreepName) ||
+        renewTasks[0];
+
+    const removedTaskIds = [];
+
+    for (const task of renewTasks) {
+        if (task.id === matchedTask.id) {
             continue;
         }
 
@@ -158,6 +187,44 @@ function findRenewTaskForCreep(creepName) {
     }
 
     return matchedTask;
+}
+
+function findRenewTaskByStatus(tasks, status) {
+    for (const task of tasks) {
+        if (task.status === status) {
+            return task;
+        }
+    }
+
+    return null;
+}
+
+function findRenewTaskByCreepName(tasks, creepName) {
+    if (typeof creepName !== "string") {
+        return null;
+    }
+
+    for (const task of tasks) {
+        if (task.data.creepName === creepName) {
+            return task;
+        }
+    }
+
+    return null;
+}
+
+function findRenewTaskByStatusAndCreepName(tasks, status, creepName) {
+    if (typeof creepName !== "string") {
+        return null;
+    }
+
+    for (const task of tasks) {
+        if (task.status === status && task.data.creepName === creepName) {
+            return task;
+        }
+    }
+
+    return null;
 }
 
 function hasOwnedSpawnInRoom(roomName) {
