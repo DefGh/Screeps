@@ -36,7 +36,7 @@ function countMinerTargets(roomName) {
 }
 
 function getMinerPos(sourceId) {
-    const sourceMemory = Memory.sources && Memory.sources[sourceId];
+    const sourceMemory = Memory.sources[sourceId];
     return sourceMemory && sourceMemory.minerPos ? sourceMemory.minerPos : null;
 }
 

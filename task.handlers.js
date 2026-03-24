@@ -5,6 +5,7 @@ const claimRoomTask = require("./task.claimRoom");
 const defendRoomTask = require("./task.defendRoom");
 const mineTask = require("./task.mine");
 const repairTask = require("./task.repair");
+const renewTtlTask = require("./task.renewTtl");
 const scoutRoomTask = require("./task.scoutRoom");
 const spawnCreepTask = require("./task.spawnCreep");
 const taxiTask = require("./task.taxi");
@@ -21,17 +22,21 @@ const taskModulesByType = {
     [constants.taskTypes.SCOUT_ROOM]: scoutRoomTask,
     [constants.taskTypes.CLAIM_ROOM]: claimRoomTask,
     [constants.taskTypes.TRANSFER_ENERGY]: transferEnergyTask,
+    [constants.taskTypes.RENEW_TTL]: renewTtlTask,
 };
 
 function getTaskModule(task) {
-    return taskModulesByType[task && task.type] || null;
+    if (!task || typeof task.type !== "string") {
+        return null;
+    }
+
+    return taskModulesByType[task.type] || null;
 }
 
 function executeTask(executor, task) {
     const taskStore = require("./task.store");
-    const taskModule = getTaskModule(task);
 
-    if (!validateTask(task) || !taskModule || typeof taskModule.run !== "function") {
+    if (!validateTask(task)) {
         if (task && task.id) {
             taskStore.removeTask(task.id, {
                 clearAssignments: true,
@@ -40,6 +45,15 @@ function executeTask(executor, task) {
         else {
             taskStore.clearTaskAssignment(executor);
         }
+        return;
+    }
+
+    const taskModule = getTaskModule(task);
+
+    if (typeof taskModule.run !== "function") {
+        taskStore.removeTask(task.id, {
+            clearAssignments: true,
+        });
         return;
     }
 
@@ -91,9 +105,13 @@ function validateTask(task) {
 }
 
 function getTaskOwnerRoom(task) {
+    if (!validateTask(task)) {
+        return null;
+    }
+
     const taskModule = getTaskModule(task);
 
-    if (!validateTask(task) || !taskModule || typeof taskModule.getOwnerRoom !== "function") {
+    if (typeof taskModule.getOwnerRoom !== "function") {
         return null;
     }
 

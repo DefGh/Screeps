@@ -3,14 +3,6 @@ const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
 function refreshColonyTargets() {
-    if (
-        !Memory.colony ||
-        !Memory.colony.targetUniversalsByRoom ||
-        !Memory.colony.universalTargetingByRoom
-    ) {
-        return;
-    }
-
     for (const roomName of roomScope.getOperationalRoomNames()) {
         const room = Game.rooms[roomName];
 
@@ -76,10 +68,6 @@ function refreshRoomTargetUniversals(roomName, room) {
 }
 
 function getUniversalTargetingMemoryForRoom(roomName) {
-    if (!Memory.colony.universalTargetingByRoom || typeof Memory.colony.universalTargetingByRoom !== "object") {
-        Memory.colony.universalTargetingByRoom = {};
-    }
-
     if (
         !Memory.colony.universalTargetingByRoom[roomName] ||
         typeof Memory.colony.universalTargetingByRoom[roomName] !== "object"
@@ -91,16 +79,9 @@ function getUniversalTargetingMemoryForRoom(roomName) {
 }
 
 function getTargetUniversalsForRoom(roomName) {
-    const legacyTarget = normalizeTargetUniversals(
-        Memory && Memory.colony ? Memory.colony.targetUniversals : undefined
-    );
+    const legacyTarget = normalizeTargetUniversals(Memory.colony.targetUniversals);
 
-    if (
-        !Memory ||
-        !Memory.colony ||
-        !Memory.colony.targetUniversalsByRoom ||
-        typeof roomName !== "string"
-    ) {
+    if (typeof roomName !== "string") {
         return legacyTarget;
     }
 

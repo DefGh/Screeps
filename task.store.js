@@ -2,20 +2,7 @@ const constants = require("./constants");
 
 let taskVersion = 0;
 
-function ensureTaskMemory() {
-    if (!Memory.tasks || typeof Memory.tasks !== "object") {
-        Memory.tasks = {};
-    }
-}
-
-function ensureTaskSequence() {
-    if (typeof Memory.taskSequence !== "number") {
-        Memory.taskSequence = 0;
-    }
-}
-
 function getAllTasks() {
-    ensureTaskMemory();
     return Memory.tasks;
 }
 
@@ -76,7 +63,7 @@ function removeTask(taskId, options) {
         clearTaskAssignments([taskId]);
     }
 
-    finalizeTaskRemoval(task, options);
+    finalizeTaskMutation(task, options);
     return true;
 }
 
@@ -186,7 +173,7 @@ function clearTaskAssignments(taskIds) {
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
 
-        if (creep && creep.memory && removedTaskIds[creep.memory.taskId]) {
+        if (creep.memory && removedTaskIds[creep.memory.taskId]) {
             delete creep.memory.taskId;
         }
     }
@@ -194,20 +181,18 @@ function clearTaskAssignments(taskIds) {
     for (const name in Game.spawns) {
         const spawn = Game.spawns[name];
 
-        if (spawn && spawn.memory && removedTaskIds[spawn.memory.taskId]) {
+        if (spawn.memory && removedTaskIds[spawn.memory.taskId]) {
             delete spawn.memory.taskId;
         }
     }
 }
 
 function nextTaskId(type) {
-    ensureTaskSequence();
     Memory.taskSequence += 1;
     return `${type}:${Memory.taskSequence}`;
 }
 
 function nextSpawnTaskId(role) {
-    ensureTaskSequence();
     Memory.taskSequence += 1;
     return `spawn:${role}:${Memory.taskSequence}`;
 }
@@ -222,15 +207,6 @@ function bumpTaskVersion() {
 }
 
 function finalizeTaskMutation(task, options) {
-    if (shouldTaskMutationInvalidateResourcePlans(task, options)) {
-        invalidateResourcePlanCache();
-    }
-    else {
-        bumpTaskVersion();
-    }
-}
-
-function finalizeTaskRemoval(task, options) {
     if (shouldTaskMutationInvalidateResourcePlans(task, options)) {
         invalidateResourcePlanCache();
     }

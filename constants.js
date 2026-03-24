@@ -19,6 +19,7 @@ module.exports = {
         SCOUT_ROOM: "scoutRoom",
         CLAIM_ROOM: "claimRoom",
         TRANSFER_ENERGY: "transferEnergy",
+        RENEW_TTL: "renewTtl",
     },
 
     taskIcons: {
@@ -32,6 +33,7 @@ module.exports = {
         scoutRoom: "👁",
         claimRoom: "🚩",
         transferEnergy: "⚡",
+        renewTtl: "⏳",
         default: "?",
     },
 
@@ -42,6 +44,11 @@ module.exports = {
 
     dispatcher: {
         WAIT_TICKS_ON_EMPTY_QUEUE: 15,
+    },
+
+    renew: {
+        UNIVERSAL_START_TTL: 400,
+        UNIVERSAL_TARGET_TTL: 1000,
     },
 
     colony: {

@@ -21,35 +21,27 @@ function getTask(role, executor) {
 
 function findPendingTask(role, executor) {
     if (role === constants.roles.SPAWNER) {
-        for (const targetRole of [
+        return findPendingSpawnTaskForRoles([
             constants.roles.ATTACKER,
             constants.roles.UNIVERSAL,
             constants.roles.MINER,
             constants.roles.CLAIMER,
             constants.roles.SCOUT,
-        ]) {
-            const spawnTask = findPendingSpawnTaskByRole(targetRole, executor);
-
-            if (spawnTask) {
-                return spawnTask;
-            }
-        }
+        ], executor);
     }
 
     if (role === constants.roles.UNIVERSAL) {
-        const taxiTask = findPendingTaskByType(constants.taskTypes.TAXI, executor);
-
-        if (taxiTask) {
-            return taxiTask;
-        }
-
-        const bootstrapSpawnTask = findPendingTaskByType(
-            constants.taskTypes.BOOTSTRAP_SPAWN,
+        const prioritizedTask = findPendingTaskByTypes(
+            [
+                constants.taskTypes.RENEW_TTL,
+                constants.taskTypes.TAXI,
+                constants.taskTypes.BOOTSTRAP_SPAWN,
+            ],
             executor
         );
 
-        if (bootstrapSpawnTask) {
-            return bootstrapSpawnTask;
+        if (prioritizedTask) {
+            return prioritizedTask;
         }
     }
 
@@ -64,6 +56,18 @@ function findPendingTask(role, executor) {
     return null;
 }
 
+function findPendingSpawnTaskForRoles(targetRoles, executor) {
+    for (const targetRole of targetRoles) {
+        const spawnTask = findPendingSpawnTaskByRole(targetRole, executor);
+
+        if (spawnTask) {
+            return spawnTask;
+        }
+    }
+
+    return null;
+}
+
 function findPendingSpawnTaskByRole(targetRole, executor) {
     const roomName = executor && executor.room ? executor.room.name : null;
 
@@ -73,6 +77,18 @@ function findPendingSpawnTaskByRole(targetRole, executor) {
         }
 
         return task;
+    }
+
+    return null;
+}
+
+function findPendingTaskByTypes(taskTypes, executor) {
+    for (const taskType of taskTypes) {
+        const task = findPendingTaskByType(taskType, executor);
+
+        if (task) {
+            return task;
+        }
     }
 
     return null;

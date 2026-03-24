@@ -2,6 +2,7 @@ const constants = require("./constants");
 const movement = require("./movement");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (
@@ -47,16 +48,14 @@ function run(creep, task) {
 function canExecute(executor, task) {
     return (
         validate(task) &&
-        executor &&
-        executor.memory &&
-        executor.memory.originRoomName === task.data.roomName &&
-        typeof executor.moveTo === "function" &&
-        typeof executor.attack === "function"
+        taskHelpers.canExecuteTaskInRoom(executor, task.data.roomName, ["moveTo", "attack"])
     );
 }
 
 function ensureDefendRoomTask(executor) {
-    const roomName = executor && executor.memory ? executor.memory.originRoomName : null;
+    const roomName = executor && executor.memory
+        ? executor.memory.originRoomName
+        : null;
 
     if (typeof roomName !== "string") {
         return;
@@ -96,12 +95,9 @@ function hasActiveDefendRoomTask(roomName) {
 }
 
 function isValidDefendRoomTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.DEFEND_ROOM &&
-        task.data &&
-        typeof task.data.roomName === "string"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.DEFEND_ROOM, {
+        roomName: "string",
+    });
 }
 
 function validate(task) {
@@ -109,7 +105,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {

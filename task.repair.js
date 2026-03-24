@@ -3,6 +3,7 @@ const constants = require("./constants");
 const movement = require("./movement");
 const resourceManager = require("./resource.manager");
 const taskIndex = require("./task.index");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidRepairTask(task) || typeof creep.moveTo !== "function" || typeof creep.repair !== "function") {
@@ -59,7 +60,7 @@ function runCollectStage(creep, task) {
         return false;
     }
 
-    let source = resolveObject(task.data.sourceId);
+    let source = taskHelpers.resolveObject(task.data.sourceId);
 
     source = retargetSourceIfNeeded(creep, task, source);
 
@@ -84,7 +85,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     const energyBefore = currentEnergy;
@@ -133,7 +134,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     if (result === ERR_BUSY) {
@@ -162,7 +163,7 @@ function runRepairStage(creep, task) {
         return true;
     }
 
-    const target = resolveObject(task.data.targetId);
+    const target = taskHelpers.resolveObject(task.data.targetId);
 
     if (!target) {
         return true;
@@ -223,7 +224,7 @@ function buildRepairExecutionPlan(creep, task, currentTaskId) {
         return null;
     }
 
-    const target = resolveObject(task.data.targetId);
+    const target = taskHelpers.resolveObject(task.data.targetId);
 
     if (!target) {
         return null;
@@ -295,7 +296,7 @@ function getRemainingRepairTargetDemand(target, repairGoal, currentTaskId) {
             continue;
         }
 
-        if (task.data.targetId !== target.id || getTaskResourceType(task) !== RESOURCE_ENERGY) {
+        if (task.data.targetId !== target.id || taskHelpers.getTaskResourceType(task) !== RESOURCE_ENERGY) {
             continue;
         }
 
@@ -387,39 +388,12 @@ function reassignSource(task, source) {
     resourceManager.invalidateResourcePlanCache();
 }
 
-function resolveObject(objectId) {
-    if (!objectId) {
-        return null;
-    }
-
-    return Game.getObjectById(objectId);
-}
-
-function shouldWaitForSource(sourceType) {
-    return sourceType === constants.transferEnergySourceTypes.SOURCE;
-}
-
 function switchToRepairStage(task, nextRemainingAmount) {
-    task.data.stage = constants.repairTaskStages.REPAIR;
-    task.data.collectRemainingAmount = 0;
-
-    if (typeof nextRemainingAmount === "number") {
-        task.data.remainingAmount = nextRemainingAmount;
-    }
-
-    resourceManager.invalidateResourcePlanCache();
+    taskHelpers.switchTaskStage(task, constants.repairTaskStages.REPAIR, nextRemainingAmount);
 }
 
 function getRepairReservationAmount(task) {
     return typeof task.data.remainingAmount === "number" ? task.data.remainingAmount : 0;
-}
-
-function getTaskResourceType(task) {
-    if (task && task.data && typeof task.data.resourceType === "string") {
-        return task.data.resourceType;
-    }
-
-    return RESOURCE_ENERGY;
 }
 
 function getRepairPower() {
@@ -431,19 +405,16 @@ function isRepairTask(task) {
 }
 
 function isValidRepairTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.REPAIR &&
-        task.data &&
-        typeof task.data.roomName === "string" &&
-        typeof task.data.targetId === "string" &&
-        typeof task.data.targetStructureType === "string" &&
-        typeof task.data.repairGoal === "number" &&
-        typeof task.data.amount === "number" &&
-        typeof task.data.remainingAmount === "number" &&
-        typeof task.data.collectRemainingAmount === "number" &&
-        typeof task.data.stage === "string"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.REPAIR, {
+        roomName: "string",
+        targetId: "string",
+        targetStructureType: "string",
+        repairGoal: "number",
+        amount: "number",
+        remainingAmount: "number",
+        collectRemainingAmount: "number",
+        stage: "string",
+    });
 }
 
 function canPlanRepairTask(executor, task) {
@@ -509,13 +480,9 @@ function getRepairStructurePriority(structureType) {
 function canExecute(executor, task) {
     if (
         !validate(task) ||
-        !executor ||
-        !executor.memory ||
         !executor.room ||
         executor.room.name !== task.data.roomName ||
-        executor.memory.originRoomName !== task.data.roomName ||
-        typeof executor.moveTo !== "function" ||
-        typeof executor.repair !== "function" ||
+        !taskHelpers.canExecuteTaskInRoom(executor, task.data.roomName, ["moveTo", "repair"]) ||
         resourceManager.getActiveWorkParts(executor) <= 0
     ) {
         return false;
@@ -533,7 +500,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {

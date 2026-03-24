@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const dispatcher = require("./dispatcher");
 const taskHandlers = require("./task.handlers");
+const renewTtlTask = require("./task.renewTtl");
 const taskStore = require("./task.store");
 
 function runExecutor(executor) {
@@ -8,7 +9,8 @@ function runExecutor(executor) {
         return;
     }
 
-    const role = executor.memory.role;
+    const memory = executor.memory;
+    const role = memory.role;
     const currentTask = getCurrentTask(executor, role);
 
     if (currentTask) {
@@ -17,7 +19,15 @@ function runExecutor(executor) {
         return;
     }
 
-    if (executor.memory.waitUntil && executor.memory.waitUntil > Game.time) {
+    if (memory.waitUntil && memory.waitUntil > Game.time) {
+        if (!renewTtlTask.shouldPrioritizeRenew(executor)) {
+            return;
+        }
+
+        delete memory.waitUntil;
+    }
+
+    if (memory.waitUntil && memory.waitUntil > Game.time) {
         return;
     }
 
@@ -28,7 +38,7 @@ function runExecutor(executor) {
     const task = dispatcher.getTask(role, executor);
 
     if (!task) {
-        executor.memory.waitUntil = Game.time + constants.dispatcher.WAIT_TICKS_ON_EMPTY_QUEUE;
+        memory.waitUntil = Game.time + constants.dispatcher.WAIT_TICKS_ON_EMPTY_QUEUE;
         return;
     }
 
@@ -66,7 +76,7 @@ function getCurrentTask(executor, role) {
         return null;
     }
 
-    if (!Array.isArray(task.canExecute) || !task.canExecute.includes(role)) {
+    if (!task.canExecute.includes(role)) {
         taskStore.requeueTask(task.id, {
             clearAssignments: true,
         });

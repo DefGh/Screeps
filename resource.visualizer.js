@@ -8,7 +8,7 @@ const TEXT_Y_PADDING = 0.75;
 const TEXT_LINE_SPACING = 0.58;
 const SHOW_ROAD_HEAT_MAP = false;
 const SHOW_REPAIR_HEAT_MAP = true;
-const SHOW_RECOURCE_INFO = true;
+const SHOW_RECOURCE_INFO = false;
 
 const SQUARE_STYLE = {
     fill: "transparent",

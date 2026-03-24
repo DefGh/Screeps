@@ -1,9 +1,11 @@
 const colonyManager = require("./colony.manager");
 const constants = require("./constants");
+const memoryAccess = require("./memory.access");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
+const taskHelpers = require("./task.helpers");
 
 function run(spawn, task) {
     if (!isValidSpawnTask(task) || typeof spawn.spawnCreep !== "function") {
@@ -53,8 +55,8 @@ function ensureAttackerSpawnTask(spawn) {
         return;
     }
 
-    const taskId = nextSpawnTaskId(constants.roles.ATTACKER);
-    addTask({
+    const taskId = taskHelpers.nextSpawnTaskId(constants.roles.ATTACKER);
+    taskHelpers.addTask({
         id: taskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -86,8 +88,8 @@ function ensureUniversalSpawnTask(spawn) {
         return;
     }
 
-    const taskId = nextSpawnTaskId(constants.roles.UNIVERSAL);
-    addTask({
+    const taskId = taskHelpers.nextSpawnTaskId(constants.roles.UNIVERSAL);
+    taskHelpers.addTask({
         id: taskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -106,7 +108,7 @@ function ensureUniversalSpawnTask(spawn) {
 }
 
 function ensureClaimerSpawnTask(spawn) {
-    const activeCandidate = Memory.expansion && Memory.expansion.activeCandidate;
+    const activeCandidate = memoryAccess.getExpansionActiveCandidate();
 
     if (
         !activeCandidate ||
@@ -120,8 +122,8 @@ function ensureClaimerSpawnTask(spawn) {
         return;
     }
 
-    const taskId = nextSpawnTaskId(constants.roles.CLAIMER);
-    addTask({
+    const taskId = taskHelpers.nextSpawnTaskId(constants.roles.CLAIMER);
+    taskHelpers.addTask({
         id: taskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -142,7 +144,7 @@ function ensureClaimerSpawnTask(spawn) {
 }
 
 function ensureScoutSpawnTask(spawn) {
-    const activeBranch = Memory.expansion && Memory.expansion.activeBranch;
+    const activeBranch = memoryAccess.getExpansionActiveBranch();
 
     if (!activeBranch || activeBranch.originRoomName !== spawn.room.name) {
         return;
@@ -152,8 +154,8 @@ function ensureScoutSpawnTask(spawn) {
         return;
     }
 
-    const taskId = nextSpawnTaskId(constants.roles.SCOUT);
-    addTask({
+    const taskId = taskHelpers.nextSpawnTaskId(constants.roles.SCOUT);
+    taskHelpers.addTask({
         id: taskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -406,12 +408,12 @@ function buildMinerBody(spawn) {
 }
 
 function createMinerTaskSet(spawn, sourceId, minerPos) {
-    const mineTaskId = nextTaskId(constants.taskTypes.MINE);
-    const taxiTaskId = nextTaskId(constants.taskTypes.TAXI);
-    const spawnTaskId = nextSpawnTaskId(constants.roles.MINER);
+    const mineTaskId = taskHelpers.nextTaskId(constants.taskTypes.MINE);
+    const taxiTaskId = taskHelpers.nextTaskId(constants.taskTypes.TAXI);
+    const spawnTaskId = taskHelpers.nextSpawnTaskId(constants.roles.MINER);
     const creepName = buildPlannedCreepName(constants.roles.MINER, mineTaskId);
 
-    addTask({
+    taskHelpers.addTask({
         id: mineTaskId,
         type: constants.taskTypes.MINE,
         status: constants.taskStatuses.IN_PROGRESS,
@@ -422,7 +424,7 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
         },
     });
 
-    addTask({
+    taskHelpers.addTask({
         id: taxiTaskId,
         type: constants.taskTypes.TAXI,
         status: constants.taskStatuses.PENDING,
@@ -435,7 +437,7 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
         },
     });
 
-    addTask({
+    taskHelpers.addTask({
         id: spawnTaskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
@@ -464,14 +466,6 @@ function buildCreepName(task) {
 
 function buildPlannedCreepName(role, taskId) {
     return role + "_" + String(taskId).replace(":", "_");
-}
-
-function nextTaskId(type) {
-    return taskStore.nextTaskId(type);
-}
-
-function nextSpawnTaskId(role) {
-    return taskStore.nextSpawnTaskId(role);
 }
 
 function hasMineTaskForSource(sourceId) {
@@ -510,7 +504,7 @@ function cleanupAttackerSpawnTasks(roomName) {
     const taskIds = [];
 
     for (const task of taskIndex.getPendingSpawnTasksByRoleAndRoom(constants.roles.ATTACKER, roomName)) {
-        if (task.data && task.data.roomName === roomName) {
+        if (task.data.roomName === roomName) {
             taskIds.push(task.id);
         }
     }
@@ -520,10 +514,6 @@ function cleanupAttackerSpawnTasks(roomName) {
             clearAssignments: true,
         });
     }
-}
-
-function addTask(task) {
-    taskStore.addTask(task);
 }
 
 function isAttackerSpawnTask(task) {
@@ -576,6 +566,7 @@ function isValidSpawnTask(task) {
 function canExecute(executor, task) {
     return (
         validate(task) &&
+        executor &&
         typeof executor.spawnCreep === "function" &&
         canSpawnTaskInRoom(executor, task)
     );
@@ -602,7 +593,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {

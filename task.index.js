@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const taskHelpers = require("./task.helpers");
 const taskStore = require("./task.store");
 
 let cachedTick = null;
@@ -154,10 +155,8 @@ function buildIndex() {
             pushTask(index.pendingByOwnerRoom, ownerRoom, task);
         }
 
-        if (Array.isArray(task.canExecute)) {
-            for (const role of task.canExecute) {
-                pushTask(index.pendingByRole, role, task);
-            }
+        for (const role of task.canExecute) {
+            pushTask(index.pendingByRole, role, task);
         }
 
         indexPendingSpawnTask(index, task, ownerRoom);
@@ -169,7 +168,6 @@ function buildIndex() {
 function indexPendingSpawnTask(index, task, ownerRoom) {
     if (
         task.type !== constants.taskTypes.SPAWN_CREEP ||
-        !task.data ||
         typeof task.data.role !== "string" ||
         typeof ownerRoom !== "string"
     ) {
@@ -182,7 +180,6 @@ function indexPendingSpawnTask(index, task, ownerRoom) {
 function indexQueuedSpawnTask(index, task, ownerRoom) {
     if (
         task.type !== constants.taskTypes.SPAWN_CREEP ||
-        !task.data ||
         typeof task.data.role !== "string" ||
         typeof ownerRoom !== "string"
     ) {
@@ -193,11 +190,11 @@ function indexQueuedSpawnTask(index, task, ownerRoom) {
 }
 
 function indexReservations(index, task) {
-    if (!isResourceReservationTask(task) || !task.data) {
+    if (!isResourceReservationTask(task)) {
         return;
     }
 
-    const resourceType = getTaskResourceType(task);
+    const resourceType = taskHelpers.getTaskResourceType(task);
 
     if (task.data.sourceId) {
         addReservation(
@@ -221,26 +218,18 @@ function indexReservations(index, task) {
     }
 }
 
-function getTaskResourceType(task) {
-    if (task && task.data && typeof task.data.resourceType === "string") {
-        return task.data.resourceType;
-    }
-
-    return RESOURCE_ENERGY;
-}
-
 function getIncomingReservationAmount(task) {
-    return task && task.data && typeof task.data.remainingAmount === "number"
+    return typeof task.data.remainingAmount === "number"
         ? task.data.remainingAmount
         : 0;
 }
 
 function getOutgoingReservationAmount(task) {
-    if (task && task.data && typeof task.data.collectRemainingAmount === "number") {
+    if (typeof task.data.collectRemainingAmount === "number") {
         return task.data.collectRemainingAmount;
     }
 
-    return task && task.data && typeof task.data.remainingAmount === "number"
+    return typeof task.data.remainingAmount === "number"
         ? task.data.remainingAmount
         : 0;
 }

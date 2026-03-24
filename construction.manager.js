@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const memoryAccess = require("./memory.access");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
@@ -9,7 +10,7 @@ const EXTENSION_SEARCH_RANGE = 8;
 const EXTENSION_MIN_COORD = 2;
 const EXTENSION_MAX_COORD = 47;
 const ROAD_HEAT_WINDOW = 300;
-const ROAD_MIN_VISITS = 10;
+const ROAD_MIN_VISITS = 100;
 const REPAIR_MAX_ROOM_TASKS = constants.repairs.MAX_ROOM_TASKS;
 const REPAIR_REFRESH_INTERVAL = constants.repairs.REFRESH_INTERVAL;
 const REPAIR_STRUCTURE_THRESHOLD = constants.repairs.STRUCTURE_THRESHOLD;
@@ -85,7 +86,7 @@ function refreshRoomConstruction(room) {
 }
 
 function refreshRoomRepairs(room) {
-    const roomMemory = getConstructionRoomMemory(room.name);
+    const roomMemory = memoryAccess.getConstructionRoomMemory(room.name);
 
     if (!shouldRefreshRoomRepairs(roomMemory)) {
         return;
@@ -260,22 +261,6 @@ function shouldRefreshRoomRepairs(roomMemory) {
     }
 
     return Game.time - roomMemory.lastRepairRefreshTick >= REPAIR_REFRESH_INTERVAL;
-}
-
-function getConstructionRoomMemory(roomName) {
-    if (!Memory.construction || typeof Memory.construction !== "object") {
-        Memory.construction = {};
-    }
-
-    if (!Memory.construction.rooms || typeof Memory.construction.rooms !== "object") {
-        Memory.construction.rooms = {};
-    }
-
-    if (!Memory.construction.rooms[roomName] || typeof Memory.construction.rooms[roomName] !== "object") {
-        Memory.construction.rooms[roomName] = {};
-    }
-
-    return Memory.construction.rooms[roomName];
 }
 
 function isEligibleRepairStructure(structure) {
@@ -986,25 +971,7 @@ function getRepairHeatOverlay(room) {
 }
 
 function getRoadHeatMemory(roomName) {
-    const roomMemory = getConstructionRoomMemory(roomName);
-
-    if (!roomMemory.roadHeat || typeof roomMemory.roadHeat !== "object") {
-        roomMemory.roadHeat = {};
-    }
-
-    if (!roomMemory.roadHeat.totalsByPos || typeof roomMemory.roadHeat.totalsByPos !== "object") {
-        roomMemory.roadHeat.totalsByPos = {};
-    }
-
-    if (!roomMemory.roadHeat.bucketsByTick || typeof roomMemory.roadHeat.bucketsByTick !== "object") {
-        roomMemory.roadHeat.bucketsByTick = {};
-    }
-
-    if (typeof roomMemory.roadHeat.lastPrunedTick !== "number") {
-        roomMemory.roadHeat.lastPrunedTick = Game.time - ROAD_HEAT_WINDOW;
-    }
-
-    return roomMemory.roadHeat;
+    return memoryAccess.getConstructionRoadHeatMemory(roomName, Game.time - ROAD_HEAT_WINDOW);
 }
 
 function hasStructureOrSiteAt(room, position, structureType) {

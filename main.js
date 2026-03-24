@@ -7,6 +7,7 @@ const expansionManager = require("./expansion.manager");
 const executorRunner = require("./executor.runner");
 const sourceManager = require("./source.manager");
 const resourceVisualizer = require("./resource.visualizer");
+const renewTtlTask = require("./task.renewTtl");
 
 function runSpawns() {
     for (const name in Game.spawns) {
@@ -14,6 +15,10 @@ function runSpawns() {
 
         if (!spawn.memory.role) {
             spawn.memory.role = constants.roles.SPAWNER;
+        }
+
+        if (renewTtlTask.runSpawnRenew(spawn)) {
+            continue;
         }
 
         executorRunner.runExecutor(spawn);

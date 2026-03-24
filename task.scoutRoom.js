@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const expansionManager = require("./expansion.manager");
 const movement = require("./movement");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidScoutTask(task) || !creep || typeof creep.moveTo !== "function") {
@@ -19,23 +20,17 @@ function run(creep, task) {
 function canExecute(executor, task) {
     return Boolean(
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.moveTo === "function" &&
-        executor.memory.originRoomName === task.data.originRoomName
+        taskHelpers.canExecuteTaskInRoom(executor, task.data.originRoomName, ["moveTo"])
     );
 }
 
 function isValidScoutTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.SCOUT_ROOM &&
-        task.data &&
-        typeof task.data.targetRoomName === "string" &&
-        typeof task.data.originRoomName === "string" &&
-        typeof task.data.rootRoomName === "string" &&
-        typeof task.data.depth === "number"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.SCOUT_ROOM, {
+        targetRoomName: "string",
+        originRoomName: "string",
+        rootRoomName: "string",
+        depth: "number",
+    });
 }
 
 function validate(task) {
@@ -43,7 +38,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.originRoomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "originRoomName");
 }
 
 module.exports = {

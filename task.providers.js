@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const buildTask = require("./task.build");
 const defendRoomTask = require("./task.defendRoom");
+const renewTtlTask = require("./task.renewTtl");
 const spawnCreepTask = require("./task.spawnCreep");
 const transferEnergyTask = require("./task.transferEnergy");
 
@@ -33,6 +34,7 @@ const providersByRole = {
         defendRoomTask.ensureDefendRoomTask,
     ],
     [constants.roles.UNIVERSAL]: [
+        renewTtlTask.ensureRenewTtlTask,
         ensureUniversalTask,
     ],
 };

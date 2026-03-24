@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidMineTask(task) || typeof creep.harvest !== "function") {
@@ -11,7 +12,7 @@ function run(creep, task) {
         return false;
     }
 
-    const source = resolveObject(task.data.sourceId);
+    const source = taskHelpers.resolveObject(task.data.sourceId);
 
     if (!source) {
         return false;
@@ -42,14 +43,6 @@ function run(creep, task) {
     return false;
 }
 
-function resolveObject(objectId) {
-    if (!objectId) {
-        return null;
-    }
-
-    return Game.getObjectById(objectId);
-}
-
 function isExactPosition(position, targetPos) {
     return Boolean(
         position &&
@@ -61,22 +54,16 @@ function isExactPosition(position, targetPos) {
 }
 
 function isValidMineTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.MINE &&
-        task.data &&
-        typeof task.data.roomName === "string" &&
-        typeof task.data.sourceId === "string"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.MINE, {
+        roomName: "string",
+        sourceId: "string",
+    });
 }
 
 function canExecute(executor, task) {
     return Boolean(
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.harvest === "function" &&
-        executor.memory.originRoomName === task.data.roomName
+        taskHelpers.canExecuteTaskInRoom(executor, task.data.roomName, ["harvest"])
     );
 }
 
@@ -85,7 +72,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {

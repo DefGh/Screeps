@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const memoryAccess = require("./memory.access");
 const roomScope = require("./room.scope");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
@@ -12,27 +13,29 @@ const CANDIDATE_STATUS_WAITING_FOR_GCL = "waitingForGcl";
 
 function refreshExpansion() {
     ensureExpansionMemory();
+    const expansionMemory = memoryAccess.getExpansionMemory();
+
     recordVisibleRoomIntel();
     normalizeExpansionState();
 
-    if (Memory.expansion.activeCandidate) {
+    if (expansionMemory.activeCandidate) {
         refreshActiveCandidate();
         return;
     }
 
-    if (!Memory.expansion.activeBranch) {
+    if (!expansionMemory.activeBranch) {
         seedNextBranch();
 
-        if (Memory.expansion.activeCandidate) {
+        if (expansionMemory.activeCandidate) {
             refreshActiveCandidate();
             return;
         }
     }
 
-    if (Memory.expansion.activeBranch) {
+    if (expansionMemory.activeBranch) {
         refreshActiveBranch();
 
-        if (Memory.expansion.activeCandidate) {
+        if (expansionMemory.activeCandidate) {
             refreshActiveCandidate();
         }
     }
@@ -65,17 +68,19 @@ function recordRoomIntel(room) {
 }
 
 function normalizeExpansionState() {
+    const expansionMemory = memoryAccess.getExpansionMemory();
+
     pruneStaleIntel();
 
-    if (!isValidActiveBranch(Memory.expansion.activeBranch)) {
-        Memory.expansion.activeBranch = null;
+    if (!isValidActiveBranch(expansionMemory.activeBranch)) {
+        memoryAccess.setExpansionActiveBranch(null);
     }
 
-    if (!isValidActiveCandidate(Memory.expansion.activeCandidate)) {
-        Memory.expansion.activeCandidate = null;
+    if (!isValidActiveCandidate(expansionMemory.activeCandidate)) {
+        memoryAccess.setExpansionActiveCandidate(null);
     }
 
-    const activeCandidate = Memory.expansion.activeCandidate;
+    const activeCandidate = expansionMemory.activeCandidate;
 
     if (activeCandidate && isOwnedRoomName(activeCandidate.targetRoomName)) {
         setBranchDecision(
@@ -84,22 +89,22 @@ function normalizeExpansionState() {
             BRANCH_DECISION_CLAIMED,
             activeCandidate.branchRooms
         );
-        Memory.expansion.activeCandidate = null;
+        memoryAccess.setExpansionActiveCandidate(null);
     }
 
-    if (!Memory.expansion.activeBranch) {
+    if (!expansionMemory.activeBranch) {
         cleanupExpansionTasks(constants.taskTypes.SCOUT_ROOM);
         cleanupExpansionSpawnTasks(constants.roles.SCOUT);
     }
 
-    if (!Memory.expansion.activeCandidate) {
+    if (!expansionMemory.activeCandidate) {
         cleanupExpansionTasks(constants.taskTypes.CLAIM_ROOM);
         cleanupExpansionSpawnTasks(constants.roles.CLAIMER);
     }
 }
 
 function refreshActiveBranch() {
-    const branch = Memory.expansion.activeBranch;
+    const branch = memoryAccess.getExpansionActiveBranch();
 
     if (!branch) {
         return;
@@ -164,7 +169,7 @@ function refreshActiveBranch() {
 }
 
 function refreshActiveCandidate() {
-    const candidate = Memory.expansion.activeCandidate;
+    const candidate = memoryAccess.getExpansionActiveCandidate();
 
     if (!candidate) {
         return;
@@ -241,7 +246,7 @@ function seedNextBranch() {
                 continue;
             }
 
-            Memory.expansion.activeBranch = {
+            memoryAccess.setExpansionActiveBranch({
                 originRoomName: originRoomName,
                 rootRoomName: neighborRoomName,
                 frontier: [
@@ -253,14 +258,14 @@ function seedNextBranch() {
                 ],
                 visited: {},
                 status: "scouting",
-            };
+            });
             return;
         }
     }
 }
 
 function finalizeActiveBranch() {
-    const branch = Memory.expansion.activeBranch;
+    const branch = memoryAccess.getExpansionActiveBranch();
 
     if (!branch || !branch.leafRoomName) {
         rejectActiveBranch(BRANCH_DECISION_INVALID);
@@ -290,34 +295,34 @@ function finalizeActiveBranch() {
             : CANDIDATE_STATUS_WAITING_FOR_GCL
     );
 
-    Memory.expansion.activeBranch = null;
+    memoryAccess.setExpansionActiveBranch(null);
     cleanupExpansionTasks(constants.taskTypes.SCOUT_ROOM);
     cleanupExpansionSpawnTasks(constants.roles.SCOUT);
 }
 
 function rejectActiveBranch(status) {
-    const branch = Memory.expansion.activeBranch;
+    const branch = memoryAccess.getExpansionActiveBranch();
 
     if (branch) {
         setBranchDecision(branch.originRoomName, branch.rootRoomName, status, null);
     }
 
-    Memory.expansion.activeBranch = null;
+    memoryAccess.setExpansionActiveBranch(null);
     cleanupExpansionTasks(constants.taskTypes.SCOUT_ROOM);
     cleanupExpansionSpawnTasks(constants.roles.SCOUT);
 }
 
 function activateCandidate(originRoomName, targetRoomName, branchRooms, status) {
-    Memory.expansion.activeCandidate = {
+    memoryAccess.setExpansionActiveCandidate({
         originRoomName: originRoomName,
         targetRoomName: targetRoomName,
         branchRooms: Array.isArray(branchRooms) && branchRooms.length > 0 ? branchRooms : [targetRoomName],
         status: status,
-    };
+    });
 }
 
 function clearActiveCandidate() {
-    Memory.expansion.activeCandidate = null;
+    memoryAccess.setExpansionActiveCandidate(null);
     cleanupExpansionTasks(constants.taskTypes.CLAIM_ROOM);
     cleanupExpansionSpawnTasks(constants.roles.CLAIMER);
 }
@@ -431,7 +436,7 @@ function recordVisibleRoomIntel() {
 }
 
 function getFreshRoomIntel(roomName) {
-    const intel = Memory.expansion.roomIntel[roomName];
+    const intel = memoryAccess.getExpansionMemory().roomIntel[roomName];
 
     if (!intel || typeof intel.scoutedAt !== "number") {
         return null;
@@ -445,7 +450,7 @@ function getFreshRoomIntel(roomName) {
 }
 
 function getFreshBranchDecision(originRoomName, rootRoomName) {
-    const branchIntel = Memory.expansion.branchIntel[getBranchKey(originRoomName, rootRoomName)];
+    const branchIntel = memoryAccess.getExpansionBranchIntel()[getBranchKey(originRoomName, rootRoomName)];
 
     if (!branchIntel || typeof branchIntel.checkedAt !== "number") {
         return null;
@@ -459,7 +464,7 @@ function getFreshBranchDecision(originRoomName, rootRoomName) {
 }
 
 function setBranchDecision(originRoomName, rootRoomName, status, branchRooms) {
-    Memory.expansion.branchIntel[getBranchKey(originRoomName, rootRoomName)] = {
+    memoryAccess.getExpansionBranchIntel()[getBranchKey(originRoomName, rootRoomName)] = {
         checkedAt: Game.time,
         status: status,
         branchRooms: Array.isArray(branchRooms) ? branchRooms.slice() : [],
@@ -534,53 +539,54 @@ function getSortedNeighborRoomNames(roomName) {
 }
 
 function ensureExpansionMemory() {
-    if (!Memory.expansion || typeof Memory.expansion !== "object") {
-        Memory.expansion = {};
+    const expansionMemory = memoryAccess.getExpansionMemory();
+
+    if (!expansionMemory.roomIntel || typeof expansionMemory.roomIntel !== "object") {
+        expansionMemory.roomIntel = {};
     }
 
-    if (!Memory.expansion.roomIntel || typeof Memory.expansion.roomIntel !== "object") {
-        Memory.expansion.roomIntel = {};
+    if (!expansionMemory.branchIntel || typeof expansionMemory.branchIntel !== "object") {
+        expansionMemory.branchIntel = {};
     }
 
-    if (!Memory.expansion.branchIntel || typeof Memory.expansion.branchIntel !== "object") {
-        Memory.expansion.branchIntel = {};
+    if (!Object.prototype.hasOwnProperty.call(expansionMemory, "activeBranch")) {
+        expansionMemory.activeBranch = null;
+    }
+    else if (expansionMemory.activeBranch !== null && typeof expansionMemory.activeBranch !== "object") {
+        expansionMemory.activeBranch = null;
     }
 
-    if (!Memory.expansion.activeBranch || typeof Memory.expansion.activeBranch !== "object") {
-        Memory.expansion.activeBranch = null;
+    if (!Object.prototype.hasOwnProperty.call(expansionMemory, "activeCandidate")) {
+        expansionMemory.activeCandidate = null;
     }
-
-    if (!Memory.expansion.activeCandidate || typeof Memory.expansion.activeCandidate !== "object") {
-        Memory.expansion.activeCandidate = null;
+    else if (expansionMemory.activeCandidate !== null && typeof expansionMemory.activeCandidate !== "object") {
+        expansionMemory.activeCandidate = null;
     }
 }
 
 function getRoomIntelMemory(roomName) {
-    if (!Memory.expansion.roomIntel[roomName] || typeof Memory.expansion.roomIntel[roomName] !== "object") {
-        Memory.expansion.roomIntel[roomName] = {};
-    }
-
-    return Memory.expansion.roomIntel[roomName];
+    return memoryAccess.getExpansionRoomIntelMemory(roomName);
 }
 
 function pruneStaleIntel() {
+    const expansionMemory = memoryAccess.getExpansionMemory();
     const roomIntelCutoff = Game.time - constants.expansion.INTEL_TTL * 3;
 
-    for (const roomName in Memory.expansion.roomIntel) {
-        const intel = Memory.expansion.roomIntel[roomName];
+    for (const roomName in expansionMemory.roomIntel) {
+        const intel = expansionMemory.roomIntel[roomName];
 
         if (!intel || typeof intel.scoutedAt !== "number" || intel.scoutedAt < roomIntelCutoff) {
-            delete Memory.expansion.roomIntel[roomName];
+            delete expansionMemory.roomIntel[roomName];
         }
     }
 
     const branchIntelCutoff = Game.time - constants.expansion.INTEL_TTL;
 
-    for (const branchKey in Memory.expansion.branchIntel) {
-        const intel = Memory.expansion.branchIntel[branchKey];
+    for (const branchKey in expansionMemory.branchIntel) {
+        const intel = expansionMemory.branchIntel[branchKey];
 
         if (!intel || typeof intel.checkedAt !== "number" || intel.checkedAt < branchIntelCutoff) {
-            delete Memory.expansion.branchIntel[branchKey];
+            delete expansionMemory.branchIntel[branchKey];
         }
     }
 }

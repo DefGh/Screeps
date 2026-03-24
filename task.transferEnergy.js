@@ -1,7 +1,8 @@
 const constants = require("./constants");
+const memoryAccess = require("./memory.access");
 const movement = require("./movement");
 const resourceManager = require("./resource.manager");
-const taskStore = require("./task.store");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidTransferEnergyTask(task) || typeof creep.moveTo !== "function") {
@@ -36,8 +37,8 @@ function ensureTransferEnergyTask(creep) {
         return false;
     }
 
-    const taskId = nextTaskId(constants.taskTypes.TRANSFER_ENERGY);
-    addTask({
+    const taskId = taskHelpers.nextTaskId(constants.taskTypes.TRANSFER_ENERGY);
+    taskHelpers.addTask({
         id: taskId,
         type: constants.taskTypes.TRANSFER_ENERGY,
         status: constants.taskStatuses.PENDING,
@@ -60,7 +61,7 @@ function runCollectStage(creep, task) {
         return false;
     }
 
-    let source = resolveObject(task.data.sourceId);
+    let source = taskHelpers.resolveObject(task.data.sourceId);
 
     source = retargetSourceIfNeeded(creep, task, source);
 
@@ -85,7 +86,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     const energyBefore = currentEnergy;
@@ -134,7 +135,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     if (result === ERR_BUSY) {
@@ -162,7 +163,7 @@ function runDeliverStage(creep, task) {
         return true;
     }
 
-    const target = resolveObject(task.data.targetId);
+    const target = taskHelpers.resolveObject(task.data.targetId);
 
     if (!target) {
         return true;
@@ -395,41 +396,7 @@ function incrementRoadHeat(roomName, position, fatigue) {
 }
 
 function getRoadHeatMemory(roomName) {
-    const roomMemory = getConstructionRoomMemory(roomName);
-
-    if (!roomMemory.roadHeat || typeof roomMemory.roadHeat !== "object") {
-        roomMemory.roadHeat = {};
-    }
-
-    if (!roomMemory.roadHeat.totalsByPos || typeof roomMemory.roadHeat.totalsByPos !== "object") {
-        roomMemory.roadHeat.totalsByPos = {};
-    }
-
-    if (!roomMemory.roadHeat.bucketsByTick || typeof roomMemory.roadHeat.bucketsByTick !== "object") {
-        roomMemory.roadHeat.bucketsByTick = {};
-    }
-
-    if (typeof roomMemory.roadHeat.lastPrunedTick !== "number") {
-        roomMemory.roadHeat.lastPrunedTick = Game.time;
-    }
-
-    return roomMemory.roadHeat;
-}
-
-function getConstructionRoomMemory(roomName) {
-    if (!Memory.construction || typeof Memory.construction !== "object") {
-        Memory.construction = {};
-    }
-
-    if (!Memory.construction.rooms || typeof Memory.construction.rooms !== "object") {
-        Memory.construction.rooms = {};
-    }
-
-    if (!Memory.construction.rooms[roomName] || typeof Memory.construction.rooms[roomName] !== "object") {
-        Memory.construction.rooms[roomName] = {};
-    }
-
-    return Memory.construction.rooms[roomName];
+    return memoryAccess.getConstructionRoadHeatMemory(roomName, Game.time);
 }
 
 function buildRoadHeatPositionKey(roomName, x, y) {
@@ -440,14 +407,6 @@ function isOwnedManagedRoom(room) {
     return Boolean(room && room.controller && room.controller.my);
 }
 
-function resolveObject(objectId) {
-    if (!objectId) {
-        return null;
-    }
-
-    return Game.getObjectById(objectId);
-}
-
 function getUpgradeControllerPower() {
     return typeof UPGRADE_CONTROLLER_POWER === "number" ? UPGRADE_CONTROLLER_POWER : 1;
 }
@@ -456,42 +415,20 @@ function getControllerUpgradeLimit() {
     return Infinity;
 }
 
-function shouldWaitForSource(sourceType) {
-    return sourceType === constants.transferEnergySourceTypes.SOURCE;
-}
-
-function nextTaskId(type) {
-    return taskStore.nextTaskId(type);
-}
-
-function addTask(task) {
-    taskStore.addTask(task);
-}
-
 function switchToDeliverStage(task, nextRemainingAmount) {
-    task.data.stage = constants.transferEnergyTaskStages.DELIVER;
-    task.data.collectRemainingAmount = 0;
-
-    if (typeof nextRemainingAmount === "number") {
-        task.data.remainingAmount = nextRemainingAmount;
-    }
-
-    resourceManager.invalidateResourcePlanCache();
+    taskHelpers.switchTaskStage(task, constants.transferEnergyTaskStages.DELIVER, nextRemainingAmount);
 }
 
 function isValidTransferEnergyTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.TRANSFER_ENERGY &&
-        task.data &&
-        typeof task.data.roomName === "string" &&
-        typeof task.data.targetId === "string" &&
-        typeof task.data.targetType === "string" &&
-        typeof task.data.amount === "number" &&
-        typeof task.data.remainingAmount === "number" &&
-        typeof task.data.collectRemainingAmount === "number" &&
-        typeof task.data.stage === "string"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.TRANSFER_ENERGY, {
+        roomName: "string",
+        targetId: "string",
+        targetType: "string",
+        amount: "number",
+        remainingAmount: "number",
+        collectRemainingAmount: "number",
+        stage: "string",
+    });
 }
 
 function canExecute(executor, task) {
@@ -499,11 +436,7 @@ function canExecute(executor, task) {
 
     return (
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.moveTo === "function" &&
-        typeof taskRoomName === "string" &&
-        executor.memory.originRoomName === taskRoomName
+        taskHelpers.canExecuteTaskInRoom(executor, taskRoomName, ["moveTo"])
     );
 }
 
@@ -512,7 +445,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {

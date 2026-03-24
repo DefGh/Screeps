@@ -3,6 +3,7 @@ const movement = require("./movement");
 const resourceManager = require("./resource.manager");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
+const taskHelpers = require("./task.helpers");
 
 const PRIMARY_ANCHOR_MIN_COORD = 4;
 const PRIMARY_ANCHOR_MAX_COORD = 45;
@@ -71,7 +72,7 @@ function ensureBootstrapSpawnTask(originRoomName, targetRoomName) {
         return existingTask;
     }
 
-    const taskId = taskStore.nextTaskId(constants.taskTypes.BOOTSTRAP_SPAWN);
+    const taskId = taskHelpers.nextTaskId(constants.taskTypes.BOOTSTRAP_SPAWN);
     const task = {
         id: taskId,
         type: constants.taskTypes.BOOTSTRAP_SPAWN,
@@ -85,18 +86,14 @@ function ensureBootstrapSpawnTask(originRoomName, targetRoomName) {
         },
     };
 
-    taskStore.addTask(task);
+    taskHelpers.addTask(task);
     return task;
 }
 
 function canExecute(executor, task) {
     return Boolean(
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.moveTo === "function" &&
-        typeof executor.build === "function" &&
-        executor.memory.originRoomName === task.data.originRoomName
+        taskHelpers.canExecuteTaskInRoom(executor, task.data.originRoomName, ["moveTo", "build"])
     );
 }
 
@@ -527,10 +524,6 @@ function isControllerTile(room, x, y) {
 }
 
 function isReservedMinerPos(roomName, x, y) {
-    if (!Memory.sources) {
-        return false;
-    }
-
     for (const sourceId in Memory.sources) {
         const sourceMemory = Memory.sources[sourceId];
         const minerPos = sourceMemory && sourceMemory.minerPos;
@@ -621,12 +614,11 @@ function findBootstrapSpawnTask(targetRoomName) {
 
 function isValidBootstrapSpawnTask(task) {
     return Boolean(
-        task &&
-        task.type === constants.taskTypes.BOOTSTRAP_SPAWN &&
-        task.data &&
-        typeof task.data.originRoomName === "string" &&
-        typeof task.data.targetRoomName === "string" &&
-        typeof task.data.stage === "string" &&
+        taskHelpers.hasTaskDataFields(task, constants.taskTypes.BOOTSTRAP_SPAWN, {
+            originRoomName: "string",
+            targetRoomName: "string",
+            stage: "string",
+        }) &&
         (
             task.data.targetPos === null ||
             (
@@ -644,7 +636,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.originRoomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "originRoomName");
 }
 
 module.exports = {

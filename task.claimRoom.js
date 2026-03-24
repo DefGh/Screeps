@@ -1,6 +1,8 @@
 const constants = require("./constants");
+const memoryAccess = require("./memory.access");
 const bootstrapSpawnTask = require("./task.bootstrapSpawn");
 const movement = require("./movement");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidClaimTask(task) || !creep || typeof creep.moveTo !== "function" || typeof creep.claimController !== "function") {
@@ -61,35 +63,28 @@ function run(creep, task) {
 function canExecute(executor, task) {
     return (
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.moveTo === "function" &&
-        typeof executor.claimController === "function" &&
-        executor.memory.originRoomName === task.data.originRoomName
+        taskHelpers.canExecuteTaskInRoom(
+            executor,
+            task.data.originRoomName,
+            ["moveTo", "claimController"]
+        )
     );
 }
 
 function clearActiveCandidate(targetRoomName) {
-    if (
-        Memory.expansion &&
-        Memory.expansion.activeCandidate &&
-        Memory.expansion.activeCandidate.targetRoomName === targetRoomName
-    ) {
-        Memory.expansion.activeCandidate = null;
+    const activeCandidate = memoryAccess.getExpansionActiveCandidate();
+
+    if (activeCandidate && activeCandidate.targetRoomName === targetRoomName) {
+        memoryAccess.setExpansionActiveCandidate(null);
     }
 }
 
 function rejectActiveCandidate(originRoomName, targetRoomName) {
-    if (
-        Memory.expansion &&
-        Memory.expansion.branchIntel &&
-        typeof originRoomName === "string" &&
-        typeof targetRoomName === "string"
-    ) {
+    if (typeof originRoomName === "string" && typeof targetRoomName === "string") {
         const branchKey = `${originRoomName}->${targetRoomName}`;
-        const candidate = Memory.expansion.activeCandidate;
+        const candidate = memoryAccess.getExpansionActiveCandidate();
 
-        Memory.expansion.branchIntel[branchKey] = {
+        memoryAccess.getExpansionBranchIntel()[branchKey] = {
             checkedAt: Game.time,
             status: "invalid",
             branchRooms:
@@ -106,23 +101,18 @@ function rejectActiveCandidate(originRoomName, targetRoomName) {
 }
 
 function setActiveCandidateStatus(targetRoomName, status) {
-    if (
-        Memory.expansion &&
-        Memory.expansion.activeCandidate &&
-        Memory.expansion.activeCandidate.targetRoomName === targetRoomName
-    ) {
-        Memory.expansion.activeCandidate.status = status;
+    const activeCandidate = memoryAccess.getExpansionActiveCandidate();
+
+    if (activeCandidate && activeCandidate.targetRoomName === targetRoomName) {
+        activeCandidate.status = status;
     }
 }
 
 function isValidClaimTask(task) {
-    return Boolean(
-        task &&
-        task.type === constants.taskTypes.CLAIM_ROOM &&
-        task.data &&
-        typeof task.data.targetRoomName === "string" &&
-        typeof task.data.originRoomName === "string"
-    );
+    return taskHelpers.hasTaskDataFields(task, constants.taskTypes.CLAIM_ROOM, {
+        targetRoomName: "string",
+        originRoomName: "string",
+    });
 }
 
 function validate(task) {
@@ -130,7 +120,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.originRoomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "originRoomName");
 }
 
 module.exports = {

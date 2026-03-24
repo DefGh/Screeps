@@ -3,7 +3,7 @@ const constants = require("./constants");
 const movement = require("./movement");
 const resourceManager = require("./resource.manager");
 const taskIndex = require("./task.index");
-const taskStore = require("./task.store");
+const taskHelpers = require("./task.helpers");
 
 function run(creep, task) {
     if (!isValidBuildTask(task) || typeof creep.moveTo !== "function") {
@@ -53,8 +53,8 @@ function ensureBuildTask(creep) {
         return false;
     }
 
-    addTask({
-        id: taskStore.nextTaskId(constants.taskTypes.BUILD),
+    taskHelpers.addTask({
+        id: taskHelpers.nextTaskId(constants.taskTypes.BUILD),
         type: constants.taskTypes.BUILD,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.UNIVERSAL],
@@ -187,7 +187,7 @@ function runCollectStage(creep, task) {
         return false;
     }
 
-    let source = resolveObject(task.data.sourceId);
+    let source = taskHelpers.resolveObject(task.data.sourceId);
 
     source = retargetSourceIfNeeded(creep, task, source);
 
@@ -212,7 +212,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     const energyBefore = currentEnergy;
@@ -261,7 +261,7 @@ function runCollectStage(creep, task) {
             return false;
         }
 
-        return shouldWaitForSource(task.data.sourceType);
+        return taskHelpers.shouldWaitForSource(task.data.sourceType);
     }
 
     if (result === ERR_BUSY) {
@@ -290,7 +290,7 @@ function runBuildStage(creep, task) {
         return true;
     }
 
-    const target = resolveObject(task.data.targetId);
+    const target = taskHelpers.resolveObject(task.data.targetId);
 
     if (!target) {
         if (switchToFinishRepairStage(task, currentEnergy)) {
@@ -324,7 +324,7 @@ function runBuildStage(creep, task) {
             resourceManager.invalidateResourcePlanCache();
         }
 
-        if (!resolveObject(task.data.targetId) && switchToFinishRepairStage(task, currentEnergyAfterBuild)) {
+        if (!taskHelpers.resolveObject(task.data.targetId) && switchToFinishRepairStage(task, currentEnergyAfterBuild)) {
             return false;
         }
 
@@ -438,7 +438,7 @@ function getRemainingBuildTargetDemand(target, currentTaskId) {
             continue;
         }
 
-        if (task.data.targetId !== target.id || getTaskResourceType(task) !== RESOURCE_ENERGY) {
+        if (task.data.targetId !== target.id || taskHelpers.getTaskResourceType(task) !== RESOURCE_ENERGY) {
             continue;
         }
 
@@ -524,14 +524,6 @@ function reassignSource(task, source) {
     task.data.sourceId = source.object.id;
     task.data.sourceType = source.type;
     resourceManager.invalidateResourcePlanCache();
-}
-
-function resolveObject(objectId) {
-    if (!objectId) {
-        return null;
-    }
-
-    return Game.getObjectById(objectId);
 }
 
 function chooseClosest(executor, objects) {
@@ -653,28 +645,8 @@ function getBuildPower() {
     return 1;
 }
 
-function shouldWaitForSource(sourceType) {
-    return sourceType === constants.transferEnergySourceTypes.SOURCE;
-}
-
-function nextTaskId(type) {
-    Memory.taskSequence += 1;
-    return type + ":" + Memory.taskSequence;
-}
-
-function addTask(task) {
-    taskStore.addTask(task);
-}
-
 function switchToBuildStage(task, nextRemainingAmount) {
-    task.data.stage = constants.buildTaskStages.BUILD;
-    task.data.collectRemainingAmount = 0;
-
-    if (typeof nextRemainingAmount === "number") {
-        task.data.remainingAmount = nextRemainingAmount;
-    }
-
-    resourceManager.invalidateResourcePlanCache();
+    taskHelpers.switchTaskStage(task, constants.buildTaskStages.BUILD, nextRemainingAmount);
 }
 
 function getBuildReservationAmount(task) {
@@ -713,14 +685,6 @@ function isActiveBuildTask(task) {
     );
 }
 
-function getTaskResourceType(task) {
-    if (task && task.data && typeof task.data.resourceType === "string") {
-        return task.data.resourceType;
-    }
-
-    return RESOURCE_ENERGY;
-}
-
 function isBuildTask(task) {
     return Boolean(task && task.type === constants.taskTypes.BUILD && task.data);
 }
@@ -755,12 +719,7 @@ function canExecute(executor, task) {
 
     return (
         validate(task) &&
-        executor &&
-        executor.memory &&
-        typeof executor.moveTo === "function" &&
-        typeof executor.build === "function" &&
-        typeof taskRoomName === "string" &&
-        executor.memory.originRoomName === taskRoomName
+        taskHelpers.canExecuteTaskInRoom(executor, taskRoomName, ["moveTo", "build"])
     );
 }
 
@@ -769,7 +728,7 @@ function validate(task) {
 }
 
 function getOwnerRoom(task) {
-    return validate(task) ? task.data.roomName : null;
+    return taskHelpers.getTaskOwnerRoom(task, validate, "roomName");
 }
 
 module.exports = {
