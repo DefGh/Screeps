@@ -26,11 +26,9 @@ function bootstrapMemory() {
         Memory.colony = {};
     }
 
-    if (typeof Memory.colony.targetUniversals !== "number") {
-        Memory.colony.targetUniversals = constants.colony.DEFAULT_TARGET_UNIVERSALS;
+    if (Object.prototype.hasOwnProperty.call(Memory.colony, "targetUniversals")) {
+        delete Memory.colony.targetUniversals;
     }
-
-    Memory.colony.targetUniversals = normalizeTargetUniversals(Memory.colony.targetUniversals);
 
     if (!Memory.colony.targetUniversalsByRoom || typeof Memory.colony.targetUniversalsByRoom !== "object") {
         Memory.colony.targetUniversalsByRoom = {};
@@ -75,7 +73,7 @@ function bootstrapMemory() {
 }
 
 function initializePerRoomUniversalMemory() {
-    const defaultTargetUniversals = normalizeTargetUniversals(Memory.colony.targetUniversals);
+    const defaultTargetUniversals = normalizeTargetUniversals(constants.colony.DEFAULT_TARGET_UNIVERSALS);
 
     for (const roomName of roomScope.getOperationalRoomNames()) {
         if (typeof Memory.colony.targetUniversalsByRoom[roomName] !== "number") {

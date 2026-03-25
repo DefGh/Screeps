@@ -79,15 +79,15 @@ function getUniversalTargetingMemoryForRoom(roomName) {
 }
 
 function getTargetUniversalsForRoom(roomName) {
-    const legacyTarget = normalizeTargetUniversals(Memory.colony.targetUniversals);
+    const defaultTarget = normalizeTargetUniversals(constants.colony.DEFAULT_TARGET_UNIVERSALS);
 
     if (typeof roomName !== "string") {
-        return legacyTarget;
+        return defaultTarget;
     }
 
     if (typeof Memory.colony.targetUniversalsByRoom[roomName] !== "number") {
-        Memory.colony.targetUniversalsByRoom[roomName] = legacyTarget;
-        return legacyTarget;
+        Memory.colony.targetUniversalsByRoom[roomName] = defaultTarget;
+        return defaultTarget;
     }
 
     const normalizedTarget = normalizeTargetUniversals(Memory.colony.targetUniversalsByRoom[roomName]);
