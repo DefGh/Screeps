@@ -1,8 +1,12 @@
+const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const movement = require("./movement");
 const taskHelpers = require("./task.helpers");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
+
+let retainedUniversalsCacheTick = null;
+let retainedUniversalsByRoom = {};
 
 function run(creep, task) {
     if (
@@ -11,6 +15,10 @@ function run(creep, task) {
         typeof creep.moveTo !== "function" ||
         creep.name !== task.data.creepName
     ) {
+        return true;
+    }
+
+    if (!shouldRenewUniversal(creep)) {
         return true;
     }
 
@@ -95,6 +103,7 @@ function canRequestRenew(executor) {
         executor.memory.role === constants.roles.UNIVERSAL &&
         typeof executor.name === "string" &&
         typeof executor.memory.originRoomName === "string" &&
+        shouldRenewUniversal(executor) &&
         typeof executor.ticksToLive === "number" &&
         executor.ticksToLive <= constants.renew.UNIVERSAL_START_TTL &&
         hasOwnedSpawnInRoom(executor.memory.originRoomName)
@@ -116,6 +125,7 @@ function findAdjacentRenewCandidate(spawn) {
             !validate(task) ||
             task.data.roomName !== spawn.room.name ||
             task.data.creepName !== creep.name ||
+            !shouldRenewUniversal(creep) ||
             typeof creep.ticksToLive !== "number" ||
             creep.ticksToLive >= task.data.targetTtl
         ) {
@@ -187,6 +197,84 @@ function findManagedRenewTask(preferredCreepName) {
     }
 
     return matchedTask;
+}
+
+function shouldRenewUniversal(creep) {
+    if (
+        !creep ||
+        !creep.memory ||
+        creep.memory.role !== constants.roles.UNIVERSAL ||
+        typeof creep.name !== "string" ||
+        typeof creep.memory.originRoomName !== "string"
+    ) {
+        return false;
+    }
+
+    const retainedNames = getRetainedUniversalNames(creep.memory.originRoomName);
+    return Boolean(retainedNames[creep.name]);
+}
+
+function getRetainedUniversalNames(roomName) {
+    if (retainedUniversalsCacheTick !== Game.time) {
+        retainedUniversalsCacheTick = Game.time;
+        retainedUniversalsByRoom = {};
+    }
+
+    if (!retainedUniversalsByRoom[roomName]) {
+        retainedUniversalsByRoom[roomName] = buildRetainedUniversalNames(roomName);
+    }
+
+    return retainedUniversalsByRoom[roomName];
+}
+
+function buildRetainedUniversalNames(roomName) {
+    const retainedNames = {};
+    const universals = [];
+
+    if (typeof roomName !== "string") {
+        return retainedNames;
+    }
+
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (
+            !creep ||
+            !creep.memory ||
+            creep.memory.role !== constants.roles.UNIVERSAL ||
+            creep.memory.originRoomName !== roomName ||
+            typeof creep.name !== "string"
+        ) {
+            continue;
+        }
+
+        universals.push(creep);
+    }
+
+    if (universals.length === 0) {
+        return retainedNames;
+    }
+
+    const targetUniversals = colonyManager.getTargetUniversalsForRoom(roomName);
+
+    universals.sort(compareUniversalsForRetention);
+
+    for (let index = 0; index < Math.min(targetUniversals, universals.length); index += 1) {
+        retainedNames[universals[index].name] = true;
+    }
+
+    return retainedNames;
+}
+
+function compareUniversalsForRetention(left, right) {
+    const leftTtl = typeof left.ticksToLive === "number" ? left.ticksToLive : -1;
+    const rightTtl = typeof right.ticksToLive === "number" ? right.ticksToLive : -1;
+
+    if (leftTtl !== rightTtl) {
+        return rightTtl - leftTtl;
+    }
+
+    return left.name.localeCompare(right.name);
 }
 
 function findRenewTaskByStatus(tasks, status) {

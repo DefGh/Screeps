@@ -103,10 +103,10 @@ module.exports = {
     },
 
     repairs: {
-        MAX_ROOM_TASKS: 3,
+        MAX_ROOM_TASKS: 2,
         REFRESH_INTERVAL: 300,
         STRUCTURE_THRESHOLD: 0.8,
-        WALL_HITS_CAP: 50000,
+        WALL_HITS_CAP: 70000,
     },
 
     transferEnergyTaskStages: {

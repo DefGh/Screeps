@@ -82,6 +82,11 @@ function ensureUniversalSpawnTask(spawn) {
     const roomName = spawn.room.name;
     const targetUniversals = colonyManager.getTargetUniversalsForRoom(roomName);
     const aliveUniversals = countAliveUniversals(roomName);
+    cleanupExcessUniversalSpawnTasks(
+        roomName,
+        Math.max(0, targetUniversals - aliveUniversals)
+    );
+
     const queuedUniversals = countQueuedUniversals(roomName);
 
     if (aliveUniversals + queuedUniversals >= targetUniversals) {
@@ -105,6 +110,36 @@ function ensureUniversalSpawnTask(spawn) {
             stage: constants.spawnTaskStages.WAITING,
         },
     });
+}
+
+function cleanupExcessUniversalSpawnTasks(roomName, allowedQueuedCount) {
+    const queuedTasks = taskIndex
+        .getQueuedSpawnTasksByRoleAndRoom(constants.roles.UNIVERSAL, roomName)
+        .slice()
+        .sort(compareTasksBySequence);
+    const excessCount = queuedTasks.length - Math.max(0, allowedQueuedCount);
+
+    if (excessCount <= 0) {
+        return 0;
+    }
+
+    const removedTaskIds = [];
+
+    for (let index = queuedTasks.length - 1; index >= 0; index -= 1) {
+        if (removedTaskIds.length >= excessCount) {
+            break;
+        }
+
+        removedTaskIds.push(queuedTasks[index].id);
+    }
+
+    if (removedTaskIds.length > 0) {
+        taskStore.removeTasks(removedTaskIds, {
+            clearAssignments: true,
+        });
+    }
+
+    return removedTaskIds.length;
 }
 
 function ensureClaimerSpawnTask(spawn) {
@@ -357,6 +392,15 @@ function shouldUseEmergencyUniversalBody(spawn) {
 }
 
 function resolveSpawnBody(spawn, task) {
+    if (isMinerSpawnTask(task)) {
+        const minerBody = buildMinerBody(spawn);
+
+        if (Array.isArray(minerBody) && minerBody.length > 0) {
+            task.data.body = minerBody;
+            return minerBody;
+        }
+    }
+
     if (
         task &&
         task.data &&
@@ -383,37 +427,61 @@ function shouldDiscardAttackerSpawnTask(spawn, task) {
 }
 
 function buildMinerBody(spawn) {
-    const minimumCost = BODYPART_COST[WORK];
-    const capacity = spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
+    const workPart = typeof WORK === "string" ? WORK : "work";
+    const minimumCost = typeof BODYPART_COST === "object" && typeof BODYPART_COST[workPart] === "number"
+        ? BODYPART_COST[workPart]
+        : 100;
+    const capacity = spawn && spawn.room && typeof spawn.room.energyCapacityAvailable === "number"
         ? spawn.room.energyCapacityAvailable
         : minimumCost;
+    const maxWorkParts = typeof constants.miners.MAX_WORK_PARTS === "number"
+        ? constants.miners.MAX_WORK_PARTS
+        : 1;
+    const maxCreepSize = typeof MAX_CREEP_SIZE === "number"
+        ? MAX_CREEP_SIZE
+        : maxWorkParts;
 
     if (capacity < minimumCost) {
-        return [WORK];
+        return [workPart];
     }
 
-    const maxPartsByEnergy = Math.floor(capacity / minimumCost);
+    const maxPartsByEnergy = Math.max(1, Math.floor(capacity / minimumCost));
     const workParts = Math.max(
         1,
-        Math.min(constants.miners.MAX_WORK_PARTS, maxPartsByEnergy, MAX_CREEP_SIZE)
+        Math.min(maxWorkParts, maxPartsByEnergy, maxCreepSize)
     );
 
     const body = [];
 
     for (let index = 0; index < workParts; index += 1) {
-        body.push(WORK);
+        body.push(workPart);
     }
 
-    return body;
+    return body.length > 0 ? body : [workPart];
 }
 
 function createMinerTaskSet(spawn, sourceId, minerPos) {
+    const ownerRoomName = spawn && spawn.room && typeof spawn.room.name === "string"
+        ? spawn.room.name
+        : null;
+
+    if (typeof sourceId !== "string" || !isValidMinerPosition(minerPos) || typeof ownerRoomName !== "string") {
+        logMinerTaskSetFailure(sourceId, "invalid miner task input");
+        return false;
+    }
+
     const mineTaskId = taskHelpers.nextTaskId(constants.taskTypes.MINE);
     const taxiTaskId = taskHelpers.nextTaskId(constants.taskTypes.TAXI);
     const spawnTaskId = taskHelpers.nextSpawnTaskId(constants.roles.MINER);
     const creepName = buildPlannedCreepName(constants.roles.MINER, mineTaskId);
+    const body = buildMinerBody(spawn);
 
-    taskHelpers.addTask({
+    if (!Array.isArray(body) || body.length === 0) {
+        logMinerTaskSetFailure(sourceId, "miner body builder returned an empty body");
+        return false;
+    }
+
+    const mineTask = {
         id: mineTaskId,
         type: constants.taskTypes.MINE,
         status: constants.taskStatuses.IN_PROGRESS,
@@ -422,9 +490,9 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
             roomName: minerPos.roomName,
             sourceId: sourceId,
         },
-    });
+    };
 
-    taskHelpers.addTask({
+    const taxiTask = {
         id: taxiTaskId,
         type: constants.taskTypes.TAXI,
         status: constants.taskStatuses.PENDING,
@@ -435,29 +503,66 @@ function createMinerTaskSet(spawn, sourceId, minerPos) {
             sourceId: sourceId,
             minerPos: minerPos,
         },
-    });
+    };
 
-    taskHelpers.addTask({
+    const spawnTask = {
         id: spawnTaskId,
         type: constants.taskTypes.SPAWN_CREEP,
         status: constants.taskStatuses.PENDING,
         canExecute: [constants.roles.SPAWNER],
         data: {
-            body: buildMinerBody(spawn),
+            body: body,
             creepName: creepName,
             memory: {
-                originRoomName: spawn.room.name,
+                originRoomName: ownerRoomName,
                 role: constants.roles.MINER,
                 taskId: mineTaskId,
             },
             mineTaskId: mineTaskId,
             role: constants.roles.MINER,
-            roomName: spawn.room.name,
+            roomName: ownerRoomName,
             sourceId: sourceId,
             stage: constants.spawnTaskStages.WAITING,
             taxiTaskId: taxiTaskId,
         },
-    });
+    };
+
+    if (!taskHelpers.addTask(mineTask)) {
+        logMinerTaskSetFailure(sourceId, `failed to add ${mineTaskId}`);
+        return false;
+    }
+
+    if (!taskHelpers.addTask(taxiTask)) {
+        taskStore.removeTask(mineTaskId, {
+            clearAssignments: true,
+        });
+        logMinerTaskSetFailure(sourceId, `failed to add ${taxiTaskId}`);
+        return false;
+    }
+
+    if (!taskHelpers.addTask(spawnTask)) {
+        taskStore.removeTasks([mineTaskId, taxiTaskId], {
+            clearAssignments: true,
+        });
+        logMinerTaskSetFailure(sourceId, `failed to add ${spawnTaskId}`);
+        return false;
+    }
+
+    return true;
+}
+
+function isValidMinerPosition(minerPos) {
+    return Boolean(
+        minerPos &&
+        typeof minerPos.x === "number" &&
+        typeof minerPos.y === "number" &&
+        typeof minerPos.roomName === "string"
+    );
+}
+
+function logMinerTaskSetFailure(sourceId, reason) {
+    const sourceLabel = typeof sourceId === "string" ? sourceId : "unknown-source";
+    console.log(`miner task setup skipped for ${sourceLabel}: ${reason}`);
 }
 
 function buildCreepName(task) {
@@ -466,6 +571,19 @@ function buildCreepName(task) {
 
 function buildPlannedCreepName(role, taskId) {
     return role + "_" + String(taskId).replace(":", "_");
+}
+
+function compareTasksBySequence(left, right) {
+    return getTaskSequence(left && left.id) - getTaskSequence(right && right.id);
+}
+
+function getTaskSequence(taskId) {
+    if (typeof taskId !== "string") {
+        return Infinity;
+    }
+
+    const parsed = Number(taskId.split(":").pop());
+    return Number.isFinite(parsed) ? parsed : Infinity;
 }
 
 function hasMineTaskForSource(sourceId) {
@@ -531,6 +649,15 @@ function isUniversalSpawnTask(task) {
         task.type === constants.taskTypes.SPAWN_CREEP &&
         task.data &&
         task.data.role === constants.roles.UNIVERSAL
+    );
+}
+
+function isMinerSpawnTask(task) {
+    return Boolean(
+        task &&
+        task.type === constants.taskTypes.SPAWN_CREEP &&
+        task.data &&
+        task.data.role === constants.roles.MINER
     );
 }
 

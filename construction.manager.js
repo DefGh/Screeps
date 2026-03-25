@@ -11,7 +11,6 @@ const EXTENSION_MIN_COORD = 2;
 const EXTENSION_MAX_COORD = 47;
 const ROAD_HEAT_WINDOW = 300;
 const ROAD_MIN_VISITS = 100;
-const REPAIR_MAX_ROOM_TASKS = constants.repairs.MAX_ROOM_TASKS;
 const REPAIR_REFRESH_INTERVAL = constants.repairs.REFRESH_INTERVAL;
 const REPAIR_STRUCTURE_THRESHOLD = constants.repairs.STRUCTURE_THRESHOLD;
 const REPAIR_WALL_HITS_CAP = constants.repairs.WALL_HITS_CAP;
@@ -87,6 +86,7 @@ function refreshRoomConstruction(room) {
 
 function refreshRoomRepairs(room) {
     const roomMemory = memoryAccess.getConstructionRoomMemory(room.name);
+    const maxRepairTasks = getMaxRoomRepairTasks(room.name);
 
     if (!shouldRefreshRoomRepairs(roomMemory)) {
         return;
@@ -103,7 +103,7 @@ function refreshRoomRepairs(room) {
     const candidates = getSortedRepairCandidates(room);
 
     for (const candidate of candidates) {
-        if (currentTasks.length >= REPAIR_MAX_ROOM_TASKS) {
+        if (currentTasks.length >= maxRepairTasks) {
             break;
         }
 
@@ -126,6 +126,7 @@ function refreshRoomRepairs(room) {
 
 function normalizeRoomRepairTasks(room) {
     const roomTasks = getRoomRepairTasks(room.name);
+    const maxRepairTasks = getMaxRoomRepairTasks(room.name);
 
     if (roomTasks.length === 0) {
         return false;
@@ -174,7 +175,7 @@ function normalizeRoomRepairTasks(room) {
         const entry = taskEntries[index];
 
         if (
-            index >= REPAIR_MAX_ROOM_TASKS ||
+            index >= maxRepairTasks ||
             keptTargetIds[entry.task.data.targetId]
         ) {
             removedTaskIds[entry.task.id] = true;
@@ -206,6 +207,35 @@ function getRoomRepairTasks(roomName) {
     }
 
     return tasks;
+}
+
+function getMaxRoomRepairTasks(roomName) {
+    return Math.max(0, Math.floor((countAliveUniversals(roomName) - 1) / 3));
+}
+
+function countAliveUniversals(roomName) {
+    let count = 0;
+
+    if (typeof roomName !== "string") {
+        return count;
+    }
+
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (
+            !creep ||
+            !creep.memory ||
+            creep.memory.role !== constants.roles.UNIVERSAL ||
+            creep.memory.originRoomName !== roomName
+        ) {
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
 }
 
 function getSortedRepairCandidates(room) {
@@ -346,22 +376,24 @@ function compareExistingRepairTasks(left, right, anchor) {
 }
 
 function compareRepairCandidates(left, right, anchor) {
-    const typeOrder = getRepairBucketPriority(left.target.structureType) - getRepairBucketPriority(right.target.structureType);
+    const deficitOrder =
+        getRepairHealthDeficitRatio(right.target, right.repairGoal) -
+        getRepairHealthDeficitRatio(left.target, left.repairGoal);
 
-    if (typeOrder !== 0) {
-        return typeOrder;
-    }
-
-    const damageOrder = getRepairDamageRatio(left.target, left.repairGoal) - getRepairDamageRatio(right.target, right.repairGoal);
-
-    if (damageOrder !== 0) {
-        return damageOrder;
+    if (deficitOrder !== 0) {
+        return deficitOrder;
     }
 
     const distanceOrder = getAnchorRange(anchor, left.target.pos) - getAnchorRange(anchor, right.target.pos);
 
     if (distanceOrder !== 0) {
         return distanceOrder;
+    }
+
+    const typeOrder = getRepairBucketPriority(left.target.structureType) - getRepairBucketPriority(right.target.structureType);
+
+    if (typeOrder !== 0) {
+        return typeOrder;
     }
 
     return left.target.id.localeCompare(right.target.id);
@@ -390,6 +422,17 @@ function getRepairDamageRatio(target, repairGoal) {
     }
 
     return target.hits / repairGoal;
+}
+
+function getRepairHealthDeficitRatio(target, repairGoal) {
+    const damageRatio = getRepairDamageRatio(target, repairGoal);
+
+    if (!Number.isFinite(damageRatio)) {
+        return -Infinity;
+    }
+
+    const integrityRatio = Math.max(0, Math.min(1, damageRatio));
+    return 1 - integrityRatio;
 }
 
 function getRepairIntegrityRatio(target, repairGoal) {

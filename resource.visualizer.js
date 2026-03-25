@@ -1,3 +1,4 @@
+const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const constructionManager = require("./construction.manager");
 const roomScope = require("./room.scope");
@@ -6,6 +7,7 @@ const taskIndex = require("./task.index");
 
 const SHOW_ROAD_HEAT_MAP = true;
 const SHOW_REPAIR_HEAT_MAP = true;
+const SHOW_REPAIR_TASK_HIGHLIGHTS = true;
 const SHOW_RECOURCE_INFO = true;
 const SHOW_ROOM_TASK_PANEL = true;
 
@@ -91,6 +93,29 @@ const REPAIR_HEAT_TEXT_STYLE = {
     strokeWidth: 0.12,
 };
 
+const REPAIR_TASK_PENDING_STYLE = {
+    fill: "transparent",
+    opacity: 0.9,
+    stroke: "#ffe082",
+    strokeWidth: 0.09,
+};
+
+const REPAIR_TASK_ACTIVE_STYLE = {
+    fill: "transparent",
+    opacity: 1,
+    stroke: "#7af5ff",
+    strokeWidth: 0.13,
+};
+
+const REPAIR_TASK_MARKER_STYLE = {
+    align: "center",
+    color: "#ffffff",
+    font: 0.4,
+    opacity: 0.95,
+    stroke: "#111111",
+    strokeWidth: 0.12,
+};
+
 const TASK_PANEL_STYLE = {
     fill: "#111111",
     opacity: 0.72,
@@ -136,6 +161,7 @@ function drawRoomResourcePlan(room) {
 
     drawRoomRoadHeat(room);
     drawRoomRepairHeat(room);
+    drawRoomRepairTaskHighlights(room);
     drawRoomTaskPanel(room);
 
     if (!SHOW_RECOURCE_INFO) {
@@ -157,12 +183,14 @@ function drawRoomTaskPanel(room) {
     }
 
     const taskRows = buildRoomTaskRows(room.name);
+    const universalLabel = buildUniversalPopulationLabel(room.name);
 
-    if (taskRows.length === 0) {
+    if (taskRows.length === 0 && !universalLabel) {
         return;
     }
 
-    const panelHeight = TASK_PANEL_HEADER_HEIGHT + taskRows.length * TASK_PANEL_ROW_HEIGHT + 0.2;
+    const rowCount = taskRows.length + (universalLabel ? 1 : 0);
+    const panelHeight = TASK_PANEL_HEADER_HEIGHT + rowCount * TASK_PANEL_ROW_HEIGHT + 0.2;
 
     room.visual.rect(
         TASK_PANEL_LEFT,
@@ -179,13 +207,28 @@ function drawRoomTaskPanel(room) {
         TASK_PANEL_HEADER_STYLE
     );
 
-    for (let index = 0; index < taskRows.length; index += 1) {
+    let rowIndex = 0;
+
+    if (universalLabel) {
         room.visual.text(
-            buildTaskRowLabel(taskRows[index]),
+            universalLabel,
             TASK_PANEL_TEXT_X,
-            TASK_PANEL_FIRST_ROW_Y + index * TASK_PANEL_ROW_HEIGHT,
+            TASK_PANEL_FIRST_ROW_Y + rowIndex * TASK_PANEL_ROW_HEIGHT,
             TASK_PANEL_TEXT_STYLE
         );
+
+        rowIndex += 1;
+    }
+
+    for (const taskRow of taskRows) {
+        room.visual.text(
+            buildTaskRowLabel(taskRow),
+            TASK_PANEL_TEXT_X,
+            TASK_PANEL_FIRST_ROW_Y + rowIndex * TASK_PANEL_ROW_HEIGHT,
+            TASK_PANEL_TEXT_STYLE
+        );
+
+        rowIndex += 1;
     }
 }
 
@@ -241,6 +284,35 @@ function buildTaskRowLabel(taskRow) {
     return `${icon} ${taskRow.pending}/${taskRow.active}`;
 }
 
+function buildUniversalPopulationLabel(roomName) {
+    if (typeof roomName !== "string") {
+        return "";
+    }
+
+    return `U ${countAliveUniversals(roomName)}/${colonyManager.getTargetUniversalsForRoom(roomName)}`;
+}
+
+function countAliveUniversals(roomName) {
+    let count = 0;
+
+    for (const name in Game.creeps) {
+        const creep = Game.creeps[name];
+
+        if (
+            !creep ||
+            !creep.memory ||
+            creep.memory.role !== constants.roles.UNIVERSAL ||
+            creep.memory.originRoomName !== roomName
+        ) {
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
+}
+
 function drawRoomRoadHeat(room) {
     if (!SHOW_ROAD_HEAT_MAP) {
         return;
@@ -273,6 +345,18 @@ function drawRoomRepairHeat(room) {
 
     for (const candidate of overlay.candidates) {
         drawRepairHeatCell(room.visual, candidate);
+    }
+}
+
+function drawRoomRepairTaskHighlights(room) {
+    if (!SHOW_REPAIR_TASK_HIGHLIGHTS || !room || !room.visual) {
+        return;
+    }
+
+    const taskTargets = getRoomRepairTaskTargets(room.name);
+
+    for (const entry of taskTargets) {
+        drawRepairTaskHighlight(room.visual, entry);
     }
 }
 
@@ -428,6 +512,27 @@ function drawRepairHeatCell(visual, candidate) {
     );
 }
 
+function drawRepairTaskHighlight(visual, entry) {
+    const style = entry.status === constants.taskStatuses.IN_PROGRESS
+        ? REPAIR_TASK_ACTIVE_STYLE
+        : REPAIR_TASK_PENDING_STYLE;
+
+    visual.rect(
+        entry.position.x - 0.48,
+        entry.position.y - 0.48,
+        0.96,
+        0.96,
+        style
+    );
+
+    visual.text(
+        entry.status === constants.taskStatuses.IN_PROGRESS ? "R" : "r",
+        entry.position.x,
+        entry.position.y - 0.28,
+        REPAIR_TASK_MARKER_STYLE
+    );
+}
+
 function buildSupplyLine(summary) {
     return `🟢 ${formatAmount(summary.free, summary.openEndedFree)}/${formatAmount(summary.reserved, false)}/${formatAmount(summary.total, summary.openEndedTotal)}`;
 }
@@ -508,6 +613,69 @@ function getNormalizedRepairIntegrityRatio(candidate) {
     }
 
     return Math.max(0, Math.min(1, candidate.integrityRatio));
+}
+
+function getRoomRepairTaskTargets(roomName) {
+    const entriesByTargetId = {};
+    const roomTasks = taskIndex.getTasksByOwnerRoom(roomName);
+
+    for (const task of roomTasks) {
+        if (
+            !task ||
+            task.type !== constants.taskTypes.REPAIR ||
+            !task.data ||
+            typeof task.data.targetId !== "string"
+        ) {
+            continue;
+        }
+
+        const target = Game.getObjectById(task.data.targetId);
+
+        if (!target || !target.pos) {
+            continue;
+        }
+
+        const existingEntry = entriesByTargetId[task.data.targetId];
+        const nextEntry = {
+            position: target.pos,
+            status: task.status,
+            targetId: task.data.targetId,
+        };
+
+        if (!existingEntry || compareRepairTaskHighlightEntries(nextEntry, existingEntry) < 0) {
+            entriesByTargetId[task.data.targetId] = nextEntry;
+        }
+    }
+
+    return Object.values(entriesByTargetId).sort(compareRepairTaskHighlightEntries);
+}
+
+function compareRepairTaskHighlightEntries(left, right) {
+    const statusOrder = getRepairTaskHighlightStatusPriority(left.status) - getRepairTaskHighlightStatusPriority(right.status);
+
+    if (statusOrder !== 0) {
+        return statusOrder;
+    }
+
+    const leftY = left && left.position && typeof left.position.y === "number" ? left.position.y : Infinity;
+    const rightY = right && right.position && typeof right.position.y === "number" ? right.position.y : Infinity;
+
+    if (leftY !== rightY) {
+        return leftY - rightY;
+    }
+
+    const leftX = left && left.position && typeof left.position.x === "number" ? left.position.x : Infinity;
+    const rightX = right && right.position && typeof right.position.x === "number" ? right.position.x : Infinity;
+
+    if (leftX !== rightX) {
+        return leftX - rightX;
+    }
+
+    return String(left.targetId).localeCompare(String(right.targetId));
+}
+
+function getRepairTaskHighlightStatusPriority(status) {
+    return status === constants.taskStatuses.IN_PROGRESS ? 0 : 1;
 }
 
 function getRepairHeatColor(integrityRatio) {
