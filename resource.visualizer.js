@@ -5,7 +5,7 @@ const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const taskIndex = require("./task.index");
 
-const SHOW_ROAD_HEAT_MAP = true;
+const SHOW_ROAD_HEAT_MAP = false;
 const SHOW_REPAIR_HEAT_MAP = true;
 const SHOW_REPAIR_TASK_HIGHLIGHTS = true;
 const SHOW_RECOURCE_INFO = true;

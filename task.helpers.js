@@ -23,6 +23,59 @@ function getTaskResourceType(task) {
         : RESOURCE_ENERGY;
 }
 
+function buildStandardUniversalBody(room) {
+    return buildUniversalBody(room, false);
+}
+
+function buildAvailableUniversalBody(room) {
+    return buildUniversalBody(room, true);
+}
+
+function getUniversalGenerationForRoom(roomName) {
+    return getUniversalGenerationForBody(
+        buildStandardUniversalBody(resolveOwnedRoom(roomName))
+    );
+}
+
+function getUniversalGenerationForBody(body) {
+    return Array.isArray(body) ? body.length : 0;
+}
+
+function getUniversalGenerationForCreep(creep) {
+    if (!creep) {
+        return 0;
+    }
+
+    if (
+        creep.memory &&
+        typeof creep.memory.universalGeneration === "number"
+    ) {
+        return creep.memory.universalGeneration;
+    }
+
+    return Array.isArray(creep.body) ? creep.body.length : 0;
+}
+
+function resolveOwnedRoom(roomName) {
+    if (typeof roomName !== "string") {
+        return null;
+    }
+
+    if (Game.rooms && Game.rooms[roomName]) {
+        return Game.rooms[roomName];
+    }
+
+    for (const spawnName in Game.spawns) {
+        const spawn = Game.spawns[spawnName];
+
+        if (spawn && spawn.room && spawn.room.name === roomName) {
+            return spawn.room;
+        }
+    }
+
+    return null;
+}
+
 function shouldWaitForSource(sourceType) {
     return sourceType === constants.transferEnergySourceTypes.SOURCE;
 }
@@ -84,11 +137,92 @@ function hasTaskDataFields(task, taskType, fieldTypes) {
     return true;
 }
 
+function buildUniversalBody(room, useAvailableEnergy) {
+    const partSet = getUniversalPartSet();
+    const minimumCost = getBodyCost(partSet);
+    const capacity = getRoomEnergyBudget(room, useAvailableEnergy);
+
+    if (capacity < minimumCost) {
+        return partSet.slice();
+    }
+
+    const body = [];
+    let remainingEnergy = capacity;
+
+    while (body.length < getMaxCreepSize()) {
+        const nextPart = partSet[body.length % partSet.length];
+        const nextPartCost = getBodyPartCost(nextPart);
+
+        if (remainingEnergy < nextPartCost) {
+            break;
+        }
+
+        body.push(nextPart);
+        remainingEnergy -= nextPartCost;
+    }
+
+    return body.length > 0 ? body : partSet.slice();
+}
+
+function getUniversalPartSet() {
+    return [
+        typeof MOVE === "string" ? MOVE : "move",
+        typeof WORK === "string" ? WORK : "work",
+        typeof CARRY === "string" ? CARRY : "carry",
+    ];
+}
+
+function getRoomEnergyBudget(room, useAvailableEnergy) {
+    if (!room) {
+        return 0;
+    }
+
+    if (useAvailableEnergy && typeof room.energyAvailable === "number") {
+        return room.energyAvailable;
+    }
+
+    if (typeof room.energyCapacityAvailable === "number") {
+        return room.energyCapacityAvailable;
+    }
+
+    return 0;
+}
+
+function getBodyCost(body) {
+    let cost = 0;
+
+    for (const part of body) {
+        cost += getBodyPartCost(part);
+    }
+
+    return cost;
+}
+
+function getBodyPartCost(part) {
+    if (
+        typeof BODYPART_COST === "object" &&
+        typeof BODYPART_COST[part] === "number"
+    ) {
+        return BODYPART_COST[part];
+    }
+
+    return 0;
+}
+
+function getMaxCreepSize() {
+    return typeof MAX_CREEP_SIZE === "number" ? MAX_CREEP_SIZE : 50;
+}
+
 module.exports = {
     addTask,
+    buildAvailableUniversalBody,
+    buildStandardUniversalBody,
     canExecuteTaskInRoom,
     getTaskOwnerRoom,
     getTaskResourceType,
+    getUniversalGenerationForBody,
+    getUniversalGenerationForCreep,
+    getUniversalGenerationForRoom,
     hasTaskData,
     hasTaskDataFields,
     nextSpawnTaskId,

@@ -109,6 +109,11 @@ module.exports = {
         WALL_HITS_CAP: 70000,
     },
 
+    towers: {
+        PEACE_REPAIR_MIN_ENERGY_RATIO: 0.75,
+        SEARCH_RANGE: 8,
+    },
+
     transferEnergyTaskStages: {
         COLLECT: "collect",
         DELIVER: "deliver",
@@ -124,6 +129,7 @@ module.exports = {
         CONTAINER: "container",
         SPAWN: "spawn",
         EXTENSION: "extension",
+        TOWER: "tower",
         CONTROLLER: "controller",
         CONSTRUCTION_SITE: "constructionSite",
     },

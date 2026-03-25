@@ -180,6 +180,18 @@ function findBestEnergyRequest(creep) {
         };
     }
 
+    const tower = chooseClosestPlanEntry(creep, plan, [targetTypes.TOWER], function (entry) {
+        return getPlanEntryDemand(entry, creep, null) > 0;
+    });
+
+    if (tower) {
+        return {
+            type: tower.objectType,
+            object: tower.object,
+            remainingAmount: getPlanEntryDemand(tower, creep, null),
+        };
+    }
+
     if (room.controller && room.controller.my && getActiveWorkParts(creep) > 0) {
         const controller = chooseClosestPlanEntry(creep, plan, [targetTypes.CONTROLLER], function (entry) {
             return getPlanEntryDemand(entry, creep, null) > 0;
@@ -348,7 +360,8 @@ function collectEnergyDemands(room, resourceType, entriesById) {
         filter: function (candidate) {
             return (
                 candidate.structureType === STRUCTURE_SPAWN ||
-                candidate.structureType === STRUCTURE_EXTENSION
+                candidate.structureType === STRUCTURE_EXTENSION ||
+                candidate.structureType === STRUCTURE_TOWER
             );
         },
     })) {
@@ -631,6 +644,7 @@ function getBaseTargetDemand(targetType, target, creep) {
     if (
         targetType === constants.transferEnergyTargetTypes.SPAWN ||
         targetType === constants.transferEnergyTargetTypes.EXTENSION ||
+        targetType === constants.transferEnergyTargetTypes.TOWER ||
         targetType === constants.transferEnergyTargetTypes.CONTAINER
     ) {
         return getFreeEnergyOfTarget(target);
@@ -658,6 +672,10 @@ function getTargetTypeFromStructure(structure) {
 
     if (structure.structureType === STRUCTURE_EXTENSION) {
         return constants.transferEnergyTargetTypes.EXTENSION;
+    }
+
+    if (structure.structureType === STRUCTURE_TOWER) {
+        return constants.transferEnergyTargetTypes.TOWER;
     }
 
     return null;

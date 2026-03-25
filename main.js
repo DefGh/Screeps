@@ -8,6 +8,7 @@ const executorRunner = require("./executor.runner");
 const sourceManager = require("./source.manager");
 const resourceVisualizer = require("./resource.visualizer");
 const renewTtlTask = require("./task.renewTtl");
+const towerManager = require("./tower.manager");
 
 function runSpawns() {
     for (const name in Game.spawns) {
@@ -46,5 +47,6 @@ module.exports.loop = function () {
     expansionManager.refreshExpansion();
     runSpawns();
     runCreeps();
+    towerManager.runTowers();
     resourceVisualizer.drawManagedRoomsResourcePlans();
 };

@@ -210,8 +210,28 @@ function shouldRenewUniversal(creep) {
         return false;
     }
 
+    if (!isCurrentUniversalGeneration(creep)) {
+        return false;
+    }
+
     const retainedNames = getRetainedUniversalNames(creep.memory.originRoomName);
     return Boolean(retainedNames[creep.name]);
+}
+
+function isCurrentUniversalGeneration(creep) {
+    if (
+        !creep ||
+        !creep.memory ||
+        creep.memory.role !== constants.roles.UNIVERSAL ||
+        typeof creep.memory.originRoomName !== "string"
+    ) {
+        return false;
+    }
+
+    return (
+        taskHelpers.getUniversalGenerationForCreep(creep) ===
+        taskHelpers.getUniversalGenerationForRoom(creep.memory.originRoomName)
+    );
 }
 
 function getRetainedUniversalNames(roomName) {

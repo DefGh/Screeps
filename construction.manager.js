@@ -9,6 +9,11 @@ const taskStore = require("./task.store");
 const EXTENSION_SEARCH_RANGE = 8;
 const EXTENSION_MIN_COORD = 2;
 const EXTENSION_MAX_COORD = 47;
+const TOWER_SEARCH_RANGE =
+    constants.towers &&
+    typeof constants.towers.SEARCH_RANGE === "number"
+        ? Math.max(1, Math.floor(constants.towers.SEARCH_RANGE))
+        : 8;
 const ROAD_HEAT_WINDOW = 300;
 const ROAD_MIN_VISITS = 100;
 const REPAIR_REFRESH_INTERVAL = constants.repairs.REFRESH_INTERVAL;
@@ -72,6 +77,10 @@ function refreshRoomConstruction(room) {
     }
     
     if (ensureSourceContainerSite(room)) {
+        return;
+    }
+
+    if (ensureTowerSite(room)) {
         return;
     }
     
@@ -549,6 +558,46 @@ function ensureExtensionSite(room) {
     return false;
 }
 
+function ensureTowerSite(room) {
+    const towerLimit = getStructureLimit(STRUCTURE_TOWER, room.controller.level);
+
+    if (towerLimit <= 0) {
+        return false;
+    }
+
+    const currentTowerCount = countRoomStructuresAndSites(room, STRUCTURE_TOWER);
+
+    if (currentTowerCount >= towerLimit) {
+        return false;
+    }
+
+    const anchor = chooseExtensionAnchor(room);
+
+    if (!anchor) {
+        return false;
+    }
+
+    const reservedPositions = getReservedPositions(room);
+
+    for (const position of getTowerCandidatePositions(anchor.pos)) {
+        if (!canPlaceTowerAt(room, position, reservedPositions)) {
+            continue;
+        }
+
+        const result = room.createConstructionSite(position.x, position.y, STRUCTURE_TOWER);
+
+        if (result === OK) {
+            console.log(
+                `construction planned ${STRUCTURE_TOWER} at ` +
+                `${room.name} (${position.x},${position.y})`
+            );
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function ensureRoadSite(room) {
     pruneRoadHeat(room.name);
 
@@ -635,9 +684,7 @@ function ensureDefenseSite(room) {
         if (!canSatisfyDefensePosition(room, candidate.position, candidate.structureType)) {
             continue;
         }
-        console.log(candidate.structureType 
-        )
-
+        
         const result = room.createConstructionSite(
             candidate.position.x,
             candidate.position.y,
@@ -934,6 +981,10 @@ function getRoadCandidates(room, anchor) {
             continue;
         }
 
+        if (hasStructureOrSiteAt(room, position, STRUCTURE_ROAD)) {
+            continue;
+        }
+
         candidates.push({
             key: positionKey,
             position: position,
@@ -1167,7 +1218,76 @@ function getExtensionCandidatePositions(anchorPos) {
     return positions;
 }
 
+function getTowerCandidatePositions(anchorPos) {
+    const positions = [];
+
+    for (let range = 1; range <= TOWER_SEARCH_RANGE; range += 1) {
+        for (let dx = -range; dx <= range; dx += 1) {
+            for (let dy = -range; dy <= range; dy += 1) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) !== range) {
+                    continue;
+                }
+
+                const x = anchorPos.x + dx;
+                const y = anchorPos.y + dy;
+
+                if (!isInsideExtensionBounds(x, y)) {
+                    continue;
+                }
+
+                positions.push({
+                    x: x,
+                    y: y,
+                    roomName: anchorPos.roomName,
+                });
+            }
+        }
+    }
+
+    return positions;
+}
+
 function canPlaceExtensionAt(room, position, reservedPositions) {
+    if (!position || position.roomName !== room.name) {
+        return false;
+    }
+
+    if (!isInsideExtensionBounds(position.x, position.y)) {
+        return false;
+    }
+
+    if (reservedPositions[buildPositionKey(position)]) {
+        return false;
+    }
+
+    if (room.getTerrain().get(position.x, position.y) === TERRAIN_MASK_WALL) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_STRUCTURES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_CONSTRUCTION_SITES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_SOURCES, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.lookForAt(LOOK_MINERALS, position.x, position.y).length > 0) {
+        return false;
+    }
+
+    if (room.controller && room.controller.pos.x === position.x && room.controller.pos.y === position.y) {
+        return false;
+    }
+
+    return true;
+}
+
+function canPlaceTowerAt(room, position, reservedPositions) {
     if (!position || position.roomName !== room.name) {
         return false;
     }
@@ -1382,6 +1502,7 @@ function parsePositionKey(positionKey) {
 }
 
 module.exports = {
+    getRepairGoalForStructure,
     getRepairHeatOverlay,
     getRoadHeatOverlay,
     refreshManagedConstruction,
