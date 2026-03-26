@@ -43,7 +43,9 @@ function runPlanStage(creep, task) {
     task.data.remainingAmount = taskData.remainingAmount;
     task.data.collectRemainingAmount = taskData.collectRemainingAmount;
     task.data.stage = taskData.stage;
-    resourceManager.invalidateResourcePlanCache();
+    resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+        skipDispatchWake: true,
+    });
 
     return run(creep, task);
 }
@@ -109,7 +111,9 @@ function runCollectStage(creep, task) {
         }
 
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         return false;
@@ -139,14 +143,18 @@ function runCollectStage(creep, task) {
 
     if (result === ERR_BUSY) {
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         return false;
     }
 
     if (didChangePlanState) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+            skipDispatchWake: true,
+        });
     }
 
     return true;
@@ -189,7 +197,9 @@ function runRepairStage(creep, task) {
 
         if (spentEnergy > 0) {
             task.data.remainingAmount = Math.max(0, task.data.remainingAmount - spentEnergy);
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         if (task.data.remainingAmount <= 0) {
@@ -385,7 +395,9 @@ function shouldUseAlternativeSource(task, currentAvailable, alternativeSource) {
 function reassignSource(task, source) {
     task.data.sourceId = source.object.id;
     task.data.sourceType = source.type;
-    resourceManager.invalidateResourcePlanCache();
+    resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+        skipDispatchWake: true,
+    });
 }
 
 function switchToRepairStage(task, nextRemainingAmount) {

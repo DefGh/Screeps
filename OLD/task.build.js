@@ -236,7 +236,9 @@ function runCollectStage(creep, task) {
         }
 
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         return false;
@@ -266,14 +268,18 @@ function runCollectStage(creep, task) {
 
     if (result === ERR_BUSY) {
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         return false;
     }
 
     if (didChangePlanState) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+            skipDispatchWake: true,
+        });
     }
 
     return true;
@@ -321,7 +327,9 @@ function runBuildStage(creep, task) {
 
         if (spentEnergy > 0) {
             task.data.remainingAmount = Math.max(0, task.data.remainingAmount - spentEnergy);
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         if (!taskHelpers.resolveObject(task.data.targetId) && switchToFinishRepairStage(task, currentEnergyAfterBuild)) {
@@ -384,7 +392,9 @@ function runFinishRepairStage(creep, task) {
 
         if (spentEnergy > 0) {
             task.data.remainingAmount = Math.max(0, task.data.remainingAmount - spentEnergy);
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         if (task.data.remainingAmount <= 0 || resourceManager.getUsedEnergy(creep) <= 0) {
@@ -523,7 +533,9 @@ function shouldUseAlternativeSource(task, currentAvailable, alternativeSource) {
 function reassignSource(task, source) {
     task.data.sourceId = source.object.id;
     task.data.sourceType = source.type;
-    resourceManager.invalidateResourcePlanCache();
+    resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+        skipDispatchWake: true,
+    });
 }
 
 function chooseClosest(executor, objects) {
@@ -546,7 +558,9 @@ function switchToFinishRepairStage(task, currentEnergy) {
     task.data.stage = constants.buildTaskStages.FINISH_REPAIR;
     task.data.collectRemainingAmount = 0;
     task.data.remainingAmount = currentEnergy;
-    resourceManager.invalidateResourcePlanCache();
+    resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+        skipDispatchWake: true,
+    });
     return true;
 }
 

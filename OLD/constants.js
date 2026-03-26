@@ -46,6 +46,20 @@ module.exports = {
         WAIT_TICKS_ON_EMPTY_QUEUE: 15,
     },
 
+    reactivity: {
+        DISPATCH_SWEEP_INTERVAL: 25,
+        ROOM_SWEEP_INTERVAL: 50,
+        EXPANSION_SWEEP_INTERVAL: 100,
+        domains: {
+            ECONOMY: "economy",
+            SPAWN_DEMAND: "spawnDemand",
+            CONSTRUCTION: "construction",
+            SOURCES: "sources",
+            THREAT: "threat",
+            EXPANSION: "expansion",
+        },
+    },
+
     renew: {
         UNIVERSAL_START_TTL: 600,
         UNIVERSAL_TARGET_TTL: 1100,

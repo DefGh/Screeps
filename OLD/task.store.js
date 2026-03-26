@@ -22,7 +22,7 @@ function addTask(task, options) {
 
     const tasks = getAllTasks();
     tasks[task.id] = task;
-    finalizeTaskMutation(task, options);
+    finalizeTaskMutation(task, options, "add");
     return task;
 }
 
@@ -33,7 +33,7 @@ function updateTask(task, options) {
 
     const tasks = getAllTasks();
     tasks[task.id] = task;
-    finalizeTaskMutation(task, options);
+    finalizeTaskMutation(task, options, "update");
     return task;
 }
 
@@ -46,7 +46,7 @@ function touchTask(task, options) {
         return null;
     }
 
-    finalizeTaskMutation(task, options);
+    finalizeTaskMutation(task, options, "touch");
     return task;
 }
 
@@ -63,7 +63,7 @@ function removeTask(taskId, options) {
         clearTaskAssignments([taskId]);
     }
 
-    finalizeTaskMutation(task, options);
+    finalizeTaskMutation(task, options, "remove");
     return true;
 }
 
@@ -73,7 +73,7 @@ function removeTasks(taskIds, options) {
     }
 
     const removedTaskIds = [];
-    let shouldInvalidateResourcePlans = false;
+    const removedTasks = [];
 
     for (const taskId of taskIds) {
         const task = getTask(taskId);
@@ -84,10 +84,7 @@ function removeTasks(taskIds, options) {
 
         delete Memory.tasks[taskId];
         removedTaskIds.push(taskId);
-
-        if (shouldTaskMutationInvalidateResourcePlans(task, options)) {
-            shouldInvalidateResourcePlans = true;
-        }
+        removedTasks.push(task);
     }
 
     if (removedTaskIds.length === 0) {
@@ -98,10 +95,9 @@ function removeTasks(taskIds, options) {
         clearTaskAssignments(removedTaskIds);
     }
 
-    if (shouldInvalidateResourcePlans) {
-        invalidateResourcePlanCache();
-    }
-    else {
+    emitTaskMutationSignals(removedTasks, "remove", options);
+
+    if (!finalizeBulkTaskMutation(removedTasks, options)) {
         bumpTaskVersion();
     }
 
@@ -138,6 +134,7 @@ function requeueTask(taskId, options) {
     }
 
     bumpTaskVersion();
+    emitTaskMutationSignals([task], "requeue", options);
     return task;
 }
 
@@ -206,11 +203,10 @@ function bumpTaskVersion() {
     return taskVersion;
 }
 
-function finalizeTaskMutation(task, options) {
-    if (shouldTaskMutationInvalidateResourcePlans(task, options)) {
-        invalidateResourcePlanCache();
-    }
-    else {
+function finalizeTaskMutation(task, options, action) {
+    emitTaskMutationSignals([task], action, options);
+
+    if (!finalizeBulkTaskMutation([task], options)) {
         bumpTaskVersion();
     }
 }
@@ -221,6 +217,27 @@ function shouldTaskMutationInvalidateResourcePlans(task, options) {
     }
 
     return isResourceReservationTask(task);
+}
+
+function finalizeBulkTaskMutation(tasks, options) {
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+        return false;
+    }
+
+    const resourceTasks = [];
+
+    for (const task of tasks) {
+        if (shouldTaskMutationInvalidateResourcePlans(task, options)) {
+            resourceTasks.push(task);
+        }
+    }
+
+    if (resourceTasks.length === 0) {
+        return false;
+    }
+
+    invalidateResourcePlansForTasks(resourceTasks);
+    return true;
 }
 
 function isResourceReservationTask(task) {
@@ -251,6 +268,54 @@ function validateTaskForStorage(task, action) {
 function invalidateResourcePlanCache() {
     const resourceManager = require("./resource.manager");
     resourceManager.invalidateResourcePlanCache();
+}
+
+function invalidateResourcePlansForTasks(tasks) {
+    const resourceManager = require("./resource.manager");
+    const roomNames = {};
+    let shouldInvalidateGlobally = false;
+
+    for (const task of tasks) {
+        const roomName = getTaskOwnerRoomName(task);
+
+        if (!roomName) {
+            shouldInvalidateGlobally = true;
+            break;
+        }
+
+        roomNames[roomName] = true;
+    }
+
+    if (shouldInvalidateGlobally) {
+        resourceManager.invalidateResourcePlanCache(null, {
+            skipDispatchWake: true,
+        });
+        return;
+    }
+
+    for (const roomName in roomNames) {
+        resourceManager.invalidateResourcePlanCache(roomName, {
+            skipDispatchWake: true,
+        });
+    }
+}
+
+function getTaskOwnerRoomName(task) {
+    const taskHandlers = require("./task.handlers");
+    const roomName = taskHandlers.getTaskOwnerRoom(task);
+    return typeof roomName === "string" ? roomName : null;
+}
+
+function emitTaskMutationSignals(tasks, action, options) {
+    if (options && options.emitReactivity === false) {
+        return;
+    }
+
+    const reactivity = require("./reactivity.manager");
+
+    for (const task of tasks) {
+        reactivity.handleTaskMutation(task, action);
+    }
 }
 
 module.exports = {

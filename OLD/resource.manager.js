@@ -1,4 +1,6 @@
 const constants = require("./constants");
+const reactivity = require("./reactivity.manager");
+const roomCensus = require("./room.census");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
 
@@ -19,8 +21,9 @@ const resourceSupplyModes = {
 };
 
 let resourcePlanCache = {
+    globalVersion: 0,
+    roomVersions: {},
     tick: null,
-    version: 0,
     plansByKey: {},
 };
 
@@ -113,11 +116,28 @@ function getRoomResourcePlan(room, resourceType) {
     return resourcePlanCache.plansByKey[cacheKey];
 }
 
-function invalidateResourcePlanCache() {
-    resourcePlanCache.version += 1;
+function invalidateResourcePlanCache(roomName, options) {
+    if (typeof roomName === "string") {
+        resourcePlanCache.roomVersions[roomName] = getRoomCacheVersion(roomName) + 1;
+    }
+    else {
+        resourcePlanCache.globalVersion += 1;
+    }
+
     resourcePlanCache.tick = null;
     resourcePlanCache.plansByKey = {};
     taskStore.bumpTaskVersion();
+
+    if (options && options.skipDispatchWake) {
+        return;
+    }
+
+    if (typeof roomName === "string") {
+        reactivity.markRoomDirty(roomName, reactivity.domains.ECONOMY);
+        return;
+    }
+
+    reactivity.markAllOperationalRoomsDirty(reactivity.domains.ECONOMY);
 }
 
 function getAvailableSourceEnergy(sourceType, source, currentTaskId) {
@@ -722,19 +742,7 @@ function hasActiveMinerInRoom(room) {
         return false;
     }
 
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep || !creep.memory || creep.memory.role !== constants.roles.MINER) {
-            continue;
-        }
-
-        if (creep.room && creep.room.name === room.name) {
-            return true;
-        }
-    }
-
-    return false;
+    return roomCensus.getCurrentRoomRoleCount(room.name, constants.roles.MINER) > 0;
 }
 
 function getUsedEnergy(object) {
@@ -825,7 +833,19 @@ function isResourceSourceReservationTask(task) {
 }
 
 function buildRoomPlanCacheKey(roomName, resourceType) {
-    return `${Game.time}:${resourcePlanCache.version}:${roomName}:${resourceType}`;
+    return [
+        Game.time,
+        resourcePlanCache.globalVersion,
+        getRoomCacheVersion(roomName),
+        roomName,
+        resourceType,
+    ].join(":");
+}
+
+function getRoomCacheVersion(roomName) {
+    return typeof resourcePlanCache.roomVersions[roomName] === "number"
+        ? resourcePlanCache.roomVersions[roomName]
+        : 0;
 }
 
 module.exports = {

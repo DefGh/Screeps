@@ -1,5 +1,7 @@
 const constants = require("./constants");
 const memoryAccess = require("./memory.access");
+const reactivity = require("./reactivity.manager");
+const roomCensus = require("./room.census");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const sourceManager = require("./source.manager");
@@ -63,8 +65,13 @@ function refreshManagedConstruction() {
             continue;
         }
 
+        if (!reactivity.shouldProcessRoom(roomName, reactivity.domains.CONSTRUCTION, constants.reactivity.ROOM_SWEEP_INTERVAL)) {
+            continue;
+        }
+
         refreshRoomConstruction(room);
         refreshRoomRepairs(room);
+        reactivity.markRoomProcessed(roomName, reactivity.domains.CONSTRUCTION, constants.reactivity.ROOM_SWEEP_INTERVAL);
     }
 }
 
@@ -129,7 +136,9 @@ function refreshRoomRepairs(room) {
     roomMemory.lastRepairRefreshTick = Game.time;
 
     if (didMutate) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(room.name, {
+            skipDispatchWake: true,
+        });
     }
 }
 
@@ -223,28 +232,7 @@ function getMaxRoomRepairTasks(roomName) {
 }
 
 function countAliveUniversals(roomName) {
-    let count = 0;
-
-    if (typeof roomName !== "string") {
-        return count;
-    }
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (
-            !creep ||
-            !creep.memory ||
-            creep.memory.role !== constants.roles.UNIVERSAL ||
-            creep.memory.originRoomName !== roomName
-        ) {
-            continue;
-        }
-
-        count += 1;
-    }
-
-    return count;
+    return roomCensus.getOriginRoleCount(roomName, constants.roles.UNIVERSAL);
 }
 
 function getSortedRepairCandidates(room) {
@@ -507,6 +495,7 @@ function ensureSourceContainerSite(room) {
         );
 
         if (result === OK) {
+            markConstructionPlanned(room.name);
             console.log(
                 `construction planned ${STRUCTURE_CONTAINER} at ` +
                 `${room.name} (${sourceData.minerPos.x},${sourceData.minerPos.y})`
@@ -547,6 +536,7 @@ function ensureExtensionSite(room) {
         const result = room.createConstructionSite(position.x, position.y, STRUCTURE_EXTENSION);
 
         if (result === OK) {
+            markConstructionPlanned(room.name);
             console.log(
                 `construction planned ${STRUCTURE_EXTENSION} at ` +
                 `${room.name} (${position.x},${position.y})`
@@ -587,6 +577,7 @@ function ensureTowerSite(room) {
         const result = room.createConstructionSite(position.x, position.y, STRUCTURE_TOWER);
 
         if (result === OK) {
+            markConstructionPlanned(room.name);
             console.log(
                 `construction planned ${STRUCTURE_TOWER} at ` +
                 `${room.name} (${position.x},${position.y})`
@@ -621,6 +612,7 @@ function ensureRoadSite(room) {
         const result = room.createConstructionSite(candidate.position.x, candidate.position.y, STRUCTURE_ROAD);
 
         if (result === OK) {
+            markConstructionPlanned(room.name);
             console.log(
                 `construction planned ${STRUCTURE_ROAD} at ` +
                 `${room.name} (${candidate.position.x},${candidate.position.y})`
@@ -692,6 +684,7 @@ function ensureDefenseSite(room) {
         );
 
         if (result === OK) {
+            markConstructionPlanned(room.name);
             console.log(
                 `construction planned ${candidate.structureType} at ` +
                 `${room.name} (${candidate.position.x},${candidate.position.y})`
@@ -1499,6 +1492,11 @@ function parsePositionKey(positionKey) {
         x: x,
         y: y,
     };
+}
+
+function markConstructionPlanned(roomName) {
+    reactivity.markRoomDirty(roomName, reactivity.domains.CONSTRUCTION);
+    reactivity.markRoomDirty(roomName, reactivity.domains.ECONOMY);
 }
 
 module.exports = {

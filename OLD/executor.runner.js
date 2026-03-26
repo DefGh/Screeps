@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const dispatcher = require("./dispatcher");
+const reactivity = require("./reactivity.manager");
 const taskHandlers = require("./task.handlers");
 const renewTtlTask = require("./task.renewTtl");
 const taskStore = require("./task.store");
@@ -19,23 +20,23 @@ function runExecutor(executor) {
         return;
     }
 
-    if (memory.waitUntil && memory.waitUntil > Game.time) {
-        if (!renewTtlTask.shouldPrioritizeRenew(executor)) {
-            return;
-        }
-
-        delete memory.waitUntil;
-    }
-
-    if (memory.waitUntil && memory.waitUntil > Game.time) {
-        return;
-    }
-
     if (isBusySpawn(executor)) {
         return;
     }
 
-    const task = dispatcher.getTask(role, executor);
+    const shouldRunProviders =
+        renewTtlTask.shouldPrioritizeRenew(executor) ||
+        reactivity.consumeDirty(role, executor);
+
+    if (!shouldRunProviders) {
+        return;
+    }
+
+    delete memory.waitUntil;
+
+    const task = dispatcher.getTask(role, executor, {
+        allowProviders: true,
+    });
 
     if (!task) {
         memory.waitUntil = Game.time + constants.dispatcher.WAIT_TICKS_ON_EMPTY_QUEUE;

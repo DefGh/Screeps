@@ -54,6 +54,12 @@ function getExpansionActiveBranch() {
 
 function setExpansionActiveBranch(branch) {
     Memory.expansion.activeBranch = branch;
+    require("./reactivity.manager").markGlobalDirty(
+        require("./reactivity.manager").domains.EXPANSION,
+        {
+            wakeDispatch: false,
+        }
+    );
     return branch;
 }
 
@@ -63,6 +69,12 @@ function getExpansionActiveCandidate() {
 
 function setExpansionActiveCandidate(candidate) {
     Memory.expansion.activeCandidate = candidate;
+    require("./reactivity.manager").markGlobalDirty(
+        require("./reactivity.manager").domains.EXPANSION,
+        {
+            wakeDispatch: false,
+        }
+    );
     return candidate;
 }
 

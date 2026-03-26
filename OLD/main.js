@@ -5,6 +5,7 @@ const constructionManager = require("./construction.manager");
 const constants = require("./constants");
 const expansionManager = require("./expansion.manager");
 const executorRunner = require("./executor.runner");
+const reactivity = require("./reactivity.manager");
 const sourceManager = require("./source.manager");
 const resourceVisualizer = require("./resource.visualizer");
 const renewTtlTask = require("./task.renewTtl");
@@ -41,6 +42,7 @@ function runCreeps() {
 module.exports.loop = function () {
     bootstrap.bootstrapMemory();
     cleanup.cleanupDeadCreeps();
+    reactivity.captureWorldSignals();
     colonyManager.refreshColonyTargets();
     sourceManager.refreshManagedSources();
     constructionManager.refreshManagedConstruction();

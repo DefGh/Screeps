@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const memoryAccess = require("./memory.access");
+const reactivity = require("./reactivity.manager");
 const roomScope = require("./room.scope");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
@@ -12,32 +13,47 @@ const CANDIDATE_STATUS_CLAIM_PENDING = "claimPending";
 const CANDIDATE_STATUS_WAITING_FOR_GCL = "waitingForGcl";
 
 function refreshExpansion() {
-    ensureExpansionMemory();
-    const expansionMemory = memoryAccess.getExpansionMemory();
-
-    recordVisibleRoomIntel();
-    normalizeExpansionState();
-
-    if (expansionMemory.activeCandidate) {
-        refreshActiveCandidate();
+    if (!reactivity.shouldProcessGlobalDomain(
+        reactivity.domains.EXPANSION,
+        constants.reactivity.EXPANSION_SWEEP_INTERVAL
+    )) {
         return;
     }
 
-    if (!expansionMemory.activeBranch) {
-        seedNextBranch();
+    try {
+        ensureExpansionMemory();
+        const expansionMemory = memoryAccess.getExpansionMemory();
+
+        recordVisibleRoomIntel();
+        normalizeExpansionState();
 
         if (expansionMemory.activeCandidate) {
             refreshActiveCandidate();
             return;
         }
-    }
 
-    if (expansionMemory.activeBranch) {
-        refreshActiveBranch();
+        if (!expansionMemory.activeBranch) {
+            seedNextBranch();
 
-        if (expansionMemory.activeCandidate) {
-            refreshActiveCandidate();
+            if (expansionMemory.activeCandidate) {
+                refreshActiveCandidate();
+                return;
+            }
         }
+
+        if (expansionMemory.activeBranch) {
+            refreshActiveBranch();
+
+            if (expansionMemory.activeCandidate) {
+                refreshActiveCandidate();
+            }
+        }
+    }
+    finally {
+        reactivity.markGlobalProcessed(
+            reactivity.domains.EXPANSION,
+            constants.reactivity.EXPANSION_SWEEP_INTERVAL
+        );
     }
 }
 

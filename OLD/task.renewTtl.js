@@ -1,6 +1,7 @@
 const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const movement = require("./movement");
+const roomCensus = require("./room.census");
 const taskHelpers = require("./task.helpers");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
@@ -93,6 +94,21 @@ function runSpawnRenew(spawn) {
 }
 
 function shouldPrioritizeRenew(executor) {
+    if (
+        !executor ||
+        !executor.memory ||
+        executor.memory.role !== constants.roles.UNIVERSAL
+    ) {
+        return false;
+    }
+
+    if (
+        typeof executor.ticksToLive === "number" &&
+        executor.ticksToLive > constants.renew.UNIVERSAL_START_TTL
+    ) {
+        return false;
+    }
+
     return Boolean(findRenewTaskForCreep(executor && executor.name) || canRequestRenew(executor));
 }
 
@@ -249,26 +265,10 @@ function getRetainedUniversalNames(roomName) {
 
 function buildRetainedUniversalNames(roomName) {
     const retainedNames = {};
-    const universals = [];
+    const universals = roomCensus.getOriginRoleCreeps(roomName, constants.roles.UNIVERSAL);
 
     if (typeof roomName !== "string") {
         return retainedNames;
-    }
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (
-            !creep ||
-            !creep.memory ||
-            creep.memory.role !== constants.roles.UNIVERSAL ||
-            creep.memory.originRoomName !== roomName ||
-            typeof creep.name !== "string"
-        ) {
-            continue;
-        }
-
-        universals.push(creep);
     }
 
     if (universals.length === 0) {

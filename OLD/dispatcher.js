@@ -4,10 +4,10 @@ const taskIndex = require("./task.index");
 const taskProviders = require("./task.providers");
 const taskStore = require("./task.store");
 
-function getTask(role, executor) {
+function getTask(role, executor, options) {
     let task = findPendingTask(role, executor);
 
-    if (!task) {
+    if (!task && (!options || options.allowProviders !== false)) {
         taskProviders.runProviders(role, executor);
         task = findPendingTask(role, executor);
     }

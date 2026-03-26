@@ -1,7 +1,9 @@
 const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const memoryAccess = require("./memory.access");
+const reactivity = require("./reactivity.manager");
 const resourceManager = require("./resource.manager");
+const roomCensus = require("./room.census");
 const sourceManager = require("./source.manager");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
@@ -29,7 +31,10 @@ function run(spawn, task) {
     });
 
     if (result === OK) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(spawn.room.name, {
+            skipDispatchWake: true,
+        });
+        reactivity.handleSpawnSuccess(spawn.room.name, task.data.role, spawnMemory.originRoomName);
         return true;
     }
 
@@ -240,47 +245,25 @@ function ensureMinerSpawnTask(spawn) {
 }
 
 function countAliveAttackers(roomName) {
-    let count = 0;
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep.memory || creep.memory.role !== constants.roles.ATTACKER) {
-            continue;
-        }
-
-        if (creep.memory.originRoomName !== roomName) {
-            continue;
-        }
-
-        count += 1;
-    }
-
-    return count;
+    return roomCensus.getOriginRoleCount(roomName, constants.roles.ATTACKER);
 }
 
 function countAliveCreeps() {
-    return Object.keys(Game.creeps).length;
-}
-
-function countAliveUniversals(roomName) {
     let count = 0;
 
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep.memory || creep.memory.role !== constants.roles.UNIVERSAL) {
-            continue;
-        }
-
-        if (roomName && creep.memory.originRoomName !== roomName) {
-            continue;
-        }
-
-        count += 1;
+    for (const roleName in constants.roles) {
+        count += roomCensus.getGlobalRoleCount(constants.roles[roleName]);
     }
 
     return count;
+}
+
+function countAliveUniversals(roomName) {
+    if (roomName) {
+        return roomCensus.getOriginRoleCount(roomName, constants.roles.UNIVERSAL);
+    }
+
+    return roomCensus.getGlobalRoleCount(constants.roles.UNIVERSAL);
 }
 
 function countQueuedAttackers(roomName) {
@@ -292,23 +275,11 @@ function countQueuedUniversals(roomName) {
 }
 
 function countAliveByRole(role, roomName) {
-    let count = 0;
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep.memory || creep.memory.role !== role) {
-            continue;
-        }
-
-        if (roomName && (!creep.room || creep.room.name !== roomName)) {
-            continue;
-        }
-
-        count += 1;
+    if (roomName) {
+        return roomCensus.getCurrentRoomRoleCount(roomName, role);
     }
 
-    return count;
+    return roomCensus.getGlobalRoleCount(role);
 }
 
 function countQueuedByRole(role, roomName) {

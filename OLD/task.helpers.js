@@ -88,7 +88,12 @@ function switchTaskStage(task, stage, nextRemainingAmount) {
         task.data.remainingAmount = nextRemainingAmount;
     }
 
-    require("./resource.manager").invalidateResourcePlanCache();
+    require("./resource.manager").invalidateResourcePlanCache(
+        resolveTaskRoomName(task),
+        {
+            skipDispatchWake: true,
+        }
+    );
 }
 
 function canExecuteTaskInRoom(executor, ownerRoomName, methods) {
@@ -211,6 +216,14 @@ function getBodyPartCost(part) {
 
 function getMaxCreepSize() {
     return typeof MAX_CREEP_SIZE === "number" ? MAX_CREEP_SIZE : 50;
+}
+
+function resolveTaskRoomName(task) {
+    if (!task || !task.data || typeof task.data !== "object") {
+        return null;
+    }
+
+    return typeof task.data.roomName === "string" ? task.data.roomName : null;
 }
 
 module.exports = {

@@ -1,6 +1,7 @@
 const colonyManager = require("./colony.manager");
 const constants = require("./constants");
 const constructionManager = require("./construction.manager");
+const roomCensus = require("./room.census");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 const taskIndex = require("./task.index");
@@ -293,24 +294,7 @@ function buildUniversalPopulationLabel(roomName) {
 }
 
 function countAliveUniversals(roomName) {
-    let count = 0;
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (
-            !creep ||
-            !creep.memory ||
-            creep.memory.role !== constants.roles.UNIVERSAL ||
-            creep.memory.originRoomName !== roomName
-        ) {
-            continue;
-        }
-
-        count += 1;
-    }
-
-    return count;
+    return roomCensus.getOriginRoleCount(roomName, constants.roles.UNIVERSAL);
 }
 
 function drawRoomRoadHeat(room) {

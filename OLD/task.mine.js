@@ -27,7 +27,9 @@ function run(creep, task) {
     const result = creep.harvest(source);
 
     if (result === OK) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+            skipDispatchWake: true,
+        });
     }
 
     if (

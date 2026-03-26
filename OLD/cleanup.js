@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const reactivity = require("./reactivity.manager");
 const taskIndex = require("./task.index");
 const taskStore = require("./task.store");
 
@@ -13,6 +14,8 @@ function cleanupDeadCreeps() {
         if (creepMemory && typeof creepMemory.taskId === "string") {
             cleanupTaskOnCreepDeath(name, creepMemory.taskId);
         }
+
+        reactivity.handleCreepDeath(name, creepMemory);
 
         delete Memory.creeps[name];
     }

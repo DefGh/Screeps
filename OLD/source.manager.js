@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const reactivity = require("./reactivity.manager");
 const roomScope = require("./room.scope");
 
 function refreshManagedSources() {
@@ -11,7 +12,12 @@ function refreshManagedSources() {
             continue;
         }
 
+        if (!reactivity.shouldProcessRoom(roomName, reactivity.domains.SOURCES, constants.reactivity.ROOM_SWEEP_INTERVAL)) {
+            continue;
+        }
+
         refreshRoomSources(room);
+        reactivity.markRoomProcessed(roomName, reactivity.domains.SOURCES, constants.reactivity.ROOM_SWEEP_INTERVAL);
     }
 }
 
@@ -74,10 +80,12 @@ function refreshRoomSources(room) {
 
 function refreshSourceMemory(source, threats) {
     const sourceMemory = getSourceMemory(source.id);
+    const previousMinerPos = sourceMemory.minerPos || null;
 
     if (
         typeof sourceMemory.minerPosCheckedAt === "number" &&
-        Game.time - sourceMemory.minerPosCheckedAt < constants.sources.MINER_POS_REFRESH_INTERVAL
+        Game.time - sourceMemory.minerPosCheckedAt < constants.sources.MINER_POS_REFRESH_INTERVAL &&
+        isMinerPosValid(source, sourceMemory.minerPos, threats)
     ) {
         return;
     }
@@ -89,6 +97,11 @@ function refreshSourceMemory(source, threats) {
 
     sourceMemory.minerPos = findMinerPos(source, threats);
     sourceMemory.minerPosCheckedAt = Game.time;
+
+    if (!isSamePosition(previousMinerPos, sourceMemory.minerPos)) {
+        reactivity.markRoomDirty(source.room.name, reactivity.domains.CONSTRUCTION);
+        reactivity.markRoomDirty(source.room.name, reactivity.domains.SPAWN_DEMAND);
+    }
 }
 
 function findMinerPos(source, threats) {
@@ -217,6 +230,22 @@ function isDangerousPosition(threats, x, y) {
     }
 
     return false;
+}
+
+function isSamePosition(left, right) {
+    if (!left && !right) {
+        return true;
+    }
+
+    if (!left || !right) {
+        return false;
+    }
+
+    return (
+        left.x === right.x &&
+        left.y === right.y &&
+        left.roomName === right.roomName
+    );
 }
 
 module.exports = {

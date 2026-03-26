@@ -110,7 +110,9 @@ function runCollectStage(creep, task) {
         }
 
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
 
         return false;
@@ -140,13 +142,17 @@ function runCollectStage(creep, task) {
 
     if (result === ERR_BUSY) {
         if (didChangePlanState) {
-            resourceManager.invalidateResourcePlanCache();
+            resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+                skipDispatchWake: true,
+            });
         }
         return false;
     }
 
     if (didChangePlanState) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+            skipDispatchWake: true,
+        });
     }
 
     return true;
@@ -190,7 +196,9 @@ function runDeliverStage(creep, task) {
 
     if (result === OK) {
         task.data.remainingAmount -= energyToSpend;
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+            skipDispatchWake: true,
+        });
 
         if (task.data.remainingAmount <= 0) {
             return true;
@@ -337,7 +345,9 @@ function shouldUseAlternativeSource(task, currentAvailable, alternativeSource) {
 function reassignSource(task, source) {
     task.data.sourceId = source.object.id;
     task.data.sourceType = source.type;
-    resourceManager.invalidateResourcePlanCache();
+    resourceManager.invalidateResourcePlanCache(task.data.roomName, {
+        skipDispatchWake: true,
+    });
 }
 
 function resolveTransferTaskRoomName(task) {

@@ -70,6 +70,42 @@ function bootstrapMemory() {
     if (!Memory.construction.rooms || typeof Memory.construction.rooms !== "object") {
         Memory.construction.rooms = {};
     }
+
+    if (!Memory.reactivity || typeof Memory.reactivity !== "object") {
+        Memory.reactivity = {};
+    }
+
+    if (typeof Memory.reactivity.sequence !== "number") {
+        Memory.reactivity.sequence = 0;
+    }
+
+    if (!Memory.reactivity.roomDomains || typeof Memory.reactivity.roomDomains !== "object") {
+        Memory.reactivity.roomDomains = {};
+    }
+
+    if (!Memory.reactivity.roleDispatch || typeof Memory.reactivity.roleDispatch !== "object") {
+        Memory.reactivity.roleDispatch = {};
+    }
+
+    if (!Memory.reactivity.roomSnapshots || typeof Memory.reactivity.roomSnapshots !== "object") {
+        Memory.reactivity.roomSnapshots = {};
+    }
+
+    if (!Memory.reactivity.globalDomains || typeof Memory.reactivity.globalDomains !== "object") {
+        Memory.reactivity.globalDomains = {};
+    }
+
+    if (!Memory.reactivity.processState || typeof Memory.reactivity.processState !== "object") {
+        Memory.reactivity.processState = {};
+    }
+
+    if (!Memory.reactivity.processState.rooms || typeof Memory.reactivity.processState.rooms !== "object") {
+        Memory.reactivity.processState.rooms = {};
+    }
+
+    if (!Memory.reactivity.processState.globals || typeof Memory.reactivity.processState.globals !== "object") {
+        Memory.reactivity.processState.globals = {};
+    }
 }
 
 function initializePerRoomUniversalMemory() {

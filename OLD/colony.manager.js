@@ -1,4 +1,6 @@
 const constants = require("./constants");
+const reactivity = require("./reactivity.manager");
+const roomCensus = require("./room.census");
 const roomScope = require("./room.scope");
 const resourceManager = require("./resource.manager");
 
@@ -10,7 +12,12 @@ function refreshColonyTargets() {
             continue;
         }
 
+        if (!reactivity.shouldProcessRoom(roomName, reactivity.domains.ECONOMY, constants.reactivity.ROOM_SWEEP_INTERVAL)) {
+            continue;
+        }
+
         refreshRoomTargetUniversals(roomName, room);
+        reactivity.markRoomProcessed(roomName, reactivity.domains.ECONOMY, constants.reactivity.ROOM_SWEEP_INTERVAL);
     }
 }
 
@@ -63,6 +70,11 @@ function refreshRoomTargetUniversals(roomName, room) {
         );
     }
 
+    if (nextTargetUniversals !== previousTargetUniversals) {
+        reactivity.markRoomDirty(roomName, reactivity.domains.SPAWN_DEMAND);
+        reactivity.markRoomDirty(roomName, reactivity.domains.ECONOMY);
+    }
+
     targetingMemory.lastResourceAmount = currentResourceAmount;
     targetingMemory.lastSampleTick = Game.time;
 }
@@ -96,35 +108,7 @@ function getTargetUniversalsForRoom(roomName) {
 }
 
 function getRoomResourceAmount(room) {
-    let amount = 0;
-
-    for (const structure of room.find(FIND_STRUCTURES, {
-        filter: function (candidate) {
-            return !candidate.owner || candidate.my;
-        },
-    })) {
-        amount += resourceManager.getUsedEnergy(structure);
-    }
-
-    for (const pile of room.find(FIND_DROPPED_RESOURCES, {
-        filter: function (resource) {
-            return resource.resourceType === RESOURCE_ENERGY;
-        },
-    })) {
-        amount += pile.amount;
-    }
-
-    for (const name in Game.creeps) {
-        const creep = Game.creeps[name];
-
-        if (!creep.my || !creep.room || creep.room.name !== room.name) {
-            continue;
-        }
-
-        amount += resourceManager.getUsedEnergy(creep);
-    }
-
-    return amount;
+    return roomCensus.getRoomResourceAmount(room);
 }
 
 function normalizeTargetUniversals(value) {

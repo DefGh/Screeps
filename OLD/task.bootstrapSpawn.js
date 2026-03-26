@@ -127,7 +127,9 @@ function runCollectStage(creep, task) {
     const result = collectFromSource(creep, sourceSelection.type, sourceSelection.object);
 
     if (result === OK) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.targetRoomName, {
+            skipDispatchWake: true,
+        });
 
         if (resourceManager.getFreeEnergyCapacity(creep) === 0) {
             task.data.stage = constants.bootstrapSpawnTaskStages.BUILD;
@@ -173,7 +175,9 @@ function runBuildStage(creep, task, spawnSite) {
     const result = creep.build(spawnSite);
 
     if (result === OK) {
-        resourceManager.invalidateResourcePlanCache();
+        resourceManager.invalidateResourcePlanCache(task.data.targetRoomName, {
+            skipDispatchWake: true,
+        });
         return false;
     }
 
