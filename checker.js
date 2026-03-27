@@ -1,6 +1,10 @@
 const constants = require("./constants");
 
 const CHECK_INTERVAL = 50;
+const UNIVERSAL_TARGET_BUFFER = 3000;
+const UNIVERSAL_TARGET_DEADBAND = 500;
+const UNIVERSAL_TARGET_MIN = 3;
+const UNIVERSAL_TARGET_MAX = 10;
 const cycleActionTypes = [
     constants.actionTypes.SYNC_MINING_OPERATIONS,
     constants.actionTypes.SYNC_ROOM_BUILDER,
@@ -61,8 +65,33 @@ function checkTowerEnergy(room, ctx) {
     syncEnergyTasks(room.name, constants.taskTypes.FILL_TOWER, towers, ctx);
 }
 
-function recalculateUniversalsCount(room) {
-    getRoomState(room.name);
+function recalculateUniversalsCount(room, ctx) {
+    const roomState = getRoomState(room.name);
+    const buffer = getRoomEnergyBuffer(room);
+    const previousTargetCount = roomState.universalTargetCount;
+
+    if (buffer > UNIVERSAL_TARGET_BUFFER + UNIVERSAL_TARGET_DEADBAND) {
+        roomState.universalTargetCount = Math.min(
+            UNIVERSAL_TARGET_MAX,
+            roomState.universalTargetCount + 1
+        );
+    }
+    else if (buffer < UNIVERSAL_TARGET_BUFFER - UNIVERSAL_TARGET_DEADBAND) {
+        roomState.universalTargetCount = Math.max(
+            UNIVERSAL_TARGET_MIN,
+            roomState.universalTargetCount - 1
+        );
+    }
+
+    if (
+        ctx &&
+        ctx.log &&
+        roomState.universalTargetCount !== previousTargetCount
+    ) {
+        ctx.log(
+            `[checker] ${room.name} universalTargetCount ${previousTargetCount} -> ${roomState.universalTargetCount} (buffer=${buffer})`
+        );
+    }
 }
 
 function syncMiningOperations(room, ctx) {
@@ -206,6 +235,28 @@ function countUniversals(roomName, ctx) {
     }
 
     return count;
+}
+
+function getRoomEnergyBuffer(room) {
+    let total = 0;
+
+    const piles = room.find(FIND_DROPPED_RESOURCES);
+
+    for (const pile of piles) {
+        if (pile.resourceType === RESOURCE_ENERGY) {
+            total += pile.amount;
+        }
+    }
+
+    const containers = room.find(FIND_STRUCTURES);
+
+    for (const structure of containers) {
+        if (structure.structureType === STRUCTURE_CONTAINER) {
+            total += structure.store.getUsedCapacity(RESOURCE_ENERGY);
+        }
+    }
+
+    return total;
 }
 
 function selectMiningAnchor(room, source) {

@@ -16,8 +16,8 @@ const handlers = {
     [constants.taskTypes.FILL_SPAWN]: fillSpawnTask,
     [constants.taskTypes.FILL_EXTENSION]: fillExtensionTask,
     [constants.taskTypes.FILL_TOWER]: fillTowerTask,
-    [constants.taskTypes.BUILD]: buildTask,
     [constants.taskTypes.REPAIR]: repairTask,
+    [constants.taskTypes.BUILD]: buildTask,
     [constants.taskTypes.UPGRADE_CONTROLLER]: upgradeControllerTask,
 };
 

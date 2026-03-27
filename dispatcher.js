@@ -17,8 +17,8 @@ const universalPriority = [
     constants.taskTypes.FILL_SPAWN,
     constants.taskTypes.FILL_EXTENSION,
     constants.taskTypes.FILL_TOWER,
-    constants.taskTypes.BUILD,
     constants.taskTypes.REPAIR,
+    constants.taskTypes.BUILD,
     constants.taskTypes.UPGRADE_CONTROLLER,
 ];
 
