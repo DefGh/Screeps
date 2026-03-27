@@ -9,11 +9,17 @@ function execute(room, action) {
         return true;
     }
 
-    return room.createConstructionSite(
+    const result = room.createConstructionSite(
         action.data.x,
         action.data.y,
         action.data.structureType
-    ) === OK;
+    );
+
+    return (
+        result === OK ||
+        result === ERR_FULL ||
+        result === ERR_INVALID_TARGET
+    );
 }
 
 function onCompleted() {

@@ -49,6 +49,8 @@ function dispatchEvent(event) {
         log: debug.log,
         fireEvent: fireEvent,
         createTask: tasks.addTask,
+        listTasks: tasks.listTasks,
+        removeTask: tasks.removeTask,
     });
 
     return {

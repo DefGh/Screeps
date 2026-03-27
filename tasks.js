@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const checkerTask = require("./task.checker");
 const miningOperationTask = require("./task.mining_operation");
+const syncExtensionsTask = require("./task.sync_extensions");
 const spawnCreepTask = require("./task.spawn_creep");
 const fillSpawnTask = require("./task.fill_spawn");
 const fillExtensionTask = require("./task.fill_extension");
@@ -13,6 +14,7 @@ const handlers = {
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask,
     [constants.taskTypes.CHECKER]: checkerTask,
     [constants.taskTypes.MINING_OPERATION]: miningOperationTask,
+    [constants.taskTypes.SYNC_EXTENSIONS]: syncExtensionsTask,
     [constants.taskTypes.FILL_SPAWN]: fillSpawnTask,
     [constants.taskTypes.FILL_EXTENSION]: fillExtensionTask,
     [constants.taskTypes.FILL_TOWER]: fillTowerTask,

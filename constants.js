@@ -11,6 +11,7 @@ module.exports = {
         SPAWN_CREEP: "spawn_creep",
         CHECKER: "checker",
         MINING_OPERATION: "mining_operation",
+        SYNC_EXTENSIONS: "sync_extensions",
         UPGRADE_CONTROLLER: "upgrade_controller",
         FILL_SPAWN: "fill_spawn",
         FILL_EXTENSION: "fill_extension",

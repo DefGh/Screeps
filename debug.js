@@ -5,6 +5,7 @@ const taskIcons = {
     [constants.taskTypes.SPAWN_CREEP]: "🐣",
     [constants.taskTypes.CHECKER]: "🧭",
     [constants.taskTypes.MINING_OPERATION]: "⛏️",
+    [constants.taskTypes.SYNC_EXTENSIONS]: "🔋",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.taskTypes.FILL_SPAWN]: "⚡",
     [constants.taskTypes.FILL_EXTENSION]: "🔌",
@@ -36,6 +37,7 @@ const taskColors = {
     [constants.taskTypes.SPAWN_CREEP]: "#f5c542",
     [constants.taskTypes.CHECKER]: "#9aa0a6",
     [constants.taskTypes.MINING_OPERATION]: "#d9822b",
+    [constants.taskTypes.SYNC_EXTENSIONS]: "#ffd166",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "#7ddc84",
     [constants.taskTypes.FILL_SPAWN]: "#58a6ff",
     [constants.taskTypes.FILL_EXTENSION]: "#58a6ff",
@@ -310,6 +312,8 @@ function getTaskLabel(taskType) {
         return "checker";
     case constants.taskTypes.MINING_OPERATION:
         return "mining";
+    case constants.taskTypes.SYNC_EXTENSIONS:
+        return "sync ext";
     case constants.taskTypes.UPGRADE_CONTROLLER:
         return "upgrade";
     case constants.taskTypes.FILL_SPAWN:
