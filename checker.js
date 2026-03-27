@@ -1,6 +1,6 @@
 const constants = require("./constants");
 
-const CHECK_INTERVAL = 50;
+const CHECK_INTERVAL = 5;
 const UNIVERSAL_TARGET_BUFFER = 3000;
 const UNIVERSAL_TARGET_DEADBAND = 500;
 const UNIVERSAL_TARGET_MIN = 3;

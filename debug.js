@@ -73,7 +73,9 @@ function visuals() {
         const roomTasks = tasks.listTasks(roomName); 
         const lines = [];
 
-        lines.push(createLine(`🌐 ${roomName} `, "#ffffff", 0.58));
+        var limit = Memory.Checker.rooms[roomName].universalTargetCount; //
+
+        lines.push(createLine(`🌐 ${roomName} Universals:${limit}`, "#ffffff", 0.58));
         lines.push(createLine(``, "#ffffff", 0.58));
         if (roomTasks.length === 0) {
             lines.push(createLine("· no active tasks", "#b8c0c7", 0.43));
