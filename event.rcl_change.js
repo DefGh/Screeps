@@ -5,6 +5,7 @@ function handle(event, ctx) {
     const syncTaskTypes = [
         constants.taskTypes.SYNC_EXTENSIONS,
         constants.taskTypes.SYNC_TOWERS,
+        constants.taskTypes.SYNC_ROADS,
         constants.taskTypes.SYNC_FORTIFICATIONS,
     ];
 

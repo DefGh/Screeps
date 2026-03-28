@@ -7,7 +7,19 @@ function get(roleName) {
 function buildUniversalBody(spawn) {
     const body = [];
     const cycle = [MOVE, CARRY, WORK];
-    const budget = spawn.room.energyCapacityAvailable;
+    
+    var totalUniversals = 0;
+
+    for (var creepName in Memory.creeps) {
+        var creep = Memory.creeps[creepName]
+        if (creep.role === constants.roles.UNIVERSAL) {
+            totalUniversals ++;
+            break;
+        }
+    }
+    
+    const budget = totalUniversals > 0 ? spawn.room.energyCapacityAvailable : spawn.room.energyAvailable;
+
     let spent = 0;
     let index = 0;
 

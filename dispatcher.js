@@ -7,6 +7,7 @@ const roomPriority = [
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.SYNC_TOWERS,
     constants.taskTypes.SYNC_EXTENSIONS,
+    constants.taskTypes.SYNC_ROADS,
     constants.taskTypes.SYNC_FORTIFICATIONS,
 ];
 

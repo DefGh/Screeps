@@ -7,6 +7,7 @@ const taskIcons = {
     [constants.taskTypes.MINING_OPERATION]: "⛏️",
     [constants.taskTypes.SYNC_TOWERS]: "🗼",
     [constants.taskTypes.SYNC_EXTENSIONS]: "🔋",
+    [constants.taskTypes.SYNC_ROADS]: "🛣️",
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "🧱",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.taskTypes.FILL_SPAWN]: "⚡",
@@ -41,6 +42,7 @@ const taskColors = {
     [constants.taskTypes.MINING_OPERATION]: "#d9822b",
     [constants.taskTypes.SYNC_TOWERS]: "#ff8c42",
     [constants.taskTypes.SYNC_EXTENSIONS]: "#ffd166",
+    [constants.taskTypes.SYNC_ROADS]: "#c0c7d1",
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "#c77dff",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "#7ddc84",
     [constants.taskTypes.FILL_SPAWN]: "#58a6ff",
@@ -381,6 +383,8 @@ function getTaskLabel(taskType) {
         return "sync towers";
     case constants.taskTypes.SYNC_EXTENSIONS:
         return "sync ext";
+    case constants.taskTypes.SYNC_ROADS:
+        return "sync roads";
     case constants.taskTypes.SYNC_FORTIFICATIONS:
         return "sync forts";
     case constants.taskTypes.UPGRADE_CONTROLLER:

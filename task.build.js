@@ -169,16 +169,18 @@ function getBuildPriority(structureType) {
     switch (structureType) {
     case STRUCTURE_CONTAINER:
         return 0;
-    case STRUCTURE_TOWER:
+    case STRUCTURE_ROAD:
         return 1;
-    case STRUCTURE_EXTENSION:
+    case STRUCTURE_TOWER:
         return 2;
-    case STRUCTURE_RAMPART:
+    case STRUCTURE_EXTENSION:
         return 3;
-    case STRUCTURE_WALL:
+    case STRUCTURE_RAMPART:
         return 4;
-    default:
+    case STRUCTURE_WALL:
         return 5;
+    default:
+        return 6;
     }
 }
 
