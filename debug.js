@@ -60,6 +60,13 @@ const actionLineColors = {
     [constants.actionTypes.UPGRADE_CONTROLLER]: "#7ddc84",
 };
 
+const PANEL_DEFAULT_X = 0.2;
+const PANEL_DEFAULT_Y = 0.2;
+const PANEL_OFFSET_X = 1;
+const PANEL_OFFSET_Y = 0.6;
+const PANEL_PADDING_RIGHT = 0.2;
+const PANEL_PADDING_BOTTOM = 0.2;
+
 function log(message) {
     if (!Memory.debug) {
         return;
@@ -95,26 +102,27 @@ function visuals() {
         const width = getPanelWidth(lines);
         const height = 0.45 + (lines.length * 0.58);
         const visual = new RoomVisual(roomName);
+        const origin = getPanelOrigin(roomName, width, height);
 
-        visual.rect(0.2, 0.2, width, height, {
+        visual.rect(origin.x, origin.y, width, height, {
             fill: "#0f141b",
             opacity: 0.5,
             stroke: "#506070",
             strokeWidth: 0.05,
         });
-        visual.rect(0.2, 0.2, width, 0.85, {
+        visual.rect(origin.x, origin.y, width, 0.85, {
             fill: "#17212b",
             opacity: 0.92,
             stroke: "transparent",
         });
-        visual.rect(0.2, 1.05, width, 0.08, {
+        visual.rect(origin.x, origin.y + 0.85, width, 0.08, {
             fill: "#2d3a46",
             opacity: 0.7,
             stroke: "transparent",
         });
 
         for (let index = 0; index < lines.length; index += 1) {
-            visual.text(lines[index].text, 0.5, 0.72 + (index * 0.56), {
+            visual.text(lines[index].text, origin.x + 0.3, origin.y + 0.52 + (index * 0.56), {
                 align: "left",
                 color: lines[index].color,
                 font: lines[index].font,
@@ -210,6 +218,59 @@ function getPanelWidth(lines) {
     }
 
     return Math.max(16, Math.min(25, 1.5 + (maxLength * 0.24)));
+}
+
+function getPanelOrigin(roomName, width, height) {
+    const anchor = getPanelAnchor(roomName);
+    const x = anchor.x + PANEL_OFFSET_X;
+    const y = anchor.y + PANEL_OFFSET_Y;
+
+    return {
+        x: clamp(x, PANEL_DEFAULT_X, 50 - width - PANEL_PADDING_RIGHT),
+        y: clamp(y, PANEL_DEFAULT_Y, 50 - height - PANEL_PADDING_BOTTOM),
+    };
+}
+
+function getPanelAnchor(roomName) {
+    const flag = getPanelFlag(roomName);
+
+    if (flag) {
+        return {
+            x: flag.pos.x,
+            y: flag.pos.y,
+        };
+    }
+
+    return {
+        x: PANEL_DEFAULT_X,
+        y: PANEL_DEFAULT_Y,
+    };
+}
+
+function getPanelFlag(roomName) {
+    const flags = [];
+
+    for (const flagName in Game.flags) {
+        const flag = Game.flags[flagName];
+
+        if (flag.pos.roomName === roomName) {
+            flags.push(flag);
+        }
+    }
+
+    flags.sort(function (left, right) {
+        return left.name.localeCompare(right.name);
+    });
+
+    return flags[0] || null;
+}
+
+function clamp(value, min, max) {
+    if (max < min) {
+        return min;
+    }
+
+    return Math.max(min, Math.min(max, value));
 }
 
 function drawCreepActionLines(roomName, visual) {
