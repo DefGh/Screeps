@@ -1,87 +1,47 @@
-const actions = require("./actions");
-const constants = require("./constants");
-const tasks = require("./tasks");
+const dispatcherState = require("./dispatcher.state");
 
 function handle(event, ctx) {
-    const actionIds = event.data.actionIds || [];
+    const actionIds = collectActionIds(event.data.name, event.data.actionIds || []);
 
     ctx.log(`[events] handled ${event.type} for ${event.data.name}`);
 
     for (const actionId of actionIds) {
-        cleanupAction(event, actionId, ctx);
-    }
-}
+        const action = Memory.Dispatcher.actionsById[actionId];
 
-function cleanupAction(event, actionId, ctx) {
-    const action = Memory.Dispatcher.actionsById[actionId];
+        if (!action) {
+            continue;
+        }
 
-    if (!action) {
-        return;
-    }
-
-    const handler = actions.get(action.type);
-
-    if (handler) {
-        handler.onCreepDeath(event, action);
-    }
-
-    unlinkActionFromTask(action);
-    delete Memory.Dispatcher.actionsById[actionId];
-
-    ctx.log(`[events] cleaned ${action.type} for ${event.data.name}`);
-}
-
-function unlinkActionFromTask(action) {
-    const task = tasks.getTask(action.taskId);
-
-    if (!task) {
-        return;
-    }
-
-    task.actionIds = task.actionIds.filter(function (taskActionId) {
-        return taskActionId !== action.id;
-    });
-
-    rollbackAssignment(task, action);
-
-    if (!hasActiveExecutorActions(task, action.executorName)) {
-        task.executorNames = task.executorNames.filter(function (executorName) {
-            return executorName !== action.executorName;
+        dispatcherState.cleanupAssignedAction(action, {
+            event: event,
+            invokeCreepDeath: true,
+            log: ctx.log,
+            reason: `dead-creep:${event.data.name}`,
         });
     }
 }
 
-function rollbackAssignment(task, action) {
-    if (
-        (
-            action.type !== constants.actionTypes.UPGRADE_CONTROLLER &&
-            action.type !== constants.actionTypes.TRANSFER_ENERGY
-        ) ||
-        !task.data.total ||
-        !action.data.amount
-    ) {
-        return;
+function collectActionIds(creepName, knownActionIds) {
+    const actionIdsById = {};
+
+    for (const actionId of knownActionIds) {
+        actionIdsById[actionId] = true;
     }
 
-    const percent = (action.data.amount / task.data.total) * 100;
-
-    task.assignedPercent = Math.max(0, task.assignedPercent - percent);
-}
-
-function hasActiveExecutorActions(task, executorName) {
-    for (const actionId of task.actionIds) {
+    for (const actionId in Memory.Dispatcher.actionsById) {
         const action = Memory.Dispatcher.actionsById[actionId];
 
         if (
             action &&
-            action.executorName === executorName &&
-            action.status !== "done"
+            action.executorName === creepName &&
+            action.executorType !== "room" &&
+            action.executorType !== "spawn"
         ) {
-            return true;
+            actionIdsById[actionId] = true;
         }
     }
 
-    return false;
+    return Object.keys(actionIdsById);
 }
 
 module.exports = {

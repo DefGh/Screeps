@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const debug = require("./debug");
+const dispatcherState = require("./dispatcher.state");
 const executorRunner = require("./executor.runner");
 const events = require("./events");
 const init = require("./init");
@@ -8,6 +9,7 @@ module.exports.loop = function () {
     init();
     fireRclChangeEvents();
     fireCreepDeathEvents();
+    dispatcherState.reconcileDispatcherState();
     executorRunner.run();
 
     debug.visuals(); 

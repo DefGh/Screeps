@@ -1,11 +1,40 @@
 const constants = require("./constants");
 const planner = require("./planner.spawn_rings");
 
+const FORTIFICATION_EDGE_OFFSET = 3;
+const RAMPART_GATE_WIDTH = 3;
+const ROOM_EDGE_MIN = 0;
+const ROOM_EDGE_MAX = 49;
+
 const edgeSpecs = [
-    { edgeX: null, edgeY: 0, innerX: null, innerY: 1, axis: "x" },
-    { edgeX: null, edgeY: 49, innerX: null, innerY: 48, axis: "x" },
-    { edgeX: 0, edgeY: null, innerX: 1, innerY: null, axis: "y" },
-    { edgeX: 49, edgeY: null, innerX: 48, innerY: null, axis: "y" },
+    {
+        edgeX: null,
+        edgeY: ROOM_EDGE_MIN,
+        innerX: null,
+        innerY: ROOM_EDGE_MIN + FORTIFICATION_EDGE_OFFSET,
+        axis: "x",
+    },
+    {
+        edgeX: null,
+        edgeY: ROOM_EDGE_MAX,
+        innerX: null,
+        innerY: ROOM_EDGE_MAX - FORTIFICATION_EDGE_OFFSET,
+        axis: "x",
+    },
+    {
+        edgeX: ROOM_EDGE_MIN,
+        edgeY: null,
+        innerX: ROOM_EDGE_MIN + FORTIFICATION_EDGE_OFFSET,
+        innerY: null,
+        axis: "y",
+    },
+    {
+        edgeX: ROOM_EDGE_MAX,
+        edgeY: null,
+        innerX: ROOM_EDGE_MAX - FORTIFICATION_EDGE_OFFSET,
+        innerY: null,
+        axis: "y",
+    },
 ];
 
 function onCompleted() {
@@ -99,7 +128,6 @@ function getActivePlacementActions(task) {
 }
 
 function buildFortificationPlan(room) {
-    const primarySpawn = planner.getPrimarySpawn(room);
     const plannedByKey = {};
     const orderedKeys = [];
 
@@ -113,14 +141,14 @@ function buildFortificationPlan(room) {
                 continue;
             }
 
-            const gateTile = pickGateTile(primarySpawn, segmentTiles);
+            const rampartTiles = pickRampartTiles(room, segmentTiles);
 
-            if (!gateTile) {
+            if (rampartTiles.length === 0) {
                 continue;
             }
 
             for (const tile of segmentTiles) {
-                const structureType = isSameTile(tile, gateTile)
+                const structureType = includesTile(rampartTiles, tile)
                     ? STRUCTURE_RAMPART
                     : STRUCTURE_WALL;
 
@@ -226,31 +254,113 @@ function getSealTiles(room, edgeSpec, segment) {
     return tiles;
 }
 
-function pickGateTile(primarySpawn, segmentTiles) {
-    const rampartCandidates = segmentTiles.filter(function (tile) {
-        return canHostFortification(Game.rooms[tile.roomName], tile.x, tile.y, STRUCTURE_RAMPART);
+function pickRampartTiles(room, segmentTiles) {
+    const indexedTiles = segmentTiles.map(function (tile, index) {
+        return {
+            index: index,
+            tile: tile,
+        };
+    }).filter(function (entry) {
+        return canHostFortification(room, entry.tile.x, entry.tile.y, STRUCTURE_RAMPART);
     });
 
-    if (rampartCandidates.length === 0) {
-        return null;
+    if (indexedTiles.length === 0) {
+        return [];
     }
 
-    rampartCandidates.sort(function (left, right) {
-        const leftDistance = getChebyshevRange(primarySpawn.pos, left);
-        const rightDistance = getChebyshevRange(primarySpawn.pos, right);
-
-        if (leftDistance !== rightDistance) {
-            return leftDistance - rightDistance;
-        }
-
-        if (left.x !== right.x) {
-            return left.x - right.x;
-        }
-
-        return left.y - right.y;
+    const groups = splitContiguousGroups(indexedTiles);
+    const hasWideGroup = groups.some(function (group) {
+        return group.length >= RAMPART_GATE_WIDTH;
     });
+    const targetWidth = hasWideGroup
+        ? RAMPART_GATE_WIDTH
+        : groups.reduce(function (maxWidth, group) {
+            return Math.max(maxWidth, group.length);
+        }, 0);
 
-    return rampartCandidates[0];
+    if (targetWidth <= 0) {
+        return [];
+    }
+
+    const desiredCenter = (segmentTiles.length - 1) / 2;
+    let bestWindow = null;
+
+    for (const group of groups) {
+        if (group.length < targetWidth) {
+            continue;
+        }
+
+        for (let startIndex = 0; startIndex <= group.length - targetWidth; startIndex += 1) {
+            const window = group.slice(startIndex, startIndex + targetWidth);
+
+            if (isBetterRampartWindow(window, bestWindow, desiredCenter)) {
+                bestWindow = window;
+            }
+        }
+    }
+
+    if (!bestWindow) {
+        return [];
+    }
+
+    return bestWindow.map(function (entry) {
+        return entry.tile;
+    });
+}
+
+function splitContiguousGroups(indexedTiles) {
+    const groups = [];
+    let currentGroup = [];
+
+    for (const entry of indexedTiles) {
+        const previous = currentGroup[currentGroup.length - 1];
+
+        if (!previous || areAdjacentSealTiles(previous.tile, entry.tile)) {
+            currentGroup.push(entry);
+            continue;
+        }
+
+        groups.push(currentGroup);
+        currentGroup = [entry];
+    }
+
+    if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+    }
+
+    return groups;
+}
+
+function isBetterRampartWindow(candidate, bestWindow, desiredCenter) {
+    if (!bestWindow) {
+        return true;
+    }
+
+    const candidateCenter = getWindowCenter(candidate);
+    const bestCenter = getWindowCenter(bestWindow);
+    const candidateDistance = Math.abs(candidateCenter - desiredCenter);
+    const bestDistance = Math.abs(bestCenter - desiredCenter);
+
+    if (candidateDistance !== bestDistance) {
+        return candidateDistance < bestDistance;
+    }
+
+    if (candidate[0].index !== bestWindow[0].index) {
+        return candidate[0].index < bestWindow[0].index;
+    }
+
+    const candidateFirstTile = candidate[0].tile;
+    const bestFirstTile = bestWindow[0].tile;
+
+    if (candidateFirstTile.x !== bestFirstTile.x) {
+        return candidateFirstTile.x < bestFirstTile.x;
+    }
+
+    return candidateFirstTile.y < bestFirstTile.y;
+}
+
+function getWindowCenter(window) {
+    return (window[0].index + window[window.length - 1].index) / 2;
 }
 
 function canHostFortification(room, x, y, structureType) {
@@ -381,6 +491,16 @@ function isInsideFortificationBounds(x, y) {
 
 function isSameTile(left, right) {
     return left.x === right.x && left.y === right.y;
+}
+
+function includesTile(tiles, target) {
+    return tiles.some(function (tile) {
+        return isSameTile(tile, target);
+    });
+}
+
+function areAdjacentSealTiles(left, right) {
+    return getChebyshevRange(left, right) === 1;
 }
 
 function positionKey(x, y) {
