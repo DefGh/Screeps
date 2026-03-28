@@ -5,6 +5,9 @@ const pickupResourceAction = require("./action.pickup_resource");
 const takeResourceAction = require("./action.take_resource");
 const buildAction = require("./action.build");
 const taxiAction = require("./action.taxi");
+const towerAttackAction = require("./action.tower_attack");
+const towerRepairAction = require("./action.tower_repair");
+const towerHealAction = require("./action.tower_heal");
 const placeConstructionSiteAction = require("./action.place_construction_site");
 const transferEnergyAction = require("./action.transfer_energy");
 const upgradeControllerAction = require("./action.upgrade_controller");
@@ -15,6 +18,7 @@ const checkFillTowerAction = require("./action.check_fill_tower");
 const recalculateUniversalsCountAction = require("./action.recalculate_universals_count");
 const syncMiningOperationsAction = require("./action.sync_mining_operations");
 const syncRoomBuilderAction = require("./action.sync_room_builder");
+const syncTowerOperationsAction = require("./action.sync_tower_operations");
 
 const handlers = {
     [constants.actionTypes.SPAWN_CREEP]: spawnCreepAction,
@@ -23,6 +27,9 @@ const handlers = {
     [constants.actionTypes.TAKE_RESOURCE]: takeResourceAction,
     [constants.actionTypes.BUILD]: buildAction,
     [constants.actionTypes.TAXI]: taxiAction,
+    [constants.actionTypes.TOWER_ATTACK]: towerAttackAction,
+    [constants.actionTypes.TOWER_REPAIR]: towerRepairAction,
+    [constants.actionTypes.TOWER_HEAL]: towerHealAction,
     [constants.actionTypes.PLACE_CONSTRUCTION_SITE]: placeConstructionSiteAction,
     [constants.actionTypes.TRANSFER_ENERGY]: transferEnergyAction,
     [constants.actionTypes.UPGRADE_CONTROLLER]: upgradeControllerAction,
@@ -33,6 +40,7 @@ const handlers = {
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: recalculateUniversalsCountAction,
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: syncMiningOperationsAction,
     [constants.actionTypes.SYNC_ROOM_BUILDER]: syncRoomBuilderAction,
+    [constants.actionTypes.SYNC_TOWER_OPERATIONS]: syncTowerOperationsAction,
 };
 
 function get(actionType) {

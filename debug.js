@@ -5,6 +5,7 @@ const taskIcons = {
     [constants.taskTypes.SPAWN_CREEP]: "🐣",
     [constants.taskTypes.CHECKER]: "🧭",
     [constants.taskTypes.MINING_OPERATION]: "⛏️",
+    [constants.taskTypes.TOWER_OPERATION]: "🛡️",
     [constants.taskTypes.SYNC_TOWERS]: "🗼",
     [constants.taskTypes.SYNC_EXTENSIONS]: "🔋",
     [constants.taskTypes.SYNC_ROADS]: "🛣️",
@@ -24,6 +25,9 @@ const actionIcons = {
     [constants.actionTypes.TAKE_RESOURCE]: "📦",
     [constants.actionTypes.BUILD]: "🏗️",
     [constants.actionTypes.TAXI]: "🚕",
+    [constants.actionTypes.TOWER_ATTACK]: "🎯",
+    [constants.actionTypes.TOWER_REPAIR]: "🔧",
+    [constants.actionTypes.TOWER_HEAL]: "💚",
     [constants.actionTypes.PLACE_CONSTRUCTION_SITE]: "📍",
     [constants.actionTypes.TRANSFER_ENERGY]: "🔋",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "⬆️",
@@ -34,12 +38,14 @@ const actionIcons = {
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: "📈",
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: "⛏️",
     [constants.actionTypes.SYNC_ROOM_BUILDER]: "🏗️",
+    [constants.actionTypes.SYNC_TOWER_OPERATIONS]: "🛡️",
 };
 
 const taskColors = {
     [constants.taskTypes.SPAWN_CREEP]: "#f5c542",
     [constants.taskTypes.CHECKER]: "#9aa0a6",
     [constants.taskTypes.MINING_OPERATION]: "#d9822b",
+    [constants.taskTypes.TOWER_OPERATION]: "#7dd3fc",
     [constants.taskTypes.SYNC_TOWERS]: "#ff8c42",
     [constants.taskTypes.SYNC_EXTENSIONS]: "#ffd166",
     [constants.taskTypes.SYNC_ROADS]: "#c0c7d1",
@@ -379,6 +385,8 @@ function getTaskLabel(taskType) {
         return "checker";
     case constants.taskTypes.MINING_OPERATION:
         return "mining";
+    case constants.taskTypes.TOWER_OPERATION:
+        return "tower op";
     case constants.taskTypes.SYNC_TOWERS:
         return "sync towers";
     case constants.taskTypes.SYNC_EXTENSIONS:
@@ -418,6 +426,12 @@ function getActionLabel(actionType) {
         return "build";
     case constants.actionTypes.TAXI:
         return "taxi";
+    case constants.actionTypes.TOWER_ATTACK:
+        return "attack";
+    case constants.actionTypes.TOWER_REPAIR:
+        return "repair";
+    case constants.actionTypes.TOWER_HEAL:
+        return "heal";
     case constants.actionTypes.PLACE_CONSTRUCTION_SITE:
         return "site";
     case constants.actionTypes.TRANSFER_ENERGY:
@@ -438,6 +452,8 @@ function getActionLabel(actionType) {
         return "sync mine";
     case constants.actionTypes.SYNC_ROOM_BUILDER:
         return "sync build";
+    case constants.actionTypes.SYNC_TOWER_OPERATIONS:
+        return "sync tower";
     default:
         return actionType;
     }

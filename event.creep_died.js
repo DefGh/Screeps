@@ -35,7 +35,8 @@ function collectActionIds(creepName, knownActionIds) {
             action &&
             action.executorName === creepName &&
             action.executorType !== "room" &&
-            action.executorType !== "spawn"
+            action.executorType !== "spawn" &&
+            action.executorType !== "tower"
         ) {
             actionIdsById[actionId] = true;
         }

@@ -10,6 +10,7 @@ const UNIVERSAL_TARGET_MAX = 10;
 const cycleActionTypes = [
     constants.actionTypes.SYNC_MINING_OPERATIONS,
     constants.actionTypes.SYNC_ROOM_BUILDER,
+    constants.actionTypes.SYNC_TOWER_OPERATIONS,
     constants.actionTypes.CHECK_UNIVERSALS,
     constants.actionTypes.CHECK_FILL_SPAWN,
     constants.actionTypes.CHECK_FILL_EXTENSION,
@@ -141,6 +142,46 @@ function syncRoomBuilder(room, ctx) {
     }
 
     removeExtraTasks(matchedTasks, ctx);
+}
+
+function syncTowerOperations(room, ctx) {
+    const towers = room.find(FIND_MY_STRUCTURES).filter(function (structure) {
+        return structure.structureType === STRUCTURE_TOWER;
+    });
+    const towerIds = {};
+
+    for (const tower of towers) {
+        towerIds[tower.id] = true;
+    }
+
+    for (const task of ctx.listTasks(room.name)) {
+        if (
+            task.type === constants.taskTypes.TOWER_OPERATION &&
+            !towerIds[task.data.towerId]
+        ) {
+            ctx.removeTask(task.id);
+            ctx.log(`[checker] remove ${constants.taskTypes.TOWER_OPERATION} for ${room.name}:${task.data.towerId}`);
+        }
+    }
+
+    for (const tower of towers) {
+        const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+            return (
+                task.type === constants.taskTypes.TOWER_OPERATION &&
+                task.data.towerId === tower.id
+            );
+        });
+
+        if (matchedTasks.length === 0) {
+            ctx.addTask(constants.taskTypes.TOWER_OPERATION, room.name, {
+                towerId: tower.id,
+            });
+            ctx.log(`[checker] add ${constants.taskTypes.TOWER_OPERATION} for ${room.name}:${tower.id}`);
+            continue;
+        }
+
+        removeExtraTasks(matchedTasks, ctx);
+    }
 }
 
 function syncMiningOperationTask(room, source, ctx) {
@@ -293,4 +334,5 @@ module.exports = {
     recalculateUniversalsCount,
     syncMiningOperations,
     syncRoomBuilder,
+    syncTowerOperations,
 };

@@ -207,11 +207,25 @@ function isExecutorAlive(action) {
         return !!Game.spawns[action.executorName];
     }
 
+    if (action.executorType === "tower") {
+        const tower = Game.getObjectById(action.executorName);
+
+        return !!(
+            tower &&
+            tower.structureType === STRUCTURE_TOWER &&
+            tower.my
+        );
+    }
+
     return !!Game.creeps[action.executorName];
 }
 
 function isCreepAction(action) {
-    return action.executorType !== "room" && action.executorType !== "spawn";
+    return (
+        action.executorType !== "room" &&
+        action.executorType !== "spawn" &&
+        action.executorType !== "tower"
+    );
 }
 
 function getExecutorQueue(action) {
@@ -228,6 +242,14 @@ function getExecutorQueue(action) {
             Memory.spawns &&
             Memory.spawns[action.executorName] &&
             Memory.spawns[action.executorName].actionIds
+        ) || null;
+    }
+
+    if (action.executorType === "tower") {
+        return (
+            Memory.towers &&
+            Memory.towers[action.executorName] &&
+            Memory.towers[action.executorName].actionIds
         ) || null;
     }
 
@@ -250,6 +272,14 @@ function replaceExecutorQueue(action, actionIds) {
     if (action.executorType === "spawn") {
         if (Memory.spawns && Memory.spawns[action.executorName]) {
             Memory.spawns[action.executorName].actionIds = actionIds;
+        }
+
+        return;
+    }
+
+    if (action.executorType === "tower") {
+        if (Memory.towers && Memory.towers[action.executorName]) {
+            Memory.towers[action.executorName].actionIds = actionIds;
         }
 
         return;

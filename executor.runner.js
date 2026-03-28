@@ -8,6 +8,7 @@ function run() {
     runRooms();
     runSpawns();
     runCreeps();
+    runTowers();
 }
 
 function runRooms() {
@@ -43,6 +44,28 @@ function runCreeps() {
             getCreepState(Game.creeps[creepName]),
             dispatcher.askCreep
         );
+    }
+}
+
+function runTowers() {
+    for (const roomName in Game.rooms) {
+        const room = Game.rooms[roomName];
+
+        if (!room.controller || !room.controller.my) {
+            continue;
+        }
+
+        const towers = room.find(FIND_MY_STRUCTURES).filter(function (structure) {
+            return structure.structureType === STRUCTURE_TOWER;
+        });
+
+        for (const tower of towers) {
+            runExecutor(
+                tower,
+                getTowerState(tower),
+                dispatcher.askTower
+            );
+        }
     }
 }
 
@@ -113,6 +136,22 @@ function getCreepState(creep) {
     }
 
     return creep.memory;
+}
+
+function getTowerState(tower) {
+    if (!Memory.towers) {
+        Memory.towers = {};
+    }
+
+    if (!Memory.towers[tower.id]) {
+        Memory.towers[tower.id] = {};
+    }
+
+    if (!Memory.towers[tower.id].actionIds) {
+        Memory.towers[tower.id].actionIds = [];
+    }
+
+    return Memory.towers[tower.id];
 }
 
 function peekAction(state) {
@@ -199,7 +238,11 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.SPAWN_CREEP ||
         actionType === constants.actionTypes.SYNC_MINING_OPERATIONS ||
         actionType === constants.actionTypes.SYNC_ROOM_BUILDER ||
+        actionType === constants.actionTypes.SYNC_TOWER_OPERATIONS ||
         actionType === constants.actionTypes.TAXI ||
+        actionType === constants.actionTypes.TOWER_ATTACK ||
+        actionType === constants.actionTypes.TOWER_HEAL ||
+        actionType === constants.actionTypes.TOWER_REPAIR ||
         actionType === constants.actionTypes.TRANSFER_ENERGY ||
         actionType === constants.actionTypes.UPGRADE_CONTROLLER
     );

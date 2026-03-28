@@ -44,6 +44,10 @@ function ensureMemory() {
     else if (!Memory.Checker.rooms) {
         Memory.Checker.rooms = {};
     }
+
+    if (!Memory.towers) {
+        Memory.towers = {};
+    }
 }
 
 module.exports = function () {

@@ -11,6 +11,7 @@ module.exports = {
         SPAWN_CREEP: "spawn_creep",
         CHECKER: "checker",
         MINING_OPERATION: "mining_operation",
+        TOWER_OPERATION: "tower_operation",
         SYNC_EXTENSIONS: "sync_extensions",
         SYNC_TOWERS: "sync_towers",
         SYNC_ROADS: "sync_roads",
@@ -30,6 +31,9 @@ module.exports = {
         TAKE_RESOURCE: "take_resource",
         BUILD: "build",
         TAXI: "taxi",
+        TOWER_ATTACK: "tower_attack",
+        TOWER_REPAIR: "tower_repair",
+        TOWER_HEAL: "tower_heal",
         PLACE_CONSTRUCTION_SITE: "place_construction_site",
         TRANSFER_ENERGY: "transfer_energy",
         UPGRADE_CONTROLLER: "upgrade_controller",
@@ -40,6 +44,7 @@ module.exports = {
         RECALCULATE_UNIVERSALS_COUNT: "recalculate_universals_count",
         SYNC_MINING_OPERATIONS: "sync_mining_operations",
         SYNC_ROOM_BUILDER: "sync_room_builder",
+        SYNC_TOWER_OPERATIONS: "sync_tower_operations",
     },
 
     roles: {

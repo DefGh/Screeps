@@ -16,6 +16,10 @@ const spawnPriority = [
     constants.taskTypes.MINING_OPERATION,
 ];
 
+const towerPriority = [
+    constants.taskTypes.TOWER_OPERATION,
+];
+
 const universalPriority = [
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.FILL_SPAWN,
@@ -36,6 +40,10 @@ function askRoom(room) {
 
 function askSpawn(spawn) {
     return askByPriority(spawn.room.name, spawn, "spawn", spawnPriority);
+}
+
+function askTower(tower) {
+    return askByPriority(tower.room.name, tower, "tower", towerPriority);
 }
 
 function askCreep(creep) {
@@ -126,8 +134,8 @@ function createTaskContext(executorType) {
 }
 
 function getExecutorName(executorType, executor) {
-    if (executorType === "room") {
-        return executor.name;
+    if (executorType === "tower") {
+        return executor.id;
     }
 
     return executor.name;
@@ -214,4 +222,5 @@ module.exports = {
     askCreep,
     askRoom,
     askSpawn,
+    askTower,
 };
