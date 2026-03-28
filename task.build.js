@@ -13,23 +13,17 @@ function tryDispatch(task, creep) {
         return [];
     }
 
-    if (countActiveBuildActions(task) >= 2) {
-        return [];
-    }
-
     const room = Game.rooms[task.room];
 
     if (!room) {
         return [];
     }
 
-    const sites = room.find(FIND_CONSTRUCTION_SITES);
-
-    if (sites.length === 0) {
+    if (countActiveBuildActions(task) >= 2) {
         return [];
     }
 
-    const target = pickTargetSite(creep, sites);
+    const target = getFocusTarget(task, room);
 
     if (!target) {
         return [];
@@ -83,11 +77,54 @@ function countActiveBuildActions(task) {
     return count;
 }
 
-function pickTargetSite(creep, sites) {
+function getFocusTarget(task, room) {
+    const focusTarget = getLiveFocusTarget(task);
+
+    if (focusTarget) {
+        return focusTarget;
+    }
+
+    const nextTarget = pickNextFocusTarget(room);
+
+    if (!nextTarget) {
+        delete task.data.focusTargetId;
+        return null;
+    }
+
+    task.data.focusTargetId = nextTarget.id;
+    return nextTarget;
+}
+
+function getLiveFocusTarget(task) {
+    if (!task.data.focusTargetId) {
+        return null;
+    }
+
+    const target = Game.getObjectById(task.data.focusTargetId);
+
+    if (isConstructionSite(target)) {
+        return target;
+    }
+
+    delete task.data.focusTargetId;
+    return null;
+}
+
+function pickNextFocusTarget(room) {
+    const sites = room.find(FIND_CONSTRUCTION_SITES);
+
+    if (sites.length === 0) {
+        return null;
+    }
+
     let bestPriority = Infinity;
     const targets = [];
 
     for (const site of sites) {
+        if (!isConstructionSite(site)) {
+            continue;
+        }
+
         const priority = getBuildPriority(site.structureType);
 
         if (priority < bestPriority) {
@@ -102,7 +139,30 @@ function pickTargetSite(creep, sites) {
         }
     }
 
-    return creep.pos.findClosestByRange(targets) || targets[0];
+    const primarySpawn = getPrimarySpawn(room);
+
+    targets.sort(function (left, right) {
+        if (primarySpawn) {
+            const leftRange = getChebyshevRange(primarySpawn.pos, left.pos);
+            const rightRange = getChebyshevRange(primarySpawn.pos, right.pos);
+
+            if (leftRange !== rightRange) {
+                return leftRange - rightRange;
+            }
+        }
+
+        if (left.pos.x !== right.pos.x) {
+            return left.pos.x - right.pos.x;
+        }
+
+        if (left.pos.y !== right.pos.y) {
+            return left.pos.y - right.pos.y;
+        }
+
+        return String(left.id).localeCompare(String(right.id));
+    });
+
+    return targets[0];
 }
 
 function getBuildPriority(structureType) {
@@ -124,6 +184,33 @@ function getBuildPriority(structureType) {
 
 function getRemainingEnergyNeed(target) {
     return Math.ceil((target.progressTotal - target.progress) / BUILD_POWER);
+}
+
+function getPrimarySpawn(room) {
+    const spawns = room.find(FIND_MY_STRUCTURES).filter(function (structure) {
+        return structure.structureType === STRUCTURE_SPAWN;
+    });
+
+    if (spawns.length === 0) {
+        return null;
+    }
+
+    spawns.sort(function (left, right) {
+        return left.name.localeCompare(right.name);
+    });
+
+    return spawns[0];
+}
+
+function getChebyshevRange(left, right) {
+    return Math.max(
+        Math.abs(left.x - right.x),
+        Math.abs(left.y - right.y)
+    );
+}
+
+function isConstructionSite(target) {
+    return !!target && target.progress !== undefined && target.progressTotal !== undefined;
 }
 
 function createBuildTemplate(targetId, amount) {
