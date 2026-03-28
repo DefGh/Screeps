@@ -56,6 +56,10 @@ function tryDispatchSpawn(task, spawn) {
         return [];
     }
 
+    if (countUniversals(task.room) < 3) {
+        return [];
+    }
+
     if (findLiveMiner(task.room, task.data.sourceId) || hasActiveAction(task, constants.actionTypes.SPAWN_CREEP)) {
         return [];
     }
@@ -149,6 +153,22 @@ function tryDispatchMiner(task, creep) {
             },
         },
     ];
+}
+
+function countUniversals(roomName) {
+    var count = 0;
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            creep.memory.role === constants.roles.UNIVERSAL &&
+            creep.memory.originRoomName === roomName
+        ) {
+            count++;
+        }
+    }
+
+    return count;
 }
 
 function findLiveMiner(roomName, sourceId) {

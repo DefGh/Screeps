@@ -7,6 +7,16 @@ function reserve(creep, amount) {
         return null;
     }
 
+    const container = findContainerTarget(room, creep, amount);
+
+    if (hasEstablishedMiner(room.name)) {
+        if (!container) {
+            return null;
+        }
+
+        return createTakeResourceAction(room.name, container.id, amount);
+    }
+
     const pile = findPileTarget(room, creep, amount);
 
     if (pile) {
@@ -20,17 +30,8 @@ function reserve(creep, amount) {
         };
     }
 
-    const container = findContainerTarget(room, creep, amount);
-
     if (container) {
-        return {
-            type: constants.actionTypes.TAKE_RESOURCE,
-            data: {
-                fromId: container.id,
-                amount: amount,
-                reservationId: createReservation(room.name, container.id, amount),
-            },
-        };
+        return createTakeResourceAction(room.name, container.id, amount);
     }
 
     const source = findMineTarget(room, creep);
@@ -44,6 +45,17 @@ function reserve(creep, amount) {
         data: {
             sourceId: source.id,
             amount: amount,
+        },
+    };
+}
+
+function createTakeResourceAction(roomName, containerId, amount) {
+    return {
+        type: constants.actionTypes.TAKE_RESOURCE,
+        data: {
+            fromId: containerId,
+            amount: amount,
+            reservationId: createReservation(roomName, containerId, amount),
         },
     };
 }
@@ -94,6 +106,33 @@ function findMineTarget(room, creep) {
     }
 
     return pickClosestTarget(creep, room.find(FIND_SOURCES));
+}
+
+function hasEstablishedMiner(roomName) {
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            creep.memory.role !== constants.roles.MINER ||
+            creep.memory.originRoomName !== roomName
+        ) {
+            continue;
+        }
+
+        const structures = creep.room.lookForAt(
+            LOOK_STRUCTURES,
+            creep.pos.x,
+            creep.pos.y
+        );
+
+        for (const structure of structures) {
+            if (structure.structureType === STRUCTURE_CONTAINER) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 function isReservablePile(resource, roomName, amount) {

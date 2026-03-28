@@ -1,6 +1,7 @@
 const constants = require("./constants");
 
 const CHECK_INTERVAL = 5;
+const UNIVERSAL_RECALCULATE_INTERVAL = 300;
 const UNIVERSAL_TARGET_BUFFER = 3000;
 const UNIVERSAL_TARGET_DEADBAND = 500;
 const UNIVERSAL_TARGET_MIN = 3;
@@ -67,6 +68,14 @@ function checkTowerEnergy(room, ctx) {
 
 function recalculateUniversalsCount(room, ctx) {
     const roomState = getRoomState(room.name);
+
+    if (
+        roomState.lastUniversalsRecalculatedAt !== undefined &&
+        Game.time - roomState.lastUniversalsRecalculatedAt < UNIVERSAL_RECALCULATE_INTERVAL
+    ) {
+        return;
+    }
+
     const buffer = getRoomEnergyBuffer(room);
     const previousTargetCount = roomState.universalTargetCount;
 
@@ -82,6 +91,8 @@ function recalculateUniversalsCount(room, ctx) {
             roomState.universalTargetCount - 1
         );
     }
+
+    roomState.lastUniversalsRecalculatedAt = Game.time;
 
     if (
         ctx &&

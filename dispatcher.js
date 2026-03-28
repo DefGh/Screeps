@@ -5,7 +5,9 @@ const tasks = require("./tasks");
 const roomPriority = [
     constants.taskTypes.CHECKER,
     constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.SYNC_TOWERS,
     constants.taskTypes.SYNC_EXTENSIONS,
+    constants.taskTypes.SYNC_FORTIFICATIONS,
 ];
 
 const spawnPriority = [

@@ -12,6 +12,8 @@ module.exports = {
         CHECKER: "checker",
         MINING_OPERATION: "mining_operation",
         SYNC_EXTENSIONS: "sync_extensions",
+        SYNC_TOWERS: "sync_towers",
+        SYNC_FORTIFICATIONS: "sync_fortifications",
         UPGRADE_CONTROLLER: "upgrade_controller",
         FILL_SPAWN: "fill_spawn",
         FILL_EXTENSION: "fill_extension",

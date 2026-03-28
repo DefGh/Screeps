@@ -84,12 +84,42 @@ function countActiveBuildActions(task) {
 }
 
 function pickTargetSite(creep, sites) {
-    const containerSites = sites.filter(function (site) {
-        return site.structureType === STRUCTURE_CONTAINER;
-    });
-    const targets = containerSites.length > 0 ? containerSites : sites;
+    let bestPriority = Infinity;
+    const targets = [];
+
+    for (const site of sites) {
+        const priority = getBuildPriority(site.structureType);
+
+        if (priority < bestPriority) {
+            bestPriority = priority;
+            targets.length = 0;
+            targets.push(site);
+            continue;
+        }
+
+        if (priority === bestPriority) {
+            targets.push(site);
+        }
+    }
 
     return creep.pos.findClosestByRange(targets) || targets[0];
+}
+
+function getBuildPriority(structureType) {
+    switch (structureType) {
+    case STRUCTURE_CONTAINER:
+        return 0;
+    case STRUCTURE_TOWER:
+        return 1;
+    case STRUCTURE_EXTENSION:
+        return 2;
+    case STRUCTURE_RAMPART:
+        return 3;
+    case STRUCTURE_WALL:
+        return 4;
+    default:
+        return 5;
+    }
 }
 
 function getRemainingEnergyNeed(target) {

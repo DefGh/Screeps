@@ -18,7 +18,9 @@ function execute(room, action) {
     return (
         result === OK ||
         result === ERR_FULL ||
-        result === ERR_INVALID_TARGET
+        result === ERR_INVALID_TARGET ||
+        result === ERR_NOT_OWNER ||
+        result === ERR_RCL_NOT_ENOUGH
     );
 }
 

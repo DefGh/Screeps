@@ -6,7 +6,7 @@ function onCompleted() {
 
 function tryDispatch(task, room, ctx) {
     if (
-        task.type !== constants.taskTypes.SYNC_EXTENSIONS ||
+        task.type !== constants.taskTypes.SYNC_TOWERS ||
         ctx.executorType !== "room" ||
         room.name !== task.room ||
         !room.controller ||
@@ -16,12 +16,12 @@ function tryDispatch(task, room, ctx) {
     }
 
     const allowedCount =
-        CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][room.controller.level] || 0;
+        CONTROLLER_STRUCTURES[STRUCTURE_TOWER][room.controller.level] || 0;
     const activePlacementActions =
-        planner.getActivePlacementActions(task, STRUCTURE_EXTENSION);
+        planner.getActivePlacementActions(task, STRUCTURE_TOWER);
     const progress =
-        planner.countOwnedStructures(room, STRUCTURE_EXTENSION) +
-        planner.countOwnedSites(room, STRUCTURE_EXTENSION) +
+        planner.countOwnedStructures(room, STRUCTURE_TOWER) +
+        planner.countOwnedSites(room, STRUCTURE_TOWER) +
         activePlacementActions.length;
 
     if (progress >= allowedCount) {
@@ -29,11 +29,10 @@ function tryDispatch(task, room, ctx) {
         return [];
     }
 
-    if (Object.keys(Game.constructionSites).length >= MAX_CONSTRUCTION_SITES) {
-        return [];
-    }
-
-    if (activePlacementActions.length > 0) {
+    if (
+        Object.keys(Game.constructionSites).length >= MAX_CONSTRUCTION_SITES ||
+        activePlacementActions.length > 0
+    ) {
         return [];
     }
 
@@ -49,7 +48,7 @@ function tryDispatch(task, room, ctx) {
             type: constants.actionTypes.PLACE_CONSTRUCTION_SITE,
             data: {
                 roomName: room.name,
-                structureType: STRUCTURE_EXTENSION,
+                structureType: STRUCTURE_TOWER,
                 x: nextPosition.x,
                 y: nextPosition.y,
             },
