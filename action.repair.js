@@ -14,7 +14,7 @@ function execute(creep, action) {
         return true;
     }
 
-    if (!target || !repairTargets.isRepairCandidate(target)) {
+    if (!target || !repairTargets.isCreepRepairCandidate(target)) {
         action.data.done = targetAmount;
         return true;
     }
@@ -25,7 +25,7 @@ function execute(creep, action) {
         return true;
     }
 
-    const repairNeedBefore = repairTargets.getRemainingRepairEnergyNeed(target);
+    const repairNeedBefore = repairTargets.getCreepRemainingRepairEnergyNeed(target);
 
     if (repairNeedBefore <= 0) {
         action.data.done = targetAmount;
@@ -57,7 +57,7 @@ function execute(creep, action) {
 
     action.data.done = doneAmount + spentAmount;
 
-    if (!repairTargets.isRepairCandidate(target)) {
+    if (!repairTargets.isCreepRepairCandidate(target)) {
         action.data.done = targetAmount;
     }
 

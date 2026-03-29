@@ -20,10 +20,11 @@ function tryDispatch(task, creep) {
         return [];
     }
 
-    const repairTarget = repairTargets.selectRepairTarget(
-        creep,
-        room.find(FIND_STRUCTURES)
-    );
+    if (!task.data) {
+        task.data = {};
+    }
+
+    const repairTarget = getRepairFocusTarget(task, creep, room);
 
     if (repairTarget) {
         return tryDispatchRepair(task, creep, repairTarget);
@@ -74,7 +75,7 @@ function tryDispatchRepair(task, creep, target) {
         return [];
     }
 
-    const remainingAmount = repairTargets.getRemainingRepairEnergyNeed(target);
+    const remainingAmount = repairTargets.getCreepRemainingRepairEnergyNeed(target);
 
     if (remainingAmount <= 0) {
         return [];
@@ -104,6 +105,27 @@ function tryDispatchRepair(task, creep, target) {
     ];
 }
 
+function getRepairFocusTarget(task, creep, room) {
+    const focusTarget = getLiveRepairFocusTarget(task);
+
+    if (focusTarget) {
+        return focusTarget;
+    }
+
+    const nextTarget = repairTargets.selectCreepRepairTarget(
+        creep,
+        room.find(FIND_STRUCTURES)
+    );
+
+    if (!nextTarget) {
+        delete task.data.repairFocusTargetId;
+        return null;
+    }
+
+    task.data.repairFocusTargetId = nextTarget.id;
+    return nextTarget;
+}
+
 function countActiveActions(task, actionType) {
     let count = 0;
 
@@ -120,6 +142,21 @@ function countActiveActions(task, actionType) {
     }
 
     return count;
+}
+
+function getLiveRepairFocusTarget(task) {
+    if (!task.data || !task.data.repairFocusTargetId) {
+        return null;
+    }
+
+    const target = Game.getObjectById(task.data.repairFocusTargetId);
+
+    if (repairTargets.isCreepRepairCandidate(target)) {
+        return target;
+    }
+
+    delete task.data.repairFocusTargetId;
+    return null;
 }
 
 function getFocusTarget(task, room) {

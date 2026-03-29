@@ -81,7 +81,7 @@ function selectNearestTarget(tower, targets) {
 }
 
 function selectRepairTarget(tower, structures) {
-    return repairTargets.selectRepairTarget(tower, structures);
+    return repairTargets.selectTowerRepairTarget(tower, structures);
 }
 
 function compareByRangeAndPosition(tower, left, right) {
