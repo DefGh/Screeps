@@ -184,7 +184,7 @@ function formatTaskProgress(task) {
     if (task.data.total > 0) {
         const doneAmount = (task.data.total * task.donePercent) / 100;
 
-        return `(${formatAmount(doneAmount)} / ${formatAmount(task.data.total)}, ${formatPercent(task.donePercent)})`;
+        return `(${formatAmount(doneAmount)} / ${formatAmount(task.data.total)} / ${formatAmount((task.assignedPercent / 100) * task.data.total)} / ${formatPercent(task.donePercent)})`;
     }
 
     return `(${formatPercent(task.donePercent)})`;

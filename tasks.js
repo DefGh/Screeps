@@ -76,10 +76,31 @@ function removeTask(taskId) {
         return;
     }
 
+    const dispatcherCleanup = require("./dispatcher.cleanup");
+
+    const actionIds = task.actionIds.slice();
+
+    for (const actionId of actionIds) {
+        const action = Memory.Dispatcher.actionsById[actionId];
+
+        if (!action) {
+            continue;
+        }
+
+        dispatcherCleanup.cleanupAssignedAction(action, {
+            invokeCancel: true,
+            reason: `remove-task:${task.id}`,
+        });
+    }
+
     if (task.room && Memory.Tasks.rooms[task.room]) {
         Memory.Tasks.rooms[task.room] = Memory.Tasks.rooms[task.room].filter(function (roomTaskId) {
             return roomTaskId !== taskId;
         });
+
+        if (Memory.Tasks.rooms[task.room].length === 0) {
+            delete Memory.Tasks.rooms[task.room];
+        }
     }
 
     delete Memory.Tasks.byId[taskId];

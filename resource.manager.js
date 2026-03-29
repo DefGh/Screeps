@@ -49,6 +49,27 @@ function reserve(creep, amount) {
     };
 }
 
+function reserveContainer(creep, amount, excludedTargetIds) {
+    const room = Game.rooms[creep.memory.originRoomName];
+
+    if (!room || amount <= 0) {
+        return null;
+    }
+
+    const container = findContainerTarget(
+        room,
+        creep,
+        amount,
+        excludedTargetIds || []
+    );
+
+    if (!container) {
+        return null;
+    }
+
+    return createTakeResourceAction(room.name, container.id, amount);
+}
+
 function createTakeResourceAction(roomName, containerId, amount) {
     return {
         type: constants.actionTypes.TAKE_RESOURCE,
@@ -89,9 +110,13 @@ function findPileTarget(room, creep, amount) {
     return pickClosestTarget(creep, piles);
 }
 
-function findContainerTarget(room, creep, amount) {
+function findContainerTarget(room, creep, amount, excludedTargetIds) {
+    const excludedIds = excludedTargetIds || [];
     const containers = room.find(FIND_STRUCTURES).filter(function (structure) {
-        return isReservableContainer(structure, room.name, amount);
+        return (
+            !excludedIds.includes(structure.id) &&
+            isReservableContainer(structure, room.name, amount)
+        );
     });
 
     return pickClosestTarget(creep, containers);
@@ -199,5 +224,6 @@ function pickClosestTarget(creep, targets) {
 
 module.exports = {
     reserve,
+    reserveContainer,
     release,
 };

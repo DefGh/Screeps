@@ -1,7 +1,7 @@
 const actions = require("./actions");
 const constants = require("./constants");
-const debug = require("./debug");
 const dispatcher = require("./dispatcher");
+const dispatcherCleanup = require("./dispatcher.cleanup");
 const tasks = require("./tasks");
 
 function run() {
@@ -84,7 +84,6 @@ function runExecutor(executor, state, askForActions) {
     const handler = actions.get(action.type);
 
     if (!handler) {
-        debug.log(`[runner] no handler for ${action.type}`);
         return;
     }
 
@@ -187,7 +186,7 @@ function completeAction(state, action) {
     action.finishedAt = Game.time;
 
     if (task) {
-        unlinkActionFromTask(task, action);
+        dispatcherCleanup.normalizeTaskAssignments(task);
 
         if (isTerminalAction(action.type) && task.donePercent >= 100) {
             tasks.onCompleted(task, action);
@@ -195,35 +194,6 @@ function completeAction(state, action) {
     }
 
     delete Memory.Dispatcher.actionsById[action.id];
-    debug.log(`[runner] completed ${action.type} for ${action.executorName}`);
-}
-
-function unlinkActionFromTask(task, action) {
-    task.actionIds = task.actionIds.filter(function (taskActionId) {
-        return taskActionId !== action.id;
-    });
-
-    if (!hasActiveExecutorActions(task, action.executorName)) {
-        task.executorNames = task.executorNames.filter(function (executorName) {
-            return executorName !== action.executorName;
-        });
-    }
-}
-
-function hasActiveExecutorActions(task, executorName) {
-    for (const actionId of task.actionIds) {
-        const currentAction = Memory.Dispatcher.actionsById[actionId];
-
-        if (
-            currentAction &&
-            currentAction.executorName === executorName &&
-            currentAction.status !== "done"
-        ) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 function isTerminalAction(actionType) {

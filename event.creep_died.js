@@ -1,4 +1,4 @@
-const dispatcherState = require("./dispatcher.state");
+const dispatcherCleanup = require("./dispatcher.cleanup");
 
 function handle(event, ctx) {
     const actionIds = collectActionIds(event.data.name, event.data.actionIds || []);
@@ -12,7 +12,7 @@ function handle(event, ctx) {
             continue;
         }
 
-        dispatcherState.cleanupAssignedAction(action, {
+        dispatcherCleanup.cleanupAssignedAction(action, {
             event: event,
             invokeCreepDeath: true,
             log: ctx.log,

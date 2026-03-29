@@ -1,6 +1,4 @@
-const actions = require("./actions");
-const constants = require("./constants");
-const debug = require("./debug");
+const dispatcherCleanup = require("./dispatcher.cleanup");
 const tasks = require("./tasks");
 
 function reconcileDispatcherState() {
@@ -14,177 +12,34 @@ function reconcileDispatcherState() {
         }
 
         if (!tasks.getTask(action.taskId)) {
-            cleanupAssignedAction(action, {
+            dispatcherCleanup.cleanupAssignedAction(action, {
+                invokeCancel: true,
                 reason: "missing-task",
             });
             continue;
         }
 
         if (!isExecutorAlive(action)) {
-            cleanupAssignedAction(action, {
-                invokeCreepDeath: isCreepAction(action),
+            dispatcherCleanup.cleanupAssignedAction(action, {
+                invokeCancel: true,
                 reason: "missing-executor",
             });
             continue;
         }
 
         if (!isActionQueuedOnExecutor(action)) {
-            cleanupAssignedAction(action, {
-                invokeCreepDeath: isCreepAction(action),
+            dispatcherCleanup.cleanupAssignedAction(action, {
+                invokeCancel: true,
                 reason: "missing-queue",
             });
         }
     }
 
+    dispatcherCleanup.reconcileTaskStore();
+
     for (const task of tasks.listTasks()) {
-        reconcileTaskAssignments(task);
+        dispatcherCleanup.reconcileTaskAssignments(task);
     }
-}
-
-function cleanupAssignedAction(action, options) {
-    if (!action || !Memory.Dispatcher.actionsById[action.id]) {
-        return false;
-    }
-
-    const cleanupOptions = options || {};
-
-    if (cleanupOptions.invokeCreepDeath) {
-        invokeCreepDeathHandler(action, cleanupOptions.event, cleanupOptions.reason);
-    }
-
-    unlinkActionFromTask(action);
-    removeActionFromExecutorQueue(action);
-    delete Memory.Dispatcher.actionsById[action.id];
-
-    const log = cleanupOptions.log || debug.log;
-
-    if (log) {
-        log(`[dispatcher] cleaned ${action.type} for ${action.executorName} (${cleanupOptions.reason || "cleanup"})`);
-    }
-
-    return true;
-}
-
-function reconcileTaskAssignments(task) {
-    const filteredActionIds = [];
-    const seen = {};
-
-    for (const actionId of task.actionIds) {
-        const action = Memory.Dispatcher.actionsById[actionId];
-
-        if (
-            !action ||
-            action.taskId !== task.id ||
-            action.status === "done" ||
-            seen[actionId]
-        ) {
-            continue;
-        }
-
-        seen[actionId] = true;
-        filteredActionIds.push(actionId);
-    }
-
-    task.actionIds = filteredActionIds;
-    rebuildTaskExecutorNames(task);
-}
-
-function unlinkActionFromTask(action) {
-    const task = tasks.getTask(action.taskId);
-
-    if (!task) {
-        return;
-    }
-
-    task.actionIds = task.actionIds.filter(function (taskActionId) {
-        return taskActionId !== action.id;
-    });
-
-    rollbackAssignment(task, action);
-    rebuildTaskExecutorNames(task);
-}
-
-function rollbackAssignment(task, action) {
-    if (
-        (
-            action.type !== constants.actionTypes.UPGRADE_CONTROLLER &&
-            action.type !== constants.actionTypes.TRANSFER_ENERGY
-        ) ||
-        !task.data.total ||
-        !action.data.amount
-    ) {
-        return;
-    }
-
-    const percent = (action.data.amount / task.data.total) * 100;
-
-    task.assignedPercent = Math.max(0, task.assignedPercent - percent);
-}
-
-function rebuildTaskExecutorNames(task) {
-    const executorNames = [];
-    const seen = {};
-
-    for (const actionId of task.actionIds) {
-        const action = Memory.Dispatcher.actionsById[actionId];
-
-        if (
-            !action ||
-            action.taskId !== task.id ||
-            action.status === "done" ||
-            seen[action.executorName]
-        ) {
-            continue;
-        }
-
-        seen[action.executorName] = true;
-        executorNames.push(action.executorName);
-    }
-
-    task.executorNames = executorNames;
-}
-
-function invokeCreepDeathHandler(action, event, reason) {
-    const handler = actions.get(action.type);
-
-    if (!handler) {
-        return;
-    }
-
-    handler.onCreepDeath(
-        event || createSyntheticCreepDeathEvent(action, reason),
-        action
-    );
-}
-
-function createSyntheticCreepDeathEvent(action, reason) {
-    return {
-        id: `synthetic:${action.id}`,
-        room: action.room,
-        type: constants.eventTypes.CREEP_DIED,
-        data: {
-            actionIds: [action.id],
-            name: action.executorName,
-            originRoomName: action.room,
-            reason: reason || "cleanup",
-            role: action.executorType,
-        },
-        tick: Game.time,
-    };
-}
-
-function removeActionFromExecutorQueue(action) {
-    const queue = getExecutorQueue(action);
-
-    if (!queue) {
-        return;
-    }
-
-    const filteredQueue = queue.filter(function (actionId) {
-        return actionId !== action.id;
-    });
-
-    replaceExecutorQueue(action, filteredQueue);
 }
 
 function isActionQueuedOnExecutor(action) {
@@ -218,14 +73,6 @@ function isExecutorAlive(action) {
     }
 
     return !!Game.creeps[action.executorName];
-}
-
-function isCreepAction(action) {
-    return (
-        action.executorType !== "room" &&
-        action.executorType !== "spawn" &&
-        action.executorType !== "tower"
-    );
 }
 
 function getExecutorQueue(action) {
@@ -291,6 +138,6 @@ function replaceExecutorQueue(action, actionIds) {
 }
 
 module.exports = {
-    cleanupAssignedAction,
+    cleanupAssignedAction: dispatcherCleanup.cleanupAssignedAction,
     reconcileDispatcherState,
 };

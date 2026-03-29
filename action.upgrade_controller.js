@@ -16,7 +16,7 @@ function execute(creep, action) {
     const currentEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
 
     if (currentEnergy <= 0) {
-        return false;
+        return true;
     }
 
     const result = creep.upgradeController(controller);

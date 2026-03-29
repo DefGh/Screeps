@@ -18,7 +18,9 @@ function buildUniversalBody(spawn) {
         }
     }
     
-    const budget = totalUniversals > 0 ? spawn.room.energyCapacityAvailable : spawn.room.energyAvailable;
+    var budget = totalUniversals > 0 ? spawn.room.energyCapacityAvailable : spawn.room.energyAvailable;
+
+    budget = Math.max(budget, 200)
 
     let spent = 0;
     let index = 0;

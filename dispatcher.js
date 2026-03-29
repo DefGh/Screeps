@@ -1,5 +1,4 @@
 const constants = require("./constants");
-const debug = require("./debug");
 const tasks = require("./tasks");
 
 const roomPriority = [
@@ -21,9 +20,9 @@ const towerPriority = [
 ];
 
 const universalPriority = [
-    constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.FILL_SPAWN,
     constants.taskTypes.FILL_EXTENSION,
+    constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.FILL_TOWER,
     constants.taskTypes.REPAIR,
     constants.taskTypes.BUILD,
@@ -113,9 +112,6 @@ function askByPriority(roomName, executor, executorType, priority) {
                 actionIds,
                 getAssignmentPercent(task, templates)
             );
-            debug.log(`[dispatcher] ${getExecutorName(executorType, executor)} <- ${actions.map(function (action) {
-                return action.type;
-            }).join(", ")}`);
 
             return actions;
         }

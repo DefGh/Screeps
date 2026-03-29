@@ -141,6 +141,18 @@ function syncRoomBuilder(room, ctx) {
         return;
     }
 
+    if (shouldRecreateTaskWithoutExecutors(matchedTasks[0])) {
+        recreateTask(
+            matchedTasks,
+            room.name,
+            constants.taskTypes.BUILD,
+            {},
+            `for ${room.name} (no executors)`,
+            ctx
+        );
+        return;
+    }
+
     removeExtraTasks(matchedTasks, ctx);
 }
 
@@ -180,6 +192,20 @@ function syncTowerOperations(room, ctx) {
             continue;
         }
 
+        if (shouldRecreateTaskWithoutExecutors(matchedTasks[0])) {
+            recreateTask(
+                matchedTasks,
+                room.name,
+                constants.taskTypes.TOWER_OPERATION,
+                {
+                    towerId: tower.id,
+                },
+                `for ${room.name}:${tower.id} (no executors)`,
+                ctx
+            );
+            continue;
+        }
+
         removeExtraTasks(matchedTasks, ctx);
     }
 }
@@ -199,6 +225,21 @@ function syncMiningOperationTask(room, source, ctx) {
             anchor: anchor,
         });
         ctx.log(`[checker] add ${constants.taskTypes.MINING_OPERATION} for ${room.name}:${source.id}`);
+        return;
+    }
+
+    if (shouldRecreateTaskWithoutExecutors(matchedTasks[0])) {
+        recreateTask(
+            matchedTasks,
+            room.name,
+            constants.taskTypes.MINING_OPERATION,
+            {
+                sourceId: source.id,
+                anchor: anchor,
+            },
+            `for ${room.name}:${source.id} (no executors)`,
+            ctx
+        );
         return;
     }
 
@@ -238,6 +279,21 @@ function syncTargetTask(roomName, taskType, targetId, shouldExist, ctx) {
             return;
         }
 
+        if (shouldRecreateTaskWithoutExecutors(matchedTasks[0])) {
+            recreateTask(
+                matchedTasks,
+                roomName,
+                taskType,
+                {
+                    targetId: targetId,
+                    total: Game.getObjectById(targetId).store.getFreeCapacity(RESOURCE_ENERGY),
+                },
+                `for ${roomName}:${targetId} (no executors)`,
+                ctx
+            );
+            return;
+        }
+
         if (matchedTasks[0].actionIds.length === 0) {
             matchedTasks[0].data.total = Game.getObjectById(targetId).store.getFreeCapacity(RESOURCE_ENERGY);
         }
@@ -256,6 +312,28 @@ function removeExtraTasks(matchedTasks, ctx) {
     for (let index = 1; index < matchedTasks.length; index += 1) {
         ctx.removeTask(matchedTasks[index].id);
     }
+}
+
+function shouldRecreateTaskWithoutExecutors(task) {
+    return false;
+    return (
+        hasNoExecutors(task) &&
+        (
+            (task.actionIds && task.actionIds.length > 0) ||
+            task.assignedPercent > 0
+        )
+    );
+}
+
+function hasNoExecutors(task) {
+    return !task.executorNames || task.executorNames.length === 0;
+}
+
+function recreateTask(matchedTasks, roomName, taskType, data, label, ctx) {
+    removeExtraTasks(matchedTasks, ctx);
+    ctx.removeTask(matchedTasks[0].id);
+    ctx.addTask(taskType, roomName, data);
+    ctx.log(`[checker] recreate ${taskType} ${label}`);
 }
 
 function getTargetTasks(roomName, taskType, targetId, ctx) {

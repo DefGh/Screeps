@@ -111,37 +111,17 @@ function getLiveFocusTarget(task) {
 }
 
 function pickNextFocusTarget(room) {
-    const sites = room.find(FIND_CONSTRUCTION_SITES);
+    const sites = room.find(FIND_CONSTRUCTION_SITES).filter(function (site) {
+        return isConstructionSite(site);
+    });
 
     if (sites.length === 0) {
         return null;
     }
 
-    let bestPriority = Infinity;
-    const targets = [];
-
-    for (const site of sites) {
-        if (!isConstructionSite(site)) {
-            continue;
-        }
-
-        const priority = getBuildPriority(site.structureType);
-
-        if (priority < bestPriority) {
-            bestPriority = priority;
-            targets.length = 0;
-            targets.push(site);
-            continue;
-        }
-
-        if (priority === bestPriority) {
-            targets.push(site);
-        }
-    }
-
     const primarySpawn = getPrimarySpawn(room);
 
-    targets.sort(function (left, right) {
+    sites.sort(function (left, right) {
         if (primarySpawn) {
             const leftRange = getChebyshevRange(primarySpawn.pos, left.pos);
             const rightRange = getChebyshevRange(primarySpawn.pos, right.pos);
@@ -162,26 +142,7 @@ function pickNextFocusTarget(room) {
         return String(left.id).localeCompare(String(right.id));
     });
 
-    return targets[0];
-}
-
-function getBuildPriority(structureType) {
-    switch (structureType) {
-    case STRUCTURE_CONTAINER:
-        return 0;
-    case STRUCTURE_ROAD:
-        return 1;
-    case STRUCTURE_TOWER:
-        return 2;
-    case STRUCTURE_EXTENSION:
-        return 3;
-    case STRUCTURE_RAMPART:
-        return 4;
-    case STRUCTURE_WALL:
-        return 5;
-    default:
-        return 6;
-    }
+    return sites[0];
 }
 
 function getRemainingEnergyNeed(target) {
