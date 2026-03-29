@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const fillEnergy = require("./fill.energy");
 const tasks = require("./tasks");
 
 const roomPriority = [
@@ -20,8 +21,7 @@ const towerPriority = [
 ];
 
 const universalPriority = [
-    constants.taskTypes.FILL_SPAWN,
-    constants.taskTypes.FILL_EXTENSION,
+    constants.taskTypes.FILL_ENERGY,
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.FILL_TOWER,
     constants.taskTypes.REPAIR,
@@ -109,8 +109,8 @@ function askByPriority(roomName, executor, executorType, priority) {
             recordTaskAssignment(
                 task,
                 getExecutorName(executorType, executor),
-                actionIds,
-                getAssignmentPercent(task, templates)
+                actions,
+                templates
             );
 
             return actions;
@@ -145,7 +145,11 @@ function getExecutorActionType(executorType, executor) {
     return executorType;
 }
 
-function recordTaskAssignment(task, executorName, actionIds, percentDelta) {
+function recordTaskAssignment(task, executorName, actions, templates) {
+    const actionIds = actions.map(function (action) {
+        return action.id;
+    });
+
     for (const actionId of actionIds) {
         task.actionIds.push(actionId);
     }
@@ -154,7 +158,15 @@ function recordTaskAssignment(task, executorName, actionIds, percentDelta) {
         task.executorNames.push(executorName);
     }
 
-    task.assignedPercent = Math.min(100, task.assignedPercent + percentDelta);
+    if (fillEnergy.isFillEnergyTask(task)) {
+        fillEnergy.applyDispatchedActions(task, actions);
+        return;
+    }
+
+    task.assignedPercent = Math.min(
+        100,
+        task.assignedPercent + getAssignmentPercent(task, templates)
+    );
 }
 
 function createActions(task, executorName, executorType, templates) {

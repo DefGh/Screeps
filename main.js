@@ -6,6 +6,8 @@ const events = require("./events");
 const init = require("./init");
 
 module.exports.loop = function () {
+    Memory.cpu = Math.max(Game.cpu.getUsed(), Memory.cpu)
+
     init();
     fireRclChangeEvents();
     fireCreepDeathEvents();

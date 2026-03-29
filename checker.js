@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const fillEnergy = require("./fill.energy");
 const miningAnchors = require("./planner.mining_anchors");
 
 const CHECK_INTERVAL = 5;
@@ -12,8 +13,7 @@ const cycleActionTypes = [
     constants.actionTypes.SYNC_ROOM_BUILDER,
     constants.actionTypes.SYNC_TOWER_OPERATIONS,
     constants.actionTypes.CHECK_UNIVERSALS,
-    constants.actionTypes.CHECK_FILL_SPAWN,
-    constants.actionTypes.CHECK_FILL_EXTENSION,
+    constants.actionTypes.CHECK_FILL_ENERGY,
     constants.actionTypes.CHECK_FILL_TOWER,
     constants.actionTypes.CHECK_UPGRADE_CONTROLLER,
     constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT,
@@ -46,19 +46,40 @@ function checkUniversalCount(room, ctx) {
 }
 
 function checkSpawnEnergy(room, ctx) {
-    const spawns = room.find(FIND_MY_STRUCTURES).filter(function (structure) {
-        return structure.structureType === STRUCTURE_SPAWN;
-    });
-
-    syncEnergyTasks(room.name, constants.taskTypes.FILL_SPAWN, spawns, ctx);
+    checkFillEnergy(room, ctx);
 }
 
 function checkExtensionEnergy(room, ctx) {
-    const extensions = room.find(FIND_MY_STRUCTURES).filter(function (structure) {
-        return structure.structureType === STRUCTURE_EXTENSION;
+    checkFillEnergy(room, ctx);
+}
+
+function checkFillEnergy(room, ctx) {
+    cleanupLegacyFillTasks(room.name, ctx);
+
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.FILL_ENERGY;
+    });
+    const hasLiveDemand = fillEnergy.getRoomTargets(room).some(function (target) {
+        return target.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
     });
 
-    syncEnergyTasks(room.name, constants.taskTypes.FILL_EXTENSION, extensions, ctx);
+    if (matchedTasks.length === 0 && !hasLiveDemand) {
+        return;
+    }
+
+    const task = ensureFillEnergyTask(room, matchedTasks, ctx);
+
+    if (!task) {
+        return;
+    }
+
+    require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+    fillEnergy.syncTask(task, room);
+
+    if (!fillEnergy.hasOutstandingDemand(task) && task.actionIds.length === 0) {
+        ctx.removeTask(task.id);
+        ctx.log(`[checker] remove ${constants.taskTypes.FILL_ENERGY} for ${room.name}`);
+    }
 }
 
 function checkTowerEnergy(room, ctx) {
@@ -97,6 +118,41 @@ function checkUpgradeController(room, ctx) {
     task.donePercent = getControllerProgressPercent(room.controller);
 
     require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+}
+
+function ensureFillEnergyTask(room, matchedTasks, ctx) {
+    if (matchedTasks.length === 0) {
+        const result = ctx.addTask(constants.taskTypes.FILL_ENERGY, room.name, {
+            targets: [],
+            total: 0,
+        });
+
+        if (result && result.task) {
+            ctx.log(`[checker] add ${constants.taskTypes.FILL_ENERGY} for ${room.name}`);
+            return result.task;
+        }
+
+        return null;
+    }
+
+    removeExtraTasks(matchedTasks, ctx);
+    return matchedTasks[0];
+}
+
+function cleanupLegacyFillTasks(roomName, ctx) {
+    const roomTasks = ctx.listTasks(roomName);
+
+    for (const task of roomTasks) {
+        if (
+            task.type !== constants.taskTypes.FILL_SPAWN &&
+            task.type !== constants.taskTypes.FILL_EXTENSION
+        ) {
+            continue;
+        }
+
+        ctx.removeTask(task.id);
+        ctx.log(`[checker] remove legacy ${task.type} for ${roomName}`);
+    }
 }
 
 function recalculateUniversalsCount(room, ctx) {
@@ -474,6 +530,7 @@ function getRoomState(roomName) {
 
 module.exports = {
     CHECK_INTERVAL,
+    checkFillEnergy,
     checkExtensionEnergy,
     checkSpawnEnergy,
     checkTowerEnergy,

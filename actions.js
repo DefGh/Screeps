@@ -13,6 +13,7 @@ const placeConstructionSiteAction = require("./action.place_construction_site");
 const transferEnergyAction = require("./action.transfer_energy");
 const upgradeControllerAction = require("./action.upgrade_controller");
 const checkUniversalsAction = require("./action.check_universals");
+const checkFillEnergyAction = require("./action.check_fill_energy");
 const checkFillSpawnAction = require("./action.check_fill_spawn");
 const checkFillExtensionAction = require("./action.check_fill_extension");
 const checkFillTowerAction = require("./action.check_fill_tower");
@@ -37,6 +38,7 @@ const handlers = {
     [constants.actionTypes.TRANSFER_ENERGY]: transferEnergyAction,
     [constants.actionTypes.UPGRADE_CONTROLLER]: upgradeControllerAction,
     [constants.actionTypes.CHECK_UNIVERSALS]: checkUniversalsAction,
+    [constants.actionTypes.CHECK_FILL_ENERGY]: checkFillEnergyAction,
     [constants.actionTypes.CHECK_FILL_SPAWN]: checkFillSpawnAction,
     [constants.actionTypes.CHECK_FILL_EXTENSION]: checkFillExtensionAction,
     [constants.actionTypes.CHECK_FILL_TOWER]: checkFillTowerAction,

@@ -12,6 +12,7 @@ const taskIcons = {
     [constants.taskTypes.SYNC_ROADS]: "🛣️",
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "🧱",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "⬆️",
+    [constants.taskTypes.FILL_ENERGY]: "⚡",
     [constants.taskTypes.FILL_SPAWN]: "⚡",
     [constants.taskTypes.FILL_EXTENSION]: "🔌",
     [constants.taskTypes.FILL_TOWER]: "🛡️",
@@ -34,6 +35,7 @@ const actionIcons = {
     [constants.actionTypes.TRANSFER_ENERGY]: "🔋",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.CHECK_UNIVERSALS]: "👥",
+    [constants.actionTypes.CHECK_FILL_ENERGY]: "⚡",
     [constants.actionTypes.CHECK_FILL_SPAWN]: "⚡",
     [constants.actionTypes.CHECK_FILL_EXTENSION]: "🔌",
     [constants.actionTypes.CHECK_FILL_TOWER]: "🛡️",
@@ -54,6 +56,7 @@ const taskColors = {
     [constants.taskTypes.SYNC_ROADS]: "#c0c7d1",
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "#c77dff",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "#7ddc84",
+    [constants.taskTypes.FILL_ENERGY]: "#58a6ff",
     [constants.taskTypes.FILL_SPAWN]: "#58a6ff",
     [constants.taskTypes.FILL_EXTENSION]: "#58a6ff",
     [constants.taskTypes.FILL_TOWER]: "#58a6ff",
@@ -453,6 +456,8 @@ function getTaskLabel(taskType) {
         return "sync forts";
     case constants.taskTypes.UPGRADE_CONTROLLER:
         return "upgrade";
+    case constants.taskTypes.FILL_ENERGY:
+        return "fill energy";
     case constants.taskTypes.FILL_SPAWN:
         return "fill spawn";
     case constants.taskTypes.FILL_EXTENSION:
@@ -498,6 +503,8 @@ function getActionLabel(actionType) {
         return "upgrade";
     case constants.actionTypes.CHECK_UNIVERSALS:
         return "check uni";
+    case constants.actionTypes.CHECK_FILL_ENERGY:
+        return "check energy";
     case constants.actionTypes.CHECK_FILL_SPAWN:
         return "check spawn";
     case constants.actionTypes.CHECK_FILL_EXTENSION:

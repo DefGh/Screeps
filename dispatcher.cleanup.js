@@ -1,6 +1,7 @@
 const actions = require("./actions");
 const constants = require("./constants");
 const debug = require("./debug");
+const fillEnergy = require("./fill.energy");
 
 function cleanupAssignedAction(action, options) {
     if (!action || !Memory.Dispatcher.actionsById[action.id]) {
@@ -106,6 +107,18 @@ function normalizeTaskAssignments(task) {
 
     task.actionIds = collectActiveTaskActionIds(task);
     rebuildTaskExecutorNames(task);
+
+    if (fillEnergy.isFillEnergyTask(task)) {
+        const changed = fillEnergy.normalizeTask(task);
+
+        if (shouldLogNormalization(task, previousAssignedPercent, previousDonePercent)) {
+            debug.log(
+                `[dispatcher] normalized ${task.type} ${task.id} assigned=${formatPercent(previousAssignedPercent)}->${formatPercent(task.assignedPercent)} done=${formatPercent(previousDonePercent)}->${formatPercent(task.donePercent)} active=${task.actionIds.length}`
+            );
+        }
+
+        return changed;
+    }
 
     if (!hasProgressTotal(task)) {
         return false;

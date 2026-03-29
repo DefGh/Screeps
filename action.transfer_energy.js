@@ -1,10 +1,14 @@
+const fillEnergy = require("./fill.energy");
 const tasks = require("./tasks");
 
 function execute(creep, action) {
-    if (!tasks.getTask(action.taskId)) {
+    const task = tasks.getTask(action.taskId);
+
+    if (!task) {
         return true;
     }
 
+    const isFillEnergyAction = fillEnergy.isFillEnergyTask(task);
     const targetAmount = action.data.amount || 0;
     const doneAmount = action.data.done || 0;
     const target = Game.getObjectById(action.data.targetId);
@@ -14,14 +18,20 @@ function execute(creep, action) {
     }
 
     if (!target) {
-        action.data.done = targetAmount;
+        if (!isFillEnergyAction) {
+            action.data.done = targetAmount;
+        }
+
         return true;
     }
 
     const freeCapacity = target.store.getFreeCapacity(RESOURCE_ENERGY);
 
     if (freeCapacity <= 0) {
-        action.data.done = targetAmount;
+        if (!isFillEnergyAction) {
+            action.data.done = targetAmount;
+        }
+
         return true;
     }
 
@@ -39,7 +49,10 @@ function execute(creep, action) {
     }
 
     if (result === ERR_FULL) {
-        action.data.done = targetAmount;
+        if (!isFillEnergyAction) {
+            action.data.done = targetAmount;
+        }
+
         return true;
     }
 
@@ -53,13 +66,16 @@ function execute(creep, action) {
         freeCapacity
     );
 
-    action.data.done = doneAmount + transferredAmount;
+    action.data.done = Math.min(targetAmount, doneAmount + transferredAmount);
 
-    if (target.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
+    if (!isFillEnergyAction && target.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
         action.data.done = targetAmount;
     }
 
-    return action.data.done >= targetAmount;
+    return (
+        action.data.done >= targetAmount ||
+        target.store.getFreeCapacity(RESOURCE_ENERGY) <= 0
+    );
 }
 
 function onCompleted(action) {
@@ -69,10 +85,32 @@ function onCompleted(action) {
         return;
     }
 
+    if (fillEnergy.isFillEnergyTask(task)) {
+        fillEnergy.settleTransferAction(task, action);
+        return;
+    }
+
     addTaskDone(task, action.data.done || 0);
 }
 
-function onCreepDeath() {
+function onCancel(action) {
+    const task = tasks.getTask(action.taskId);
+
+    if (!fillEnergy.isFillEnergyTask(task)) {
+        return;
+    }
+
+    fillEnergy.settleTransferAction(task, action);
+}
+
+function onCreepDeath(event, action) {
+    const task = tasks.getTask(action.taskId);
+
+    if (!fillEnergy.isFillEnergyTask(task)) {
+        return;
+    }
+
+    fillEnergy.settleTransferAction(task, action);
 }
 
 function addTaskDone(task, amount) {
@@ -87,6 +125,7 @@ function addTaskDone(task, amount) {
 
 module.exports = {
     execute,
+    onCancel,
     onCompleted,
     onCreepDeath,
 };
