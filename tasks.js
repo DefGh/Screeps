@@ -11,7 +11,6 @@ const fillSpawnTask = require("./task.fill_spawn");
 const fillExtensionTask = require("./task.fill_extension");
 const fillTowerTask = require("./task.fill_tower");
 const buildTask = require("./task.build");
-const repairTask = require("./task.repair");
 const upgradeControllerTask = require("./task.upgrade_controller");
 
 const handlers = {
@@ -26,7 +25,6 @@ const handlers = {
     [constants.taskTypes.FILL_SPAWN]: fillSpawnTask,
     [constants.taskTypes.FILL_EXTENSION]: fillExtensionTask,
     [constants.taskTypes.FILL_TOWER]: fillTowerTask,
-    [constants.taskTypes.REPAIR]: repairTask,
     [constants.taskTypes.BUILD]: buildTask,
     [constants.taskTypes.UPGRADE_CONTROLLER]: upgradeControllerTask,
 };

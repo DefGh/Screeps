@@ -15,6 +15,7 @@ const cycleActionTypes = [
     constants.actionTypes.CHECK_FILL_SPAWN,
     constants.actionTypes.CHECK_FILL_EXTENSION,
     constants.actionTypes.CHECK_FILL_TOWER,
+    constants.actionTypes.CHECK_UPGRADE_CONTROLLER,
     constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT,
 ];
 
@@ -66,6 +67,36 @@ function checkTowerEnergy(room, ctx) {
     });
 
     syncEnergyTasks(room.name, constants.taskTypes.FILL_TOWER, towers, ctx);
+}
+
+function checkUpgradeController(room, ctx) {
+    if (!room.controller || !room.controller.my) {
+        return;
+    }
+
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.UPGRADE_CONTROLLER;
+    });
+
+    if (!hasControllerUpgradeTotal(room.controller)) {
+        for (const task of matchedTasks) {
+            ctx.removeTask(task.id);
+            ctx.log(`[checker] remove ${constants.taskTypes.UPGRADE_CONTROLLER} for ${room.name}`);
+        }
+
+        return;
+    }
+
+    const task = ensureUpgradeTask(room, matchedTasks, ctx);
+
+    if (!task) {
+        return;
+    }
+
+    task.data.total = room.controller.progressTotal;
+    task.donePercent = getControllerProgressPercent(room.controller);
+
+    require("./dispatcher.cleanup").normalizeTaskAssignments(task);
 }
 
 function recalculateUniversalsCount(room, ctx) {
@@ -266,6 +297,24 @@ function syncEnergyTasks(roomName, taskType, targets, ctx) {
     }
 }
 
+function ensureUpgradeTask(room, matchedTasks, ctx) {
+    if (matchedTasks.length === 0) {
+        const result = ctx.addTask(constants.taskTypes.UPGRADE_CONTROLLER, room.name, {
+            total: room.controller.progressTotal,
+        });
+
+        if (result && result.task) {
+            ctx.log(`[checker] add ${constants.taskTypes.UPGRADE_CONTROLLER} for ${room.name}`);
+            return result.task;
+        }
+
+        return null;
+    }
+
+    removeExtraTasks(matchedTasks, ctx);
+    return matchedTasks[0];
+}
+
 function syncTargetTask(roomName, taskType, targetId, shouldExist, ctx) {
     const matchedTasks = getTargetTasks(roomName, taskType, targetId, ctx);
 
@@ -312,6 +361,29 @@ function removeExtraTasks(matchedTasks, ctx) {
     for (let index = 1; index < matchedTasks.length; index += 1) {
         ctx.removeTask(matchedTasks[index].id);
     }
+}
+
+function hasControllerUpgradeTotal(controller) {
+    return !!(
+        controller &&
+        Number.isFinite(controller.progressTotal) &&
+        controller.progressTotal > 0
+    );
+}
+
+function getControllerProgressPercent(controller) {
+    if (!hasControllerUpgradeTotal(controller)) {
+        return 0;
+    }
+
+    const progress = Number.isFinite(controller.progress)
+        ? controller.progress
+        : 0;
+
+    return Math.max(
+        0,
+        Math.min(100, (progress / controller.progressTotal) * 100)
+    );
 }
 
 function shouldRecreateTaskWithoutExecutors(task) {
@@ -405,9 +477,11 @@ module.exports = {
     checkExtensionEnergy,
     checkSpawnEnergy,
     checkTowerEnergy,
+    checkUpgradeController,
     checkUniversalCount,
     getCycleActionType,
     getCycleLength,
+    getRoomEnergyBuffer,
     getRoomState,
     recalculateUniversalsCount,
     syncMiningOperations,

@@ -4,6 +4,7 @@ const mineAction = require("./action.mine");
 const pickupResourceAction = require("./action.pickup_resource");
 const takeResourceAction = require("./action.take_resource");
 const buildAction = require("./action.build");
+const repairAction = require("./action.repair");
 const taxiAction = require("./action.taxi");
 const towerAttackAction = require("./action.tower_attack");
 const towerRepairAction = require("./action.tower_repair");
@@ -15,6 +16,7 @@ const checkUniversalsAction = require("./action.check_universals");
 const checkFillSpawnAction = require("./action.check_fill_spawn");
 const checkFillExtensionAction = require("./action.check_fill_extension");
 const checkFillTowerAction = require("./action.check_fill_tower");
+const checkUpgradeControllerAction = require("./action.check_upgrade_controller");
 const recalculateUniversalsCountAction = require("./action.recalculate_universals_count");
 const syncMiningOperationsAction = require("./action.sync_mining_operations");
 const syncRoomBuilderAction = require("./action.sync_room_builder");
@@ -26,6 +28,7 @@ const handlers = {
     [constants.actionTypes.PICKUP_RESOURCE]: pickupResourceAction,
     [constants.actionTypes.TAKE_RESOURCE]: takeResourceAction,
     [constants.actionTypes.BUILD]: buildAction,
+    [constants.actionTypes.REPAIR]: repairAction,
     [constants.actionTypes.TAXI]: taxiAction,
     [constants.actionTypes.TOWER_ATTACK]: towerAttackAction,
     [constants.actionTypes.TOWER_REPAIR]: towerRepairAction,
@@ -37,6 +40,7 @@ const handlers = {
     [constants.actionTypes.CHECK_FILL_SPAWN]: checkFillSpawnAction,
     [constants.actionTypes.CHECK_FILL_EXTENSION]: checkFillExtensionAction,
     [constants.actionTypes.CHECK_FILL_TOWER]: checkFillTowerAction,
+    [constants.actionTypes.CHECK_UPGRADE_CONTROLLER]: checkUpgradeControllerAction,
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: recalculateUniversalsCountAction,
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: syncMiningOperationsAction,
     [constants.actionTypes.SYNC_ROOM_BUILDER]: syncRoomBuilderAction,

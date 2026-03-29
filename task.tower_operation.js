@@ -1,6 +1,5 @@
 const constants = require("./constants");
-
-const FORTIFICATION_REPAIR_CAP = 100000;
+const repairTargets = require("./repair.targets");
 
 function onCompleted() {
 }
@@ -82,57 +81,7 @@ function selectNearestTarget(tower, targets) {
 }
 
 function selectRepairTarget(tower, structures) {
-    const targets = structures.filter(function (structure) {
-        return isRepairCandidate(structure);
-    });
-
-    if (targets.length === 0) {
-        return null;
-    }
-
-    targets.sort(function (left, right) {
-        const percentDelta =
-            getMissingHpPercent(right) - getMissingHpPercent(left);
-
-        if (Math.abs(percentDelta) > 0.000001) {
-            return percentDelta;
-        }
-
-        return compareByRangeAndPosition(tower, left, right);
-    });
-
-    return targets[0];
-}
-
-function isRepairCandidate(structure) {
-    if (structure.owner && !structure.my) {
-        return false;
-    }
-
-    const targetMaxHits = getRepairTargetMaxHits(structure);
-
-    return targetMaxHits > 0 && structure.hits < targetMaxHits;
-}
-
-function getRepairTargetMaxHits(structure) {
-    if (
-        structure.structureType === STRUCTURE_WALL ||
-        structure.structureType === STRUCTURE_RAMPART
-    ) {
-        return Math.min(structure.hitsMax, FORTIFICATION_REPAIR_CAP);
-    }
-
-    return structure.hitsMax;
-}
-
-function getMissingHpPercent(structure) {
-    const targetMaxHits = getRepairTargetMaxHits(structure);
-
-    if (targetMaxHits <= 0) {
-        return -1;
-    }
-
-    return (targetMaxHits - structure.hits) / targetMaxHits;
+    return repairTargets.selectRepairTarget(tower, structures);
 }
 
 function compareByRangeAndPosition(tower, left, right) {

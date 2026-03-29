@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const checker = require("./checker");
 const tasks = require("./tasks");
 
 const taskIcons = {
@@ -24,6 +25,7 @@ const actionIcons = {
     [constants.actionTypes.PICKUP_RESOURCE]: "🫳",
     [constants.actionTypes.TAKE_RESOURCE]: "📦",
     [constants.actionTypes.BUILD]: "🏗️",
+    [constants.actionTypes.REPAIR]: "🩹",
     [constants.actionTypes.TAXI]: "🚕",
     [constants.actionTypes.TOWER_ATTACK]: "🎯",
     [constants.actionTypes.TOWER_REPAIR]: "🔧",
@@ -35,6 +37,7 @@ const actionIcons = {
     [constants.actionTypes.CHECK_FILL_SPAWN]: "⚡",
     [constants.actionTypes.CHECK_FILL_EXTENSION]: "🔌",
     [constants.actionTypes.CHECK_FILL_TOWER]: "🛡️",
+    [constants.actionTypes.CHECK_UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: "📈",
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: "⛏️",
     [constants.actionTypes.SYNC_ROOM_BUILDER]: "🏗️",
@@ -63,6 +66,7 @@ const actionLineColors = {
     [constants.actionTypes.PICKUP_RESOURCE]: "#4ecdc4",
     [constants.actionTypes.TAKE_RESOURCE]: "#3da9fc",
     [constants.actionTypes.BUILD]: "#ff9f43",
+    [constants.actionTypes.REPAIR]: "#ff6b6b",
     [constants.actionTypes.TAXI]: "#c77dff",
     [constants.actionTypes.TRANSFER_ENERGY]: "#58a6ff",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "#7ddc84",
@@ -74,6 +78,7 @@ const PANEL_OFFSET_X = 1;
 const PANEL_OFFSET_Y = 0.6;
 const PANEL_PADDING_RIGHT = 0.2;
 const PANEL_PADDING_BOTTOM = 0.2;
+const ENERGY_SNAPSHOT_INTERVAL = 50;
 
 function log(message) {
     if (!Memory.debug) {
@@ -91,13 +96,16 @@ function visuals() {
     const roomNames = Object.keys(Game.rooms);
 
     for (const roomName of roomNames) {
+        const room = Game.rooms[roomName];
         const roomTasks = tasks.listTasks(roomName); 
         const lines = [];
+        const roomState = checker.getRoomState(roomName);
+        const limit = roomState.universalTargetCount;
+        const energyStats = getEnergyStats(room, roomState);
 
-        var limit = Memory.Checker.rooms[roomName].universalTargetCount; //
-
-        lines.push(createLine(`🌐 ${roomName} Universals:${limit}`, "#ffffff", 0.58));
-        lines.push(createLine(``, "#ffffff", 0.58));
+        lines.push(createLine(createRoomHeader(room, limit), "#ffffff", 0.58));
+        lines.push(createEnergyLine(energyStats));
+        lines.push(createLine("", "#ffffff", 0.58));
         if (roomTasks.length === 0) {
             lines.push(createLine("· no active tasks", "#b8c0c7", 0.43));
         }
@@ -112,18 +120,18 @@ function visuals() {
         const visual = new RoomVisual(roomName);
         const origin = getPanelOrigin(roomName, width, height);
 
-        visual.rect(origin.x, origin.y, width, height, {
+        visual.rect(origin.x, origin.y -.2 , width, height , {
             fill: "#0f141b",
             opacity: 0.5,
             stroke: "#506070",
             strokeWidth: 0.05,
         });
-        visual.rect(origin.x, origin.y, width, 0.85, {
+        visual.rect(origin.x, origin.y, width, 1.35, {
             fill: "#17212b",
             opacity: 0.92,
             stroke: "transparent",
         });
-        visual.rect(origin.x, origin.y + 0.85, width, 0.08, {
+        visual.rect(origin.x, origin.y + 1.35, width, 0.08, {
             fill: "#2d3a46",
             opacity: 0.7,
             stroke: "transparent",
@@ -180,6 +188,24 @@ function createAssignmentLine(assignment) {
     );
 }
 
+function createRoomHeader(room, universalLimit) {
+    const rcl = room && room.controller ? room.controller.level : "-";
+    const gcl = Game.gcl ? Game.gcl.level : "-";
+
+    return `🌐 ${room.name} U:${universalLimit} RCL:${rcl} GCL:${gcl}`;
+}
+
+function createEnergyLine(energyStats) {
+    const arrow = getEnergyArrow(energyStats.delta);
+    const deltaText = formatSignedAmount(energyStats.delta);
+
+    return createLine(
+        `⚡ energy ${formatAmount(energyStats.previousAmount)} ${arrow} ${formatAmount(energyStats.currentAmount)} (${deltaText}, ${energyStats.age}t)`,
+        getEnergyDeltaColor(energyStats.delta),
+        0.44
+    );
+}
+
 function formatTaskProgress(task) {
     if (task.data.total > 0) {
         const doneAmount = (task.data.total * task.donePercent) / 100;
@@ -225,7 +251,36 @@ function getPanelWidth(lines) {
         maxLength = Math.max(maxLength, line.text.length);
     }
 
-    return Math.max(16, Math.min(25, 1.5 + (maxLength * 0.24)));
+    return Math.max(10, Math.min(20, 1.2 + (maxLength * 0.2)));
+}
+
+function getEnergyStats(room, roomState) {
+    const currentAmount = checker.getRoomEnergyBuffer(room);
+    const snapshot = getEnergySnapshot(roomState, currentAmount);
+
+    return {
+        age: Math.max(0, Game.time - snapshot.tick),
+        currentAmount: currentAmount,
+        delta: currentAmount - snapshot.amount,
+        previousAmount: snapshot.amount,
+    };
+}
+
+function getEnergySnapshot(roomState, currentAmount) {
+    if (!roomState.energySnapshot) {
+        roomState.energySnapshot = {
+            amount: currentAmount,
+            tick: Game.time,
+        };
+    }
+    else if (Game.time - roomState.energySnapshot.tick >= ENERGY_SNAPSHOT_INTERVAL) {
+        roomState.energySnapshot = {
+            amount: currentAmount,
+            tick: Game.time,
+        };
+    }
+
+    return roomState.energySnapshot;
 }
 
 function getPanelOrigin(roomName, width, height) {
@@ -340,6 +395,7 @@ function getActionTargetPosition(action, creep) {
         action.type === constants.actionTypes.PICKUP_RESOURCE ||
         action.type === constants.actionTypes.TAKE_RESOURCE ||
         action.type === constants.actionTypes.BUILD ||
+        action.type === constants.actionTypes.REPAIR ||
         action.type === constants.actionTypes.TRANSFER_ENERGY
     ) {
         return getObjectPosition(
@@ -424,6 +480,8 @@ function getActionLabel(actionType) {
         return "take";
     case constants.actionTypes.BUILD:
         return "build";
+    case constants.actionTypes.REPAIR:
+        return "repair";
     case constants.actionTypes.TAXI:
         return "taxi";
     case constants.actionTypes.TOWER_ATTACK:
@@ -446,6 +504,8 @@ function getActionLabel(actionType) {
         return "check ext";
     case constants.actionTypes.CHECK_FILL_TOWER:
         return "check tower";
+    case constants.actionTypes.CHECK_UPGRADE_CONTROLLER:
+        return "check upg";
     case constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT:
         return "recalc";
     case constants.actionTypes.SYNC_MINING_OPERATIONS:
@@ -473,6 +533,38 @@ function formatPercent(value) {
     }
 
     return `${value.toFixed(1)}%`;
+}
+
+function formatSignedAmount(value) {
+    if (value > 0) {
+        return `+${formatAmount(value)}`;
+    }
+
+    return formatAmount(value);
+}
+
+function getEnergyArrow(delta) {
+    if (delta > 0) {
+        return "↑";
+    }
+
+    if (delta < 0) {
+        return "↓";
+    }
+
+    return "→";
+}
+
+function getEnergyDeltaColor(delta) {
+    if (delta > 0) {
+        return "#7ddc84";
+    }
+
+    if (delta < 0) {
+        return "#ff6b6b";
+    }
+
+    return "#b8c0c7";
 }
 
 module.exports = {

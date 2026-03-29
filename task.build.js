@@ -1,4 +1,5 @@
 const constants = require("./constants");
+const repairTargets = require("./repair.targets");
 const resourceManager = require("./resource.manager");
 
 function onCompleted() {
@@ -19,7 +20,16 @@ function tryDispatch(task, creep) {
         return [];
     }
 
-    if (countActiveBuildActions(task) >= 2) {
+    const repairTarget = repairTargets.selectRepairTarget(
+        creep,
+        room.find(FIND_STRUCTURES)
+    );
+
+    if (repairTarget) {
+        return tryDispatchRepair(task, creep, repairTarget);
+    }
+
+    if (countActiveActions(task, constants.actionTypes.BUILD) >= 2) {
         return [];
     }
 
@@ -59,7 +69,42 @@ function tryDispatch(task, creep) {
     ];
 }
 
-function countActiveBuildActions(task) {
+function tryDispatchRepair(task, creep, target) {
+    if (countActiveActions(task, constants.actionTypes.REPAIR) >= 1) {
+        return [];
+    }
+
+    const remainingAmount = repairTargets.getRemainingRepairEnergyNeed(target);
+
+    if (remainingAmount <= 0) {
+        return [];
+    }
+
+    const currentEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
+
+    if (currentEnergy > 0) {
+        return [
+            createRepairTemplate(target.id, Math.min(currentEnergy, remainingAmount)),
+        ];
+    }
+
+    const assignedAmount = Math.min(
+        creep.store.getCapacity(RESOURCE_ENERGY),
+        remainingAmount
+    );
+    const energyAction = resourceManager.reserve(creep, assignedAmount);
+
+    if (!energyAction) {
+        return [];
+    }
+
+    return [
+        energyAction,
+        createRepairTemplate(target.id, assignedAmount),
+    ];
+}
+
+function countActiveActions(task, actionType) {
     let count = 0;
 
     for (const actionId of task.actionIds) {
@@ -67,7 +112,7 @@ function countActiveBuildActions(task) {
 
         if (
             action &&
-            action.type === constants.actionTypes.BUILD &&
+            action.type === actionType &&
             action.status !== "done"
         ) {
             count += 1;
@@ -146,7 +191,7 @@ function pickNextFocusTarget(room) {
 }
 
 function getRemainingEnergyNeed(target) {
-    return Math.ceil((target.progressTotal - target.progress) / BUILD_POWER);
+    return target.progressTotal - target.progress;
 }
 
 function getPrimarySpawn(room) {
@@ -179,6 +224,17 @@ function isConstructionSite(target) {
 function createBuildTemplate(targetId, amount) {
     return {
         type: constants.actionTypes.BUILD,
+        data: {
+            amount: amount,
+            done: 0,
+            targetId: targetId,
+        },
+    };
+}
+
+function createRepairTemplate(targetId, amount) {
+    return {
+        type: constants.actionTypes.REPAIR,
         data: {
             amount: amount,
             done: 0,

@@ -199,9 +199,11 @@ function completeAction(state, action) {
 function isTerminalAction(actionType) {
     return (
         actionType === constants.actionTypes.BUILD ||
+        actionType === constants.actionTypes.REPAIR ||
         actionType === constants.actionTypes.CHECK_FILL_EXTENSION ||
         actionType === constants.actionTypes.CHECK_FILL_SPAWN ||
         actionType === constants.actionTypes.CHECK_FILL_TOWER ||
+        actionType === constants.actionTypes.CHECK_UPGRADE_CONTROLLER ||
         actionType === constants.actionTypes.CHECK_UNIVERSALS ||
         actionType === constants.actionTypes.PLACE_CONSTRUCTION_SITE ||
         actionType === constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT ||
