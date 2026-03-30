@@ -33,7 +33,7 @@ function execute(spawn, action) {
         body,
         action.data.creepName,
         {
-            memory: createCreepMemory(spawn, action, roleSpec),
+            memory: createCreepMemory(spawn, action, roleSpec, body),
         }
     );
 
@@ -76,7 +76,7 @@ function nextCreepName(role) {
     return `${role}_${Memory.creepSequence}`;
 }
 
-function createCreepMemory(spawn, action, roleSpec) {
+function createCreepMemory(spawn, action, roleSpec, body) {
     let roleMemory = {};
 
     if (roleSpec.buildMemory) {
@@ -86,10 +86,16 @@ function createCreepMemory(spawn, action, roleSpec) {
         roleMemory = roleSpec.memory;
     }
 
-    return Object.assign({}, roleMemory, action.data.memory || {}, {
+    const memory = Object.assign({}, roleMemory, action.data.memory || {}, {
         role: action.data.role,
         originRoomName: spawn.room.name,
     });
+
+    if (action.data.role === constants.roles.UNIVERSAL) {
+        memory.generation = Array.isArray(body) ? body.length : 0;
+    }
+
+    return memory;
 }
 
 module.exports = {

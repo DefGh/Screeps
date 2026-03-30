@@ -10,6 +10,7 @@ module.exports = {
     taskTypes: {
         SPAWN_CREEP: "spawn_creep",
         CHECKER: "checker",
+        EXPANSION: "expansion",
         MINING_OPERATION: "mining_operation",
         TOWER_OPERATION: "tower_operation",
         SYNC_EXTENSIONS: "sync_extensions",
@@ -23,6 +24,7 @@ module.exports = {
         FILL_TOWER: "fill_tower",
         BUILD: "build",
         REPAIR: "repair",
+        RENEW_UNIVERSAL: "renew_universal",
     },
 
     actionTypes: {
@@ -32,6 +34,9 @@ module.exports = {
         TAKE_RESOURCE: "take_resource",
         BUILD: "build",
         REPAIR: "repair",
+        SCOUT_ROOM: "scout_room",
+        CLAIM_CONTROLLER: "claim_controller",
+        RETIRE_CREEP: "retire_creep",
         TAXI: "taxi",
         TOWER_ATTACK: "tower_attack",
         TOWER_REPAIR: "tower_repair",
@@ -40,12 +45,16 @@ module.exports = {
         TRANSFER_ENERGY: "transfer_energy",
         UPGRADE_CONTROLLER: "upgrade_controller",
         CHECK_UNIVERSALS: "check_universals",
+        CHECK_UNIVERSAL_RENEW: "check_universal_renew",
         CHECK_FILL_ENERGY: "check_fill_energy",
         CHECK_FILL_SPAWN: "check_fill_spawn",
         CHECK_FILL_EXTENSION: "check_fill_extension",
         CHECK_FILL_TOWER: "check_fill_tower",
+        CHECK_EXPANSION: "check_expansion",
         CHECK_UPGRADE_CONTROLLER: "check_upgrade_controller",
+        MOVE_TO_RENEW: "move_to_renew",
         RECALCULATE_UNIVERSALS_COUNT: "recalculate_universals_count",
+        RENEW_CREEP: "renew_creep",
         SYNC_MINING_OPERATIONS: "sync_mining_operations",
         SYNC_ROOM_BUILDER: "sync_room_builder",
         SYNC_TOWER_OPERATIONS: "sync_tower_operations",
@@ -54,6 +63,9 @@ module.exports = {
     roles: {
         UNIVERSAL: "universal",
         MINER: "miner",
+        SCOUT: "scout",
+        CLAIMER: "claimer",
+        COLONIZER: "colonizer",
     },
 
     eventScopes: {

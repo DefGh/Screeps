@@ -48,6 +48,18 @@ function ensureMemory() {
     if (!Memory.towers) {
         Memory.towers = {};
     }
+
+    if (!Memory.Expansion) {
+        Memory.Expansion = {
+            activeCampaign: null,
+            candidateRooms: [],
+            enemyRooms: [],
+            frontierQueue: [],
+            scoutedRooms: {},
+            sequence: 0,
+            spawnSite: null,
+        };
+    }
 }
 
 module.exports = function () {

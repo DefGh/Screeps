@@ -4,6 +4,7 @@ const tasks = require("./tasks");
 
 const roomPriority = [
     constants.taskTypes.CHECKER,
+    constants.taskTypes.EXPANSION,
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.SYNC_TOWERS,
     constants.taskTypes.SYNC_EXTENSIONS,
@@ -14,6 +15,7 @@ const roomPriority = [
 const spawnPriority = [
     constants.taskTypes.SPAWN_CREEP,
     constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.RENEW_UNIVERSAL,
 ];
 
 const towerPriority = [
@@ -21,6 +23,7 @@ const towerPriority = [
 ];
 
 const universalPriority = [
+    constants.taskTypes.RENEW_UNIVERSAL,
     constants.taskTypes.FILL_ENERGY,
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.FILL_TOWER,
@@ -31,6 +34,10 @@ const universalPriority = [
 
 const minerPriority = [
     constants.taskTypes.MINING_OPERATION,
+];
+
+const expansionPriority = [
+    constants.taskTypes.EXPANSION,
 ];
 
 function askRoom(room) {
@@ -61,6 +68,19 @@ function askCreep(creep) {
             creep,
             "creep",
             minerPriority
+        );
+    }
+
+    if (
+        creep.memory.role === constants.roles.SCOUT ||
+        creep.memory.role === constants.roles.CLAIMER ||
+        creep.memory.role === constants.roles.COLONIZER
+    ) {
+        return askByPriority(
+            creep.memory.originRoomName,
+            creep,
+            "creep",
+            expansionPriority
         );
     }
 

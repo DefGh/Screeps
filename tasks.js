@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const checkerTask = require("./task.checker");
+const expansionTask = require("./task.expansion");
 const miningOperationTask = require("./task.mining_operation");
 const towerOperationTask = require("./task.tower_operation");
 const syncExtensionsTask = require("./task.sync_extensions");
@@ -7,6 +8,7 @@ const syncTowersTask = require("./task.sync_towers");
 const syncRoadsTask = require("./task.sync_roads");
 const syncFortificationsTask = require("./task.sync_fortifications");
 const spawnCreepTask = require("./task.spawn_creep");
+const renewUniversalTask = require("./task.renew_universal");
 const fillEnergyTask = require("./task.fill_energy");
 const fillSpawnTask = require("./task.fill_spawn");
 const fillExtensionTask = require("./task.fill_extension");
@@ -16,7 +18,9 @@ const upgradeControllerTask = require("./task.upgrade_controller");
 
 const handlers = {
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask,
+    [constants.taskTypes.RENEW_UNIVERSAL]: renewUniversalTask,
     [constants.taskTypes.CHECKER]: checkerTask,
+    [constants.taskTypes.EXPANSION]: expansionTask,
     [constants.taskTypes.MINING_OPERATION]: miningOperationTask,
     [constants.taskTypes.TOWER_OPERATION]: towerOperationTask,
     [constants.taskTypes.SYNC_EXTENSIONS]: syncExtensionsTask,

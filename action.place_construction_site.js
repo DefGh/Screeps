@@ -5,11 +5,17 @@ function execute(room, action) {
         return true;
     }
 
-    if (hasStructureOrSite(room, action.data)) {
+    const targetRoom = Game.rooms[action.data.roomName] || room;
+
+    if (!targetRoom) {
+        return false;
+    }
+
+    if (hasStructureOrSite(targetRoom, action.data)) {
         return true;
     }
 
-    const result = room.createConstructionSite(
+    const result = targetRoom.createConstructionSite(
         action.data.x,
         action.data.y,
         action.data.structureType

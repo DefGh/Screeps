@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const fillEnergy = require("./fill.energy");
 const miningAnchors = require("./planner.mining_anchors");
+const renewUniversal = require("./renew.universal");
 
 const CHECK_INTERVAL = 5;
 const UNIVERSAL_RECALCULATE_INTERVAL = 300;
@@ -13,8 +14,10 @@ const cycleActionTypes = [
     constants.actionTypes.SYNC_ROOM_BUILDER,
     constants.actionTypes.SYNC_TOWER_OPERATIONS,
     constants.actionTypes.CHECK_UNIVERSALS,
+    constants.actionTypes.CHECK_UNIVERSAL_RENEW,
     constants.actionTypes.CHECK_FILL_ENERGY,
     constants.actionTypes.CHECK_FILL_TOWER,
+    constants.actionTypes.CHECK_EXPANSION,
     constants.actionTypes.CHECK_UPGRADE_CONTROLLER,
     constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT,
 ];
@@ -43,6 +46,59 @@ function checkUniversalCount(room, ctx) {
         });
         ctx.log(`[checker] add ${constants.taskTypes.SPAWN_CREEP} for ${room.name}`);
     }
+}
+
+function checkUniversalRenew(room, ctx) {
+    const roomState = getRoomState(room.name);
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.RENEW_UNIVERSAL;
+    });
+    const currentCount = countUniversals(room.name, ctx);
+    const roomGeneration = renewUniversal.getRoomGeneration(room);
+    const spawn = renewUniversal.getPrimarySpawn(room.name);
+    let task = matchedTasks[0] || null;
+
+    removeExtraTasks(matchedTasks, ctx);
+
+    if (
+        !spawn ||
+        currentCount > roomState.universalTargetCount
+    ) {
+        removeRenewTask(task, room.name, ctx);
+        return;
+    }
+
+    if (task && !isValidRenewTask(task, roomState.universalTargetCount, currentCount, roomGeneration)) {
+        removeRenewTask(task, room.name, ctx);
+        task = null;
+    }
+
+    if (!task) {
+        const target = pickRenewTarget(room.name, roomGeneration);
+
+        if (!target) {
+            return;
+        }
+
+        const result = ctx.addTask(constants.taskTypes.RENEW_UNIVERSAL, room.name, {
+            renewUntil: renewUniversal.RENEW_TARGET_TTL,
+            spawnName: spawn.name,
+            targetCreepName: target.name,
+            targetGeneration: roomGeneration,
+        });
+
+        if (!result || !result.task) {
+            return;
+        }
+
+        task = result.task;
+        ctx.log(`[checker] add ${constants.taskTypes.RENEW_UNIVERSAL} for ${room.name}:${target.name}`);
+    }
+
+    task.data.renewUntil = renewUniversal.getRenewUntil(task.data.renewUntil);
+    task.data.spawnName = spawn.name;
+    task.data.targetGeneration = roomGeneration;
+    syncRenewTaskProgress(task);
 }
 
 function checkSpawnEnergy(room, ctx) {
@@ -118,6 +174,10 @@ function checkUpgradeController(room, ctx) {
     task.donePercent = getControllerProgressPercent(room.controller);
 
     require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+}
+
+function checkExpansion(room, ctx) {
+    require("./expansion").reconcile(room, ctx);
 }
 
 function ensureFillEnergyTask(room, matchedTasks, ctx) {
@@ -371,6 +431,78 @@ function ensureUpgradeTask(room, matchedTasks, ctx) {
     return matchedTasks[0];
 }
 
+function isValidRenewTask(task, targetCount, currentCount, roomGeneration) {
+    const creep = Game.creeps[task.data.targetCreepName];
+    const spawn = Game.spawns[task.data.spawnName];
+
+    if (
+        !creep ||
+        !renewUniversal.isUniversalOfRoom(creep, task.room) ||
+        !spawn ||
+        spawn.room.name !== task.room ||
+        currentCount > targetCount ||
+        !renewUniversal.isGenerationCurrent(creep, task.room) ||
+        renewUniversal.isComplete(creep, task.data.renewUntil) ||
+        renewUniversal.getCreepGeneration(creep) < roomGeneration
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+function pickRenewTarget(roomName, roomGeneration) {
+    let bestCreep = null;
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            !renewUniversal.isEligibleToStart(creep, roomName) ||
+            renewUniversal.getCreepGeneration(creep) < roomGeneration
+        ) {
+            continue;
+        }
+
+        if (
+            !bestCreep ||
+            creep.ticksToLive < bestCreep.ticksToLive ||
+            (
+                creep.ticksToLive === bestCreep.ticksToLive &&
+                creep.name.localeCompare(bestCreep.name) < 0
+            )
+        ) {
+            bestCreep = creep;
+        }
+    }
+
+    return bestCreep;
+}
+
+function removeRenewTask(task, roomName, ctx) {
+    if (!task) {
+        return;
+    }
+
+    ctx.removeTask(task.id);
+    ctx.log(`[checker] remove ${constants.taskTypes.RENEW_UNIVERSAL} for ${roomName}`);
+}
+
+function syncRenewTaskProgress(task) {
+    const creep = Game.creeps[task.data.targetCreepName];
+
+    if (!creep) {
+        task.donePercent = 0;
+        task.assignedPercent = 0;
+        return;
+    }
+
+    const progress = renewUniversal.getProgressPercent(creep, task.data.renewUntil);
+
+    task.donePercent = progress;
+    task.assignedPercent = progress;
+}
+
 function syncTargetTask(roomName, taskType, targetId, shouldExist, ctx) {
     const matchedTasks = getTargetTasks(roomName, taskType, targetId, ctx);
 
@@ -530,12 +662,14 @@ function getRoomState(roomName) {
 
 module.exports = {
     CHECK_INTERVAL,
+    checkExpansion,
     checkFillEnergy,
     checkExtensionEnergy,
     checkSpawnEnergy,
     checkTowerEnergy,
     checkUpgradeController,
     checkUniversalCount,
+    checkUniversalRenew,
     getCycleActionType,
     getCycleLength,
     getRoomEnergyBuffer,

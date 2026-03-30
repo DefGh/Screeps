@@ -6,7 +6,9 @@ const events = require("./events");
 const init = require("./init");
 
 module.exports.loop = function () {
-    Memory.cpu = Math.max(Game.cpu.getUsed(), Memory.cpu)
+    Memory.cpu = Math.max(Game.cpu.getUsed(), Memory.cpu);
+    
+    //Game.map.visual.circle(new RoomPosition(25,25,'W7N3'));
 
     init();
     fireRclChangeEvents();

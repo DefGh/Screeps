@@ -5,6 +5,7 @@ const tasks = require("./tasks");
 const taskIcons = {
     [constants.taskTypes.SPAWN_CREEP]: "🐣",
     [constants.taskTypes.CHECKER]: "🧭",
+    [constants.taskTypes.EXPANSION]: "🚩",
     [constants.taskTypes.MINING_OPERATION]: "⛏️",
     [constants.taskTypes.TOWER_OPERATION]: "🛡️",
     [constants.taskTypes.SYNC_TOWERS]: "🗼",
@@ -18,6 +19,7 @@ const taskIcons = {
     [constants.taskTypes.FILL_TOWER]: "🛡️",
     [constants.taskTypes.BUILD]: "🏗️",
     [constants.taskTypes.REPAIR]: "🩹",
+    [constants.taskTypes.RENEW_UNIVERSAL]: "♻️",
 };
 
 const actionIcons = {
@@ -26,7 +28,12 @@ const actionIcons = {
     [constants.actionTypes.PICKUP_RESOURCE]: "🫳",
     [constants.actionTypes.TAKE_RESOURCE]: "📦",
     [constants.actionTypes.BUILD]: "🏗️",
+    [constants.actionTypes.MOVE_TO_RENEW]: "↩️",
     [constants.actionTypes.REPAIR]: "🩹",
+    [constants.actionTypes.RENEW_CREEP]: "♻️",
+    [constants.actionTypes.SCOUT_ROOM]: "👁️",
+    [constants.actionTypes.CLAIM_CONTROLLER]: "🏳️",
+    [constants.actionTypes.RETIRE_CREEP]: "☠️",
     [constants.actionTypes.TAXI]: "🚕",
     [constants.actionTypes.TOWER_ATTACK]: "🎯",
     [constants.actionTypes.TOWER_REPAIR]: "🔧",
@@ -35,10 +42,12 @@ const actionIcons = {
     [constants.actionTypes.TRANSFER_ENERGY]: "🔋",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.CHECK_UNIVERSALS]: "👥",
+    [constants.actionTypes.CHECK_UNIVERSAL_RENEW]: "♻️",
     [constants.actionTypes.CHECK_FILL_ENERGY]: "⚡",
     [constants.actionTypes.CHECK_FILL_SPAWN]: "⚡",
     [constants.actionTypes.CHECK_FILL_EXTENSION]: "🔌",
     [constants.actionTypes.CHECK_FILL_TOWER]: "🛡️",
+    [constants.actionTypes.CHECK_EXPANSION]: "🚩",
     [constants.actionTypes.CHECK_UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: "📈",
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: "⛏️",
@@ -49,6 +58,7 @@ const actionIcons = {
 const taskColors = {
     [constants.taskTypes.SPAWN_CREEP]: "#f5c542",
     [constants.taskTypes.CHECKER]: "#9aa0a6",
+    [constants.taskTypes.EXPANSION]: "#f78c6c",
     [constants.taskTypes.MINING_OPERATION]: "#d9822b",
     [constants.taskTypes.TOWER_OPERATION]: "#7dd3fc",
     [constants.taskTypes.SYNC_TOWERS]: "#ff8c42",
@@ -62,6 +72,7 @@ const taskColors = {
     [constants.taskTypes.FILL_TOWER]: "#58a6ff",
     [constants.taskTypes.BUILD]: "#ff9f43",
     [constants.taskTypes.REPAIR]: "#ff6b6b",
+    [constants.taskTypes.RENEW_UNIVERSAL]: "#9ef01a",
 };
 
 const actionLineColors = {
@@ -69,7 +80,11 @@ const actionLineColors = {
     [constants.actionTypes.PICKUP_RESOURCE]: "#4ecdc4",
     [constants.actionTypes.TAKE_RESOURCE]: "#3da9fc",
     [constants.actionTypes.BUILD]: "#ff9f43",
+    [constants.actionTypes.MOVE_TO_RENEW]: "#9ef01a",
     [constants.actionTypes.REPAIR]: "#ff6b6b",
+    [constants.actionTypes.RENEW_CREEP]: "#9ef01a",
+    [constants.actionTypes.SCOUT_ROOM]: "#f78c6c",
+    [constants.actionTypes.CLAIM_CONTROLLER]: "#f78c6c",
     [constants.actionTypes.TAXI]: "#c77dff",
     [constants.actionTypes.TRANSFER_ENERGY]: "#58a6ff",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "#7ddc84",
@@ -95,6 +110,8 @@ function visuals() {
     if (!Memory.debug) {
         return;
     }
+
+    drawEnemyDistanceHeatmap();
 
     const roomNames = Object.keys(Game.rooms);
 
@@ -150,6 +167,124 @@ function visuals() {
 
         drawCreepActionLines(roomName, visual);
     }
+}
+
+function drawEnemyDistanceHeatmap() {
+    if (!Game.map || !Game.map.visual) {
+        return;
+    }
+
+    const heatmap = require("./expansion").getEnemyDistanceHeatmap();
+    const roomNames = Object.keys(heatmap.scoutedRooms || {});
+
+    if (roomNames.length === 0) {
+        return;
+    }
+
+    for (const roomName of roomNames) {
+        drawEnemyDistanceRoomTile(
+            Game.map.visual,
+            roomName,
+            heatmap.scoutedRooms[roomName],
+            heatmap.distances[roomName],
+            heatmap.maxDistance
+        );
+    }
+}
+
+function drawEnemyDistanceRoomTile(visual, roomName, roomState, distance, maxDistance) {
+    const fill = getEnemyDistanceFill(distance, maxDistance);
+    const stroke = getEnemyDistanceStroke(roomState, distance);
+    const distanceLabel = getEnemyDistanceDistanceLabel(distance);
+    const statusLabel = getEnemyDistanceStatusLabel(roomState);
+
+    visual.rect(new RoomPosition(0, 0, roomName), 50, 50, {
+        fill: fill,
+        opacity: 0.28,
+        stroke: stroke,
+        strokeWidth: 1.5,
+    });
+    visual.text(distanceLabel, new RoomPosition(25, 24, roomName), {
+        align: "center",
+        backgroundColor: "#0f141b",
+        backgroundPadding: 1.2,
+        color: "#f3f5f7",
+        fontFamily: "monospace",
+        fontSize: 18,
+        opacity: 1,
+        stroke: "#0f141b",
+        strokeWidth: 0.8,
+    });
+
+    if (statusLabel) {
+        visual.text(statusLabel, new RoomPosition(25, 34, roomName), {
+            align: "center",
+            backgroundColor: "#0f141b",
+            backgroundPadding: 0.6,
+            color: "#dbe4ea",
+            fontFamily: "monospace",
+            fontSize: 7,
+            opacity: 0.9,
+            stroke: "#0f141b",
+            strokeWidth: 0.45,
+        });
+    }
+}
+
+function getEnemyDistanceFill(distance, maxDistance) {
+    if (!Number.isFinite(distance)) {
+        return "#334155";
+    }
+
+    const safeMaxDistance = Math.max(1, maxDistance);
+    const normalized = clamp(distance / safeMaxDistance, 0, 1);
+    const hue = Math.round(120 * normalized);
+
+    return `hsl(${hue}, 75%, 45%)`;
+}
+
+function getEnemyDistanceStroke(roomState, distance) {
+    if (roomState && roomState.status === "enemy") {
+        return "#ef4444";
+    }
+
+    if (!Number.isFinite(distance)) {
+        return "#64748b";
+    }
+
+    return "#e5e7eb";
+}
+
+function getEnemyDistanceDistanceLabel(distance) {
+    if (!Number.isFinite(distance)) {
+        return "·";
+    }
+
+    return String(distance);
+}
+
+function getEnemyDistanceStatusLabel(roomState) {
+    if (!roomState || !roomState.status) {
+        return "";
+    }
+
+    if (roomState.status === "enemy") {
+        return "EN";
+    }
+
+    if (roomState.status === "owned") {
+        return "OWN";
+    }
+
+    if (roomState.status === "candidate") {
+        return "CAN";
+    }
+
+    if (roomState.status === "transit") {
+        return "TR";
+    }
+
+    return String(roomState.status).slice(0, 3).toUpperCase();
 }
 
 function pushTaskLines(lines, index, task) {
@@ -421,6 +556,32 @@ function getActionTargetPosition(action, creep) {
         }
     }
 
+    if (action.type === constants.actionTypes.SCOUT_ROOM) {
+        return new RoomPosition(25, 25, action.data.roomName);
+    }
+
+    if (action.type === constants.actionTypes.CLAIM_CONTROLLER) {
+        if (Game.rooms[action.data.roomName] && Game.rooms[action.data.roomName].controller) {
+            return Game.rooms[action.data.roomName].controller.pos;
+        }
+
+        return new RoomPosition(25, 25, action.data.roomName);
+    }
+
+    if (action.type === constants.actionTypes.PLACE_CONSTRUCTION_SITE) {
+        return new RoomPosition(
+            action.data.x,
+            action.data.y,
+            action.data.roomName || action.room
+        );
+    }
+
+    if (action.type === constants.actionTypes.MOVE_TO_RENEW) {
+        const spawn = Game.spawns[action.data.spawnName];
+
+        return getObjectPosition(spawn);
+    }
+
     if (action.type === constants.actionTypes.TAXI) {
         return new RoomPosition(action.data.x, action.data.y, action.data.roomName);
     }
@@ -442,6 +603,8 @@ function getTaskLabel(taskType) {
         return "spawn";
     case constants.taskTypes.CHECKER:
         return "checker";
+    case constants.taskTypes.EXPANSION:
+        return "expansion";
     case constants.taskTypes.MINING_OPERATION:
         return "mining";
     case constants.taskTypes.TOWER_OPERATION:
@@ -468,6 +631,8 @@ function getTaskLabel(taskType) {
         return "build";
     case constants.taskTypes.REPAIR:
         return "repair";
+    case constants.taskTypes.RENEW_UNIVERSAL:
+        return "renew";
     default:
         return taskType;
     }
@@ -485,8 +650,18 @@ function getActionLabel(actionType) {
         return "take";
     case constants.actionTypes.BUILD:
         return "build";
+    case constants.actionTypes.MOVE_TO_RENEW:
+        return "move renew";
     case constants.actionTypes.REPAIR:
         return "repair";
+    case constants.actionTypes.RENEW_CREEP:
+        return "renew";
+    case constants.actionTypes.SCOUT_ROOM:
+        return "scout";
+    case constants.actionTypes.CLAIM_CONTROLLER:
+        return "claim";
+    case constants.actionTypes.RETIRE_CREEP:
+        return "retire";
     case constants.actionTypes.TAXI:
         return "taxi";
     case constants.actionTypes.TOWER_ATTACK:
@@ -503,6 +678,8 @@ function getActionLabel(actionType) {
         return "upgrade";
     case constants.actionTypes.CHECK_UNIVERSALS:
         return "check uni";
+    case constants.actionTypes.CHECK_UNIVERSAL_RENEW:
+        return "check renew";
     case constants.actionTypes.CHECK_FILL_ENERGY:
         return "check energy";
     case constants.actionTypes.CHECK_FILL_SPAWN:
@@ -511,6 +688,8 @@ function getActionLabel(actionType) {
         return "check ext";
     case constants.actionTypes.CHECK_FILL_TOWER:
         return "check tower";
+    case constants.actionTypes.CHECK_EXPANSION:
+        return "check exp";
     case constants.actionTypes.CHECK_UPGRADE_CONTROLLER:
         return "check upg";
     case constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT:

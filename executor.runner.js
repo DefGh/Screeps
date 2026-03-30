@@ -200,14 +200,21 @@ function isTerminalAction(actionType) {
     return (
         actionType === constants.actionTypes.BUILD ||
         actionType === constants.actionTypes.REPAIR ||
+        actionType === constants.actionTypes.CLAIM_CONTROLLER ||
+        actionType === constants.actionTypes.CHECK_UNIVERSAL_RENEW ||
         actionType === constants.actionTypes.CHECK_FILL_ENERGY ||
         actionType === constants.actionTypes.CHECK_FILL_EXTENSION ||
         actionType === constants.actionTypes.CHECK_FILL_SPAWN ||
         actionType === constants.actionTypes.CHECK_FILL_TOWER ||
+        actionType === constants.actionTypes.CHECK_EXPANSION ||
         actionType === constants.actionTypes.CHECK_UPGRADE_CONTROLLER ||
+        actionType === constants.actionTypes.MOVE_TO_RENEW ||
         actionType === constants.actionTypes.CHECK_UNIVERSALS ||
         actionType === constants.actionTypes.PLACE_CONSTRUCTION_SITE ||
         actionType === constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT ||
+        actionType === constants.actionTypes.RENEW_CREEP ||
+        actionType === constants.actionTypes.RETIRE_CREEP ||
+        actionType === constants.actionTypes.SCOUT_ROOM ||
         actionType === constants.actionTypes.SPAWN_CREEP ||
         actionType === constants.actionTypes.SYNC_MINING_OPERATIONS ||
         actionType === constants.actionTypes.SYNC_ROOM_BUILDER ||
