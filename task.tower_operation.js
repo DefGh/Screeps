@@ -18,7 +18,7 @@ function tryDispatch(task, tower, ctx) {
         return [];
     }
 
-    const hostileCreep = selectNearestTarget(
+    const hostileCreep = selectHostileCreepTarget(
         tower,
         tower.room.find(FIND_HOSTILE_CREEPS)
     );
@@ -80,8 +80,30 @@ function selectNearestTarget(tower, targets) {
     return targets[0];
 }
 
+function selectHostileCreepTarget(tower, hostileCreeps) {
+    if (!hostileCreeps || hostileCreeps.length === 0) {
+        return null;
+    }
+
+    const healers = hostileCreeps.filter(isHealer);
+
+    if (healers.length > 0) {
+        return selectNearestTarget(tower, healers);
+    }
+
+    return selectNearestTarget(tower, hostileCreeps);
+}
+
 function selectRepairTarget(tower, structures) {
     return repairTargets.selectTowerRepairTarget(tower, structures);
+}
+
+function isHealer(creep) {
+    return (
+        creep &&
+        typeof creep.getActiveBodyparts === "function" &&
+        creep.getActiveBodyparts(HEAL) > 0
+    );
 }
 
 function compareByRangeAndPosition(tower, left, right) {

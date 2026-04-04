@@ -166,8 +166,15 @@ function isReservablePile(resource, roomName, amount) {
 }
 
 function isReservableContainer(structure, roomName, amount) {
-    return structure.structureType === STRUCTURE_CONTAINER
+    return isReservableEnergyStore(structure)
         && getContainerReservableAmount(structure, roomName) >= amount;
+}
+
+function isReservableEnergyStore(structure) {
+    return (
+        structure.structureType === STRUCTURE_CONTAINER ||
+        structure.structureType === STRUCTURE_STORAGE
+    );
 }
 
 function getPileReservableAmount(resource, roomName) {

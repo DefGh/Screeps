@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const fillEnergy = require("./fill.energy");
+const longRangeMining = require("./long_range_mining");
 const miningAnchors = require("./planner.mining_anchors");
 const renewUniversal = require("./renew.universal");
 
@@ -8,9 +9,11 @@ const UNIVERSAL_RECALCULATE_INTERVAL = 300;
 const UNIVERSAL_TARGET_BUFFER = 3000;
 const UNIVERSAL_TARGET_DEADBAND = 500;
 const UNIVERSAL_TARGET_MIN = 3;
-const UNIVERSAL_TARGET_MAX = 10;
+const UNIVERSAL_TARGET_MAX = 6;
+const HAULER_RENEW_TARGET_TTL = 1400;
 const cycleActionTypes = [
     constants.actionTypes.SYNC_MINING_OPERATIONS,
+    constants.actionTypes.CHECK_LONG_RANGE_MINING,
     constants.actionTypes.SYNC_ROOM_BUILDER,
     constants.actionTypes.SYNC_TOWER_OPERATIONS,
     constants.actionTypes.CHECK_UNIVERSALS,
@@ -180,6 +183,52 @@ function checkExpansion(room, ctx) {
     require("./expansion").reconcile(room, ctx);
 }
 
+function checkLongRangeMining(room, ctx) {
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.LONG_RANGE_MINING;
+    });
+    const hasSpawn = !!renewUniversal.getPrimarySpawn(room.name);
+    let task = matchedTasks[0] || null;
+
+    removeExtraTasks(matchedTasks, ctx);
+
+    if (!hasSpawn) {
+        removeLongRangeMiningTask(task, room.name, ctx);
+        removeQueuedRoleSpawnTasks(room.name, constants.roles.OUTPOST_SCOUT, ctx);
+        removeRemoteHaulerRenewTasks(room.name, ctx);
+        removeRemoteMiningOperations(room.name, ctx);
+        return;
+    }
+
+    if (!task) {
+        const result = ctx.addTask(constants.taskTypes.LONG_RANGE_MINING, room.name, {
+            outposts: {},
+        });
+
+        if (!result || !result.task) {
+            return;
+        }
+
+        task = result.task;
+        ctx.log(`[checker] add ${constants.taskTypes.LONG_RANGE_MINING} for ${room.name}`);
+    }
+
+    longRangeMining.ensureTaskState(task, room);
+    longRangeMining.refreshVisibleOutposts(task, room);
+    syncOutpostScout(task, room.name, ctx);
+
+    const storage = longRangeMining.getOwnedStorage(room);
+
+    if (!storage) {
+        removeRemoteHaulerRenewTasks(room.name, ctx);
+        removeRemoteMiningOperations(room.name, ctx);
+        return;
+    }
+
+    syncRemoteMiningOperations(room, task, storage, ctx);
+    syncRemoteHaulerRenewTasks(room, ctx);
+}
+
 function ensureFillEnergyTask(room, matchedTasks, ctx) {
     if (matchedTasks.length === 0) {
         const result = ctx.addTask(constants.taskTypes.FILL_ENERGY, room.name, {
@@ -265,6 +314,7 @@ function syncMiningOperations(room, ctx) {
     for (const task of ctx.listTasks(room.name)) {
         if (
             task.type === constants.taskTypes.MINING_OPERATION &&
+            !task.data.isRemote &&
             !sourceIds[task.data.sourceId]
         ) {
             ctx.removeTask(task.id);
@@ -361,6 +411,7 @@ function syncMiningOperationTask(room, source, ctx) {
     const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
         return (
             task.type === constants.taskTypes.MINING_OPERATION &&
+            !task.data.isRemote &&
             task.data.sourceId === source.id
         );
     });
@@ -503,6 +554,21 @@ function syncRenewTaskProgress(task) {
     task.assignedPercent = progress;
 }
 
+function syncHaulerRenewTaskProgress(task) {
+    const creep = Game.creeps[task.data.targetCreepName];
+
+    if (!creep) {
+        task.donePercent = 0;
+        task.assignedPercent = 0;
+        return;
+    }
+
+    const progress = renewUniversal.getProgressPercent(creep, task.data.renewUntil);
+
+    task.donePercent = progress;
+    task.assignedPercent = progress;
+}
+
 function syncTargetTask(roomName, taskType, targetId, shouldExist, ctx) {
     const matchedTasks = getTargetTasks(roomName, taskType, targetId, ctx);
 
@@ -628,6 +694,294 @@ function countUniversals(roomName, ctx) {
     return count;
 }
 
+function countLiveRole(roomName, role) {
+    let count = 0;
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            creep.memory.role === role &&
+            creep.memory.originRoomName === roomName
+        ) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function syncOutpostScout(longRangeTask, roomName, ctx) {
+    const desiredCount = longRangeMining.pickNextScoutRoom(longRangeTask) ? 1 : 0;
+    const queuedTasks = ctx.listTasks(roomName).filter(function (task) {
+        return (
+            task.type === constants.taskTypes.SPAWN_CREEP &&
+            task.data.role === constants.roles.OUTPOST_SCOUT
+        );
+    });
+    const currentCount = countLiveRole(roomName, constants.roles.OUTPOST_SCOUT);
+
+    while (currentCount + queuedTasks.length > desiredCount && queuedTasks.length > 0) {
+        ctx.removeTask(queuedTasks.pop().id);
+    }
+
+    while (currentCount + queuedTasks.length < desiredCount) {
+        const result = ctx.addTask(constants.taskTypes.SPAWN_CREEP, roomName, {
+            role: constants.roles.OUTPOST_SCOUT,
+        });
+
+        if (!result || !result.task) {
+            break;
+        }
+
+        queuedTasks.push(result.task);
+        ctx.log(`[checker] add ${constants.taskTypes.SPAWN_CREEP} for ${roomName}:${constants.roles.OUTPOST_SCOUT}`);
+    }
+}
+
+function removeQueuedRoleSpawnTasks(roomName, role, ctx) {
+    for (const task of ctx.listTasks(roomName)) {
+        if (
+            task.type === constants.taskTypes.SPAWN_CREEP &&
+            task.data.role === role
+        ) {
+            ctx.removeTask(task.id);
+        }
+    }
+}
+
+function syncRemoteMiningOperations(room, longRangeTask, storage, ctx) {
+    const desiredSourceIds = {};
+    const outposts = longRangeTask.data.outposts || {};
+    const visibleRooms = {};
+
+    for (const outpostRoomName in outposts) {
+        const outpostState = outposts[outpostRoomName];
+
+        if (outpostState.status !== "safe") {
+            continue;
+        }
+
+        for (const sourceId of outpostState.sourceIds || []) {
+            desiredSourceIds[sourceId] = outpostRoomName;
+        }
+
+        if (Game.rooms[outpostRoomName]) {
+            visibleRooms[outpostRoomName] = Game.rooms[outpostRoomName];
+        }
+    }
+
+    for (const task of ctx.listTasks(room.name)) {
+        if (
+            !longRangeMining.isRemoteMiningTask(task) ||
+            !desiredSourceIds[task.data.sourceId]
+        ) {
+            if (longRangeMining.isRemoteMiningTask(task)) {
+                ctx.removeTask(task.id);
+                ctx.log(`[checker] remove ${constants.taskTypes.MINING_OPERATION} for ${room.name}:${task.data.sourceId}`);
+            }
+
+            continue;
+        }
+
+        task.data.deliveryTargetId = storage.id;
+        task.data.isRemote = true;
+        task.data.sourceRoomName = desiredSourceIds[task.data.sourceId];
+
+        const sourceRoom = visibleRooms[task.data.sourceRoomName];
+        const source = sourceRoom ? Game.getObjectById(task.data.sourceId) : null;
+
+        if (sourceRoom && source) {
+            task.data.anchor = miningAnchors.selectMiningAnchor(sourceRoom, source);
+        }
+    }
+
+    for (const sourceId in desiredSourceIds) {
+        const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+            return (
+                longRangeMining.isRemoteMiningTask(task) &&
+                task.data.sourceId === sourceId
+            );
+        });
+
+        if (matchedTasks.length > 0) {
+            removeExtraTasks(matchedTasks, ctx);
+            continue;
+        }
+
+        const sourceRoomName = desiredSourceIds[sourceId];
+        const sourceRoom = Game.rooms[sourceRoomName];
+
+        if (!sourceRoom) {
+            continue;
+        }
+
+        const source = Game.getObjectById(sourceId);
+
+        if (!source) {
+            continue;
+        }
+
+        ctx.addTask(constants.taskTypes.MINING_OPERATION, room.name, {
+            anchor: miningAnchors.selectMiningAnchor(sourceRoom, source),
+            deliveryTargetId: storage.id,
+            isRemote: true,
+            sourceId: sourceId,
+            sourceRoomName: sourceRoomName,
+        });
+        ctx.log(`[checker] add ${constants.taskTypes.MINING_OPERATION} for ${room.name}:${sourceId}`);
+    }
+}
+
+function syncRemoteHaulerRenewTasks(room, ctx) {
+    const spawn = renewUniversal.getPrimarySpawn(room.name);
+    const desiredTargets = getRemoteHaulerRenewTargets(room.name, ctx);
+    const seenSourceIds = {};
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.RENEW_HAULER;
+    });
+
+    for (const task of matchedTasks) {
+        const creep = desiredTargets[task.data.sourceId];
+
+        if (
+            !isValidRemoteHaulerRenewTask(task, room.name, spawn, creep) ||
+            seenSourceIds[task.data.sourceId]
+        ) {
+            ctx.removeTask(task.id);
+            ctx.log(`[checker] remove ${constants.taskTypes.RENEW_HAULER} for ${room.name}:${task.data.sourceId}`);
+            continue;
+        }
+
+        seenSourceIds[task.data.sourceId] = true;
+        task.data.renewUntil = getHaulerRenewUntil(task.data.renewUntil);
+        task.data.spawnName = spawn.name;
+        task.data.targetCreepName = creep.name;
+        syncHaulerRenewTaskProgress(task);
+    }
+
+    if (!spawn) {
+        return;
+    }
+
+    for (const sourceId in desiredTargets) {
+        if (seenSourceIds[sourceId]) {
+            continue;
+        }
+
+        const creep = desiredTargets[sourceId];
+        const result = ctx.addTask(constants.taskTypes.RENEW_HAULER, room.name, {
+            renewUntil: HAULER_RENEW_TARGET_TTL,
+            spawnName: spawn.name,
+            sourceId: sourceId,
+            targetCreepName: creep.name,
+        });
+
+        if (!result || !result.task) {
+            continue;
+        }
+
+        seenSourceIds[sourceId] = true;
+        syncHaulerRenewTaskProgress(result.task);
+        ctx.log(`[checker] add ${constants.taskTypes.RENEW_HAULER} for ${room.name}:${sourceId}`);
+    }
+}
+
+function getRemoteHaulerRenewTargets(roomName, ctx) {
+    const remoteSourceIds = {};
+    const targets = {};
+
+    for (const task of ctx.listTasks(roomName)) {
+        if (longRangeMining.isRemoteMiningTask(task)) {
+            remoteSourceIds[task.data.sourceId] = true;
+        }
+    }
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            !isRemoteHaulerRenewCandidate(creep, roomName) ||
+            !remoteSourceIds[creep.memory.sourceId]
+        ) {
+            continue;
+        }
+
+        const current = targets[creep.memory.sourceId];
+
+        if (
+            !current ||
+            (
+                Number.isFinite(creep.ticksToLive) &&
+                Number.isFinite(current.ticksToLive) &&
+                creep.ticksToLive < current.ticksToLive
+            )
+        ) {
+            targets[creep.memory.sourceId] = creep;
+        }
+    }
+
+    return targets;
+}
+
+function isRemoteHaulerRenewCandidate(creep, roomName) {
+    return !!(
+        creep &&
+        creep.memory &&
+        creep.memory.role === constants.roles.HAULER &&
+        creep.memory.originRoomName === roomName &&
+        creep.memory.restoreTtl &&
+        creep.memory.sourceId
+    );
+}
+
+function isValidRemoteHaulerRenewTask(task, roomName, spawn, creep) {
+    return !!(
+        task &&
+        task.type === constants.taskTypes.RENEW_HAULER &&
+        spawn &&
+        spawn.room.name === roomName &&
+        creep &&
+        creep.name === task.data.targetCreepName &&
+        isRemoteHaulerRenewCandidate(creep, roomName)
+    );
+}
+
+function getHaulerRenewUntil(renewUntil) {
+    return Number.isFinite(renewUntil)
+        ? renewUntil
+        : HAULER_RENEW_TARGET_TTL;
+}
+
+function removeRemoteMiningOperations(roomName, ctx) {
+    for (const task of ctx.listTasks(roomName)) {
+        if (!longRangeMining.isRemoteMiningTask(task)) {
+            continue;
+        }
+
+        ctx.removeTask(task.id);
+    }
+}
+
+function removeRemoteHaulerRenewTasks(roomName, ctx) {
+    for (const task of ctx.listTasks(roomName)) {
+        if (task.type !== constants.taskTypes.RENEW_HAULER) {
+            continue;
+        }
+
+        ctx.removeTask(task.id);
+    }
+}
+
+function removeLongRangeMiningTask(task, roomName, ctx) {
+    if (!task) {
+        return;
+    }
+
+    ctx.removeTask(task.id);
+    ctx.log(`[checker] remove ${constants.taskTypes.LONG_RANGE_MINING} for ${roomName}`);
+}
+
 function getRoomEnergyBuffer(room) {
     let total = 0;
 
@@ -642,7 +996,10 @@ function getRoomEnergyBuffer(room) {
     const containers = room.find(FIND_STRUCTURES);
 
     for (const structure of containers) {
-        if (structure.structureType === STRUCTURE_CONTAINER) {
+        if (
+            structure.structureType === STRUCTURE_CONTAINER ||
+            structure.structureType === STRUCTURE_STORAGE
+        ) {
             total += structure.store.getUsedCapacity(RESOURCE_ENERGY);
         }
     }
@@ -665,6 +1022,7 @@ module.exports = {
     checkExpansion,
     checkFillEnergy,
     checkExtensionEnergy,
+    checkLongRangeMining,
     checkSpawnEnergy,
     checkTowerEnergy,
     checkUpgradeController,

@@ -5,10 +5,12 @@ function execute(room, action) {
         return true;
     }
 
-    const targetRoom = Game.rooms[action.data.roomName] || room;
+    const targetRoom = action.data.roomName
+        ? Game.rooms[action.data.roomName]
+        : room;
 
     if (!targetRoom) {
-        return false;
+        return true;
     }
 
     if (hasStructureOrSite(targetRoom, action.data)) {

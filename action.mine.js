@@ -20,7 +20,7 @@ function execute(creep, action) {
     }
 
     if (!source) {
-        return false;
+        return true;
     }
 
     const result = creep.harvest(source);
@@ -30,8 +30,9 @@ function execute(creep, action) {
     }
 
     if (result === ERR_NOT_IN_RANGE) {
-        creep.moveTo(source);
-        return false;
+        const moveResult = creep.moveTo(source);
+
+        return moveResult === ERR_NO_PATH;
     }
 
     return false;

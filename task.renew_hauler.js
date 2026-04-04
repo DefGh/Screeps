@@ -2,11 +2,18 @@ const constants = require("./constants");
 const renewUniversal = require("./renew.universal");
 
 function onCompleted(task, action, ctx) {
+    const creep = Game.creeps[task.data.targetCreepName];
+
+    if (creep) {
+        delete creep.memory.restoreTtl;
+        delete creep.memory.tripPhase;
+    }
+
     ctx.removeTask(task.id);
 }
 
 function tryDispatch(task, executor, ctx) {
-    if (task.type !== constants.taskTypes.RENEW_UNIVERSAL) {
+    if (task.type !== constants.taskTypes.RENEW_HAULER) {
         return [];
     }
 
@@ -23,9 +30,7 @@ function tryDispatch(task, executor, ctx) {
 
 function tryDispatchCreep(task, creep) {
     if (
-        creep.name !== task.data.targetCreepName ||
-        !renewUniversal.isUniversalOfRoom(creep, task.room) ||
-        !renewUniversal.isGenerationCurrent(creep, task.room) ||
+        !isTargetHauler(task, creep) ||
         renewUniversal.isComplete(creep, task.data.renewUntil)
     ) {
         return [];
@@ -61,9 +66,7 @@ function tryDispatchSpawn(task, spawn) {
     const creep = Game.creeps[task.data.targetCreepName];
 
     if (
-        !creep ||
-        !renewUniversal.isUniversalOfRoom(creep, task.room) ||
-        !renewUniversal.isGenerationCurrent(creep, task.room) ||
+        !isTargetHauler(task, creep) ||
         renewUniversal.isComplete(creep, task.data.renewUntil) ||
         !spawn.pos.isNearTo(creep)
     ) {
@@ -80,6 +83,18 @@ function tryDispatchSpawn(task, spawn) {
             },
         },
     ];
+}
+
+function isTargetHauler(task, creep) {
+    return !!(
+        creep &&
+        task.data &&
+        creep.name === task.data.targetCreepName &&
+        creep.memory.role === constants.roles.HAULER &&
+        creep.memory.originRoomName === task.room &&
+        creep.memory.sourceId === task.data.sourceId &&
+        creep.memory.restoreTtl
+    );
 }
 
 module.exports = {

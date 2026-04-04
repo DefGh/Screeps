@@ -53,15 +53,30 @@ function getBodyPartCost(part) {
     return BODYPART_COST[part];
 }
 
-function buildMinerBody(spawn) {
+function buildMinerBody(spawn, action) {
     const body = [];
+    const isRemoteMiner = !!(
+        action &&
+        action.data &&
+        action.data.memory &&
+        action.data.memory.anchor &&
+        action.data.memory.anchor.roomName &&
+        action.data.memory.anchor.roomName !== spawn.room.name
+    );
+    const moveParts = isRemoteMiner ? 2 : 0;
+    const reservedBudget = moveParts * getBodyPartCost(MOVE);
+    const workBudget = Math.max(0, spawn.room.energyCapacityAvailable - reservedBudget);
     const maxParts = Math.min(
         5,
-        Math.floor(spawn.room.energyCapacityAvailable / getBodyPartCost(WORK))
+        Math.floor(workBudget / getBodyPartCost(WORK))
     );
 
     for (let index = 0; index < maxParts && body.length < MAX_CREEP_SIZE; index += 1) {
         body.push(WORK);
+    }
+
+    for (let index = 0; index < moveParts && body.length < MAX_CREEP_SIZE; index += 1) {
+        body.push(MOVE);
     }
 
     return body;
@@ -69,6 +84,29 @@ function buildMinerBody(spawn) {
 
 function buildScoutBody() {
     return [MOVE];
+}
+
+function buildHaulerBody(spawn) {
+    const body = [];
+    const cycle = [MOVE, CARRY];
+    let spent = 0;
+    let index = 0;
+    const budget = Math.max(100, spawn.room.energyCapacityAvailable);
+
+    while (body.length < MAX_CREEP_SIZE) {
+        const part = cycle[index % cycle.length];
+        const partCost = getBodyPartCost(part);
+
+        if (spent + partCost > budget) {
+            break;
+        }
+
+        body.push(part);
+        spent += partCost;
+        index += 1;
+    }
+
+    return body;
 }
 
 function buildClaimerBody(spawn) {
@@ -131,6 +169,12 @@ const roles = {
             return {};
         },
     },
+    [constants.roles.OUTPOST_SCOUT]: {
+        buildBody: buildScoutBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
     [constants.roles.CLAIMER]: {
         buildBody: buildClaimerBody,
         buildMemory: function () {
@@ -139,6 +183,12 @@ const roles = {
     },
     [constants.roles.COLONIZER]: {
         buildBody: buildColonizerBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
+    [constants.roles.HAULER]: {
+        buildBody: buildHaulerBody,
         buildMemory: function () {
             return {};
         },

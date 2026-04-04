@@ -7,7 +7,9 @@ const buildAction = require("./action.build");
 const moveToRenewAction = require("./action.move_to_renew");
 const repairAction = require("./action.repair");
 const renewCreepAction = require("./action.renew_creep");
+const goToTargetAction = require("./action.go_to_target");
 const scoutRoomAction = require("./action.scout_room");
+const scoutOutpostRoomAction = require("./action.scout_outpost_room");
 const claimControllerAction = require("./action.claim_controller");
 const retireCreepAction = require("./action.retire_creep");
 const taxiAction = require("./action.taxi");
@@ -24,6 +26,7 @@ const checkFillSpawnAction = require("./action.check_fill_spawn");
 const checkFillExtensionAction = require("./action.check_fill_extension");
 const checkFillTowerAction = require("./action.check_fill_tower");
 const checkExpansionAction = require("./action.check_expansion");
+const checkLongRangeMiningAction = require("./action.check_long_range_mining");
 const checkUpgradeControllerAction = require("./action.check_upgrade_controller");
 const recalculateUniversalsCountAction = require("./action.recalculate_universals_count");
 const syncMiningOperationsAction = require("./action.sync_mining_operations");
@@ -39,7 +42,9 @@ const handlers = {
     [constants.actionTypes.MOVE_TO_RENEW]: moveToRenewAction,
     [constants.actionTypes.REPAIR]: repairAction,
     [constants.actionTypes.RENEW_CREEP]: renewCreepAction,
+    [constants.actionTypes.GO_TO_TARGET]: goToTargetAction,
     [constants.actionTypes.SCOUT_ROOM]: scoutRoomAction,
+    [constants.actionTypes.SCOUT_OUTPOST_ROOM]: scoutOutpostRoomAction,
     [constants.actionTypes.CLAIM_CONTROLLER]: claimControllerAction,
     [constants.actionTypes.RETIRE_CREEP]: retireCreepAction,
     [constants.actionTypes.TAXI]: taxiAction,
@@ -56,6 +61,7 @@ const handlers = {
     [constants.actionTypes.CHECK_FILL_EXTENSION]: checkFillExtensionAction,
     [constants.actionTypes.CHECK_FILL_TOWER]: checkFillTowerAction,
     [constants.actionTypes.CHECK_EXPANSION]: checkExpansionAction,
+    [constants.actionTypes.CHECK_LONG_RANGE_MINING]: checkLongRangeMiningAction,
     [constants.actionTypes.CHECK_UPGRADE_CONTROLLER]: checkUpgradeControllerAction,
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: recalculateUniversalsCountAction,
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: syncMiningOperationsAction,

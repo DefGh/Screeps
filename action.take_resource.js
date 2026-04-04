@@ -34,6 +34,21 @@ function execute(creep, action) {
     }
 
     if (!target) {
+        if (
+            action.data.roomName &&
+            !Game.rooms[action.data.roomName]
+        ) {
+            const targetX = Number.isFinite(action.data.x) ? action.data.x : 25;
+            const targetY = Number.isFinite(action.data.y) ? action.data.y : 25;
+
+            creep.moveTo(new RoomPosition(
+                targetX,
+                targetY,
+                action.data.roomName
+            ));
+            return false;
+        }
+
         return complete(action, `target_missing pile=${action.data.fromId}`);
     }
 

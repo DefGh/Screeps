@@ -207,7 +207,9 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.CHECK_FILL_SPAWN ||
         actionType === constants.actionTypes.CHECK_FILL_TOWER ||
         actionType === constants.actionTypes.CHECK_EXPANSION ||
+        actionType === constants.actionTypes.CHECK_LONG_RANGE_MINING ||
         actionType === constants.actionTypes.CHECK_UPGRADE_CONTROLLER ||
+        actionType === constants.actionTypes.GO_TO_TARGET ||
         actionType === constants.actionTypes.MOVE_TO_RENEW ||
         actionType === constants.actionTypes.CHECK_UNIVERSALS ||
         actionType === constants.actionTypes.PLACE_CONSTRUCTION_SITE ||
@@ -215,6 +217,7 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.RENEW_CREEP ||
         actionType === constants.actionTypes.RETIRE_CREEP ||
         actionType === constants.actionTypes.SCOUT_ROOM ||
+        actionType === constants.actionTypes.SCOUT_OUTPOST_ROOM ||
         actionType === constants.actionTypes.SPAWN_CREEP ||
         actionType === constants.actionTypes.SYNC_MINING_OPERATIONS ||
         actionType === constants.actionTypes.SYNC_ROOM_BUILDER ||

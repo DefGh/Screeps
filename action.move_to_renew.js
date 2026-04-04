@@ -5,22 +5,17 @@ const renewUniversal = require("./renew.universal");
 function execute(creep, action) {
     const task = tasks.getTask(action.taskId);
 
-    if (!task || task.type !== constants.taskTypes.RENEW_UNIVERSAL) {
+    if (!task || !isValidRenewTarget(task, creep, action)) {
         return true;
     }
 
-    if (
-        creep.name !== task.data.targetCreepName ||
-        !renewUniversal.isUniversalOfRoom(creep, task.room) ||
-        !renewUniversal.isGenerationCurrent(creep, task.room) ||
-        renewUniversal.isComplete(creep, task.data.renewUntil)
-    ) {
+    if (isRenewComplete(creep, action.data.renewUntil)) {
         return true;
     }
 
-    const spawn = Game.spawns[action.data.spawnName || task.data.spawnName];
+    const spawn = Game.spawns[action.data.spawnName];
 
-    if (!spawn || spawn.room.name !== task.room) {
+    if (!isValidRenewSpawn(task, spawn, action)) {
         return true;
     }
 
@@ -35,20 +30,84 @@ function execute(creep, action) {
 
 function onCompleted(action) {
     const task = tasks.getTask(action.taskId);
-    const creep = task ? Game.creeps[task.data.targetCreepName] : null;
 
-    if (!task) {
+    if (
+        !task ||
+        (
+            task.type !== constants.taskTypes.RENEW_UNIVERSAL &&
+            task.type !== constants.taskTypes.RENEW_HAULER
+        )
+    ) {
         return;
     }
 
-    if (renewUniversal.isComplete(creep, task.data.renewUntil)) {
+    const creep = Game.creeps[action.data.targetCreepName];
+
+    if (renewUniversal.isComplete(creep, action.data.renewUntil)) {
         task.donePercent = 100;
         task.assignedPercent = 100;
         return;
     }
 
-    task.donePercent = renewUniversal.getProgressPercent(creep, task.data.renewUntil);
+    task.donePercent = renewUniversal.getProgressPercent(creep, action.data.renewUntil);
     task.assignedPercent = task.donePercent;
+}
+
+function isValidRenewTarget(task, creep, action) {
+    if (
+        !creep ||
+        !action.data ||
+        creep.name !== action.data.targetCreepName
+    ) {
+        return false;
+    }
+
+    if (task.type === constants.taskTypes.RENEW_UNIVERSAL) {
+        return (
+            renewUniversal.isUniversalOfRoom(creep, task.room) &&
+            renewUniversal.isGenerationCurrent(creep, task.room)
+        );
+    }
+
+    if (task.type === constants.taskTypes.MINING_OPERATION) {
+        return !!(
+            task.data &&
+            task.data.isRemote &&
+            creep.memory.role === constants.roles.HAULER &&
+            creep.memory.originRoomName === task.room &&
+            creep.memory.sourceId === task.data.sourceId &&
+            creep.memory.restoreTtl
+        );
+    }
+
+    if (task.type === constants.taskTypes.RENEW_HAULER) {
+        return !!(
+            task.data &&
+            creep.memory.role === constants.roles.HAULER &&
+            creep.memory.originRoomName === task.room &&
+            creep.memory.sourceId === task.data.sourceId &&
+            creep.memory.restoreTtl
+        );
+    }
+
+    return false;
+}
+
+function isValidRenewSpawn(task, spawn, action) {
+    return !!(
+        spawn &&
+        action.data &&
+        spawn.name === action.data.spawnName &&
+        spawn.room.name === task.room
+    );
+}
+
+function isRenewComplete(creep, renewUntil) {
+    return !!(
+        creep &&
+        Number.isFinite(creep.ticksToLive) &&
+        creep.ticksToLive >= renewUniversal.getRenewUntil(renewUntil)
+    );
 }
 
 function onCreepDeath() {

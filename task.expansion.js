@@ -218,12 +218,17 @@ function getOwnedSpawn(room) {
 }
 
 function createBuildTemplate(targetId, amount) {
+    const target = Game.getObjectById(targetId);
+
     return {
         type: constants.actionTypes.BUILD,
         data: {
             amount: amount,
             done: 0,
+            roomName: target && target.pos ? target.pos.roomName : undefined,
             targetId: targetId,
+            x: target && target.pos ? target.pos.x : undefined,
+            y: target && target.pos ? target.pos.y : undefined,
         },
     };
 }

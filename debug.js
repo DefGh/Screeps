@@ -6,6 +6,7 @@ const taskIcons = {
     [constants.taskTypes.SPAWN_CREEP]: "🐣",
     [constants.taskTypes.CHECKER]: "🧭",
     [constants.taskTypes.EXPANSION]: "🚩",
+    [constants.taskTypes.LONG_RANGE_MINING]: "🚚",
     [constants.taskTypes.MINING_OPERATION]: "⛏️",
     [constants.taskTypes.TOWER_OPERATION]: "🛡️",
     [constants.taskTypes.SYNC_TOWERS]: "🗼",
@@ -19,6 +20,7 @@ const taskIcons = {
     [constants.taskTypes.FILL_TOWER]: "🛡️",
     [constants.taskTypes.BUILD]: "🏗️",
     [constants.taskTypes.REPAIR]: "🩹",
+    [constants.taskTypes.RENEW_HAULER]: "♻️",
     [constants.taskTypes.RENEW_UNIVERSAL]: "♻️",
 };
 
@@ -31,7 +33,9 @@ const actionIcons = {
     [constants.actionTypes.MOVE_TO_RENEW]: "↩️",
     [constants.actionTypes.REPAIR]: "🩹",
     [constants.actionTypes.RENEW_CREEP]: "♻️",
+    [constants.actionTypes.GO_TO_TARGET]: "🎯",
     [constants.actionTypes.SCOUT_ROOM]: "👁️",
+    [constants.actionTypes.SCOUT_OUTPOST_ROOM]: "👁️",
     [constants.actionTypes.CLAIM_CONTROLLER]: "🏳️",
     [constants.actionTypes.RETIRE_CREEP]: "☠️",
     [constants.actionTypes.TAXI]: "🚕",
@@ -48,6 +52,7 @@ const actionIcons = {
     [constants.actionTypes.CHECK_FILL_EXTENSION]: "🔌",
     [constants.actionTypes.CHECK_FILL_TOWER]: "🛡️",
     [constants.actionTypes.CHECK_EXPANSION]: "🚩",
+    [constants.actionTypes.CHECK_LONG_RANGE_MINING]: "🚚",
     [constants.actionTypes.CHECK_UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT]: "📈",
     [constants.actionTypes.SYNC_MINING_OPERATIONS]: "⛏️",
@@ -59,6 +64,7 @@ const taskColors = {
     [constants.taskTypes.SPAWN_CREEP]: "#f5c542",
     [constants.taskTypes.CHECKER]: "#9aa0a6",
     [constants.taskTypes.EXPANSION]: "#f78c6c",
+    [constants.taskTypes.LONG_RANGE_MINING]: "#8ecae6",
     [constants.taskTypes.MINING_OPERATION]: "#d9822b",
     [constants.taskTypes.TOWER_OPERATION]: "#7dd3fc",
     [constants.taskTypes.SYNC_TOWERS]: "#ff8c42",
@@ -72,6 +78,7 @@ const taskColors = {
     [constants.taskTypes.FILL_TOWER]: "#58a6ff",
     [constants.taskTypes.BUILD]: "#ff9f43",
     [constants.taskTypes.REPAIR]: "#ff6b6b",
+    [constants.taskTypes.RENEW_HAULER]: "#9ef01a",
     [constants.taskTypes.RENEW_UNIVERSAL]: "#9ef01a",
 };
 
@@ -83,7 +90,9 @@ const actionLineColors = {
     [constants.actionTypes.MOVE_TO_RENEW]: "#9ef01a",
     [constants.actionTypes.REPAIR]: "#ff6b6b",
     [constants.actionTypes.RENEW_CREEP]: "#9ef01a",
+    [constants.actionTypes.GO_TO_TARGET]: "#ffd166",
     [constants.actionTypes.SCOUT_ROOM]: "#f78c6c",
+    [constants.actionTypes.SCOUT_OUTPOST_ROOM]: "#8ecae6",
     [constants.actionTypes.CLAIM_CONTROLLER]: "#f78c6c",
     [constants.actionTypes.TAXI]: "#c77dff",
     [constants.actionTypes.TRANSFER_ENERGY]: "#58a6ff",
@@ -546,6 +555,14 @@ function getActionTargetPosition(action, creep) {
         );
     }
 
+    if (action.type === constants.actionTypes.GO_TO_TARGET) {
+        return new RoomPosition(
+            action.data.x,
+            action.data.y,
+            action.data.roomName
+        );
+    }
+
     if (action.type === constants.actionTypes.UPGRADE_CONTROLLER) {
         if (Game.rooms[action.room] && Game.rooms[action.room].controller) {
             return Game.rooms[action.room].controller.pos;
@@ -556,7 +573,10 @@ function getActionTargetPosition(action, creep) {
         }
     }
 
-    if (action.type === constants.actionTypes.SCOUT_ROOM) {
+    if (
+        action.type === constants.actionTypes.SCOUT_ROOM ||
+        action.type === constants.actionTypes.SCOUT_OUTPOST_ROOM
+    ) {
         return new RoomPosition(25, 25, action.data.roomName);
     }
 
@@ -605,6 +625,8 @@ function getTaskLabel(taskType) {
         return "checker";
     case constants.taskTypes.EXPANSION:
         return "expansion";
+    case constants.taskTypes.LONG_RANGE_MINING:
+        return "long range";
     case constants.taskTypes.MINING_OPERATION:
         return "mining";
     case constants.taskTypes.TOWER_OPERATION:
@@ -631,6 +653,8 @@ function getTaskLabel(taskType) {
         return "build";
     case constants.taskTypes.REPAIR:
         return "repair";
+    case constants.taskTypes.RENEW_HAULER:
+        return "renew hauler";
     case constants.taskTypes.RENEW_UNIVERSAL:
         return "renew";
     default:
@@ -656,8 +680,12 @@ function getActionLabel(actionType) {
         return "repair";
     case constants.actionTypes.RENEW_CREEP:
         return "renew";
+    case constants.actionTypes.GO_TO_TARGET:
+        return "move";
     case constants.actionTypes.SCOUT_ROOM:
         return "scout";
+    case constants.actionTypes.SCOUT_OUTPOST_ROOM:
+        return "outpost";
     case constants.actionTypes.CLAIM_CONTROLLER:
         return "claim";
     case constants.actionTypes.RETIRE_CREEP:
@@ -690,6 +718,8 @@ function getActionLabel(actionType) {
         return "check tower";
     case constants.actionTypes.CHECK_EXPANSION:
         return "check exp";
+    case constants.actionTypes.CHECK_LONG_RANGE_MINING:
+        return "check lrm";
     case constants.actionTypes.CHECK_UPGRADE_CONTROLLER:
         return "check upg";
     case constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT:

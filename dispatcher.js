@@ -6,6 +6,7 @@ const roomPriority = [
     constants.taskTypes.CHECKER,
     constants.taskTypes.EXPANSION,
     constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.LONG_RANGE_MINING,
     constants.taskTypes.SYNC_TOWERS,
     constants.taskTypes.SYNC_EXTENSIONS,
     constants.taskTypes.SYNC_ROADS,
@@ -13,9 +14,10 @@ const roomPriority = [
 ];
 
 const spawnPriority = [
-    constants.taskTypes.SPAWN_CREEP,
-    constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.RENEW_HAULER,
     constants.taskTypes.RENEW_UNIVERSAL,
+    constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.SPAWN_CREEP,
 ];
 
 const towerPriority = [
@@ -26,6 +28,7 @@ const universalPriority = [
     constants.taskTypes.RENEW_UNIVERSAL,
     constants.taskTypes.FILL_ENERGY,
     constants.taskTypes.MINING_OPERATION,
+    constants.taskTypes.LONG_RANGE_MINING,
     constants.taskTypes.FILL_TOWER,
     constants.taskTypes.REPAIR,
     constants.taskTypes.BUILD,
@@ -38,6 +41,15 @@ const minerPriority = [
 
 const expansionPriority = [
     constants.taskTypes.EXPANSION,
+];
+
+const outpostScoutPriority = [
+    constants.taskTypes.LONG_RANGE_MINING,
+];
+
+const haulerPriority = [
+    constants.taskTypes.RENEW_HAULER,
+    constants.taskTypes.MINING_OPERATION,
 ];
 
 function askRoom(room) {
@@ -81,6 +93,24 @@ function askCreep(creep) {
             creep,
             "creep",
             expansionPriority
+        );
+    }
+
+    if (creep.memory.role === constants.roles.OUTPOST_SCOUT) {
+        return askByPriority(
+            creep.memory.originRoomName,
+            creep,
+            "creep",
+            outpostScoutPriority
+        );
+    }
+
+    if (creep.memory.role === constants.roles.HAULER) {
+        return askByPriority(
+            creep.memory.originRoomName,
+            creep,
+            "creep",
+            haulerPriority
         );
     }
 

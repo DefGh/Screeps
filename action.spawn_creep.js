@@ -23,7 +23,7 @@ function execute(spawn, action) {
         return false;
     }
 
-    const body = roleSpec.buildBody(spawn);
+    const body = roleSpec.buildBody(spawn, action);
 
     if (body.length === 0) {
         return false;

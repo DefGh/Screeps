@@ -1,6 +1,7 @@
 const constants = require("./constants");
 const checkerTask = require("./task.checker");
 const expansionTask = require("./task.expansion");
+const longRangeMiningTask = require("./task.long_range_mining");
 const miningOperationTask = require("./task.mining_operation");
 const towerOperationTask = require("./task.tower_operation");
 const syncExtensionsTask = require("./task.sync_extensions");
@@ -8,6 +9,7 @@ const syncTowersTask = require("./task.sync_towers");
 const syncRoadsTask = require("./task.sync_roads");
 const syncFortificationsTask = require("./task.sync_fortifications");
 const spawnCreepTask = require("./task.spawn_creep");
+const renewHaulerTask = require("./task.renew_hauler");
 const renewUniversalTask = require("./task.renew_universal");
 const fillEnergyTask = require("./task.fill_energy");
 const fillSpawnTask = require("./task.fill_spawn");
@@ -18,9 +20,11 @@ const upgradeControllerTask = require("./task.upgrade_controller");
 
 const handlers = {
     [constants.taskTypes.SPAWN_CREEP]: spawnCreepTask,
+    [constants.taskTypes.RENEW_HAULER]: renewHaulerTask,
     [constants.taskTypes.RENEW_UNIVERSAL]: renewUniversalTask,
     [constants.taskTypes.CHECKER]: checkerTask,
     [constants.taskTypes.EXPANSION]: expansionTask,
+    [constants.taskTypes.LONG_RANGE_MINING]: longRangeMiningTask,
     [constants.taskTypes.MINING_OPERATION]: miningOperationTask,
     [constants.taskTypes.TOWER_OPERATION]: towerOperationTask,
     [constants.taskTypes.SYNC_EXTENSIONS]: syncExtensionsTask,
@@ -37,7 +41,7 @@ const handlers = {
 
 function createTask(type, room, data) {
     return {
-        id: nextTaskId(),
+        id: nextTaskId(type),
         room: room,
         type: type,
         data: data || {},
@@ -142,11 +146,11 @@ function getHandler(taskType) {
     return handlers[taskType] || null;
 }
 
-function nextTaskId() {
+function nextTaskId(type) {
     const store = Memory.Tasks;
 
     store.sequence += 1;
-    return `task:${store.sequence}`;
+    return `task:${type}:${store.sequence}`;
 }
 
 module.exports = {
