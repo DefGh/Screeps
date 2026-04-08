@@ -86,7 +86,11 @@ function askCreep(creep) {
     if (
         creep.memory.role === constants.roles.SCOUT ||
         creep.memory.role === constants.roles.CLAIMER ||
-        creep.memory.role === constants.roles.COLONIZER
+        creep.memory.role === constants.roles.COLONIZER ||
+        creep.memory.role === constants.roles.ATTACKER ||
+        creep.memory.role === constants.roles.HEALER ||
+        creep.memory.role === constants.roles.DISMANTLER ||
+        creep.memory.role === constants.roles.LIBERATOR
     ) {
         return askByPriority(
             creep.memory.originRoomName,

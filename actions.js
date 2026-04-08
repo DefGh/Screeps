@@ -3,6 +3,10 @@ const spawnCreepAction = require("./action.spawn_creep");
 const mineAction = require("./action.mine");
 const pickupResourceAction = require("./action.pickup_resource");
 const takeResourceAction = require("./action.take_resource");
+const attackTargetAction = require("./action.attack_target");
+const healTargetAction = require("./action.heal_target");
+const dismantleTargetAction = require("./action.dismantle_target");
+const attackControllerAction = require("./action.attack_controller");
 const buildAction = require("./action.build");
 const moveToRenewAction = require("./action.move_to_renew");
 const repairAction = require("./action.repair");
@@ -38,6 +42,10 @@ const handlers = {
     [constants.actionTypes.MINE]: mineAction,
     [constants.actionTypes.PICKUP_RESOURCE]: pickupResourceAction,
     [constants.actionTypes.TAKE_RESOURCE]: takeResourceAction,
+    [constants.actionTypes.ATTACK_TARGET]: attackTargetAction,
+    [constants.actionTypes.HEAL_TARGET]: healTargetAction,
+    [constants.actionTypes.DISMANTLE_TARGET]: dismantleTargetAction,
+    [constants.actionTypes.ATTACK_CONTROLLER]: attackControllerAction,
     [constants.actionTypes.BUILD]: buildAction,
     [constants.actionTypes.MOVE_TO_RENEW]: moveToRenewAction,
     [constants.actionTypes.REPAIR]: repairAction,

@@ -5,17 +5,39 @@ const firstSpawnPlanner = require("./planner.first_spawn");
 const STAGES = {
     SCOUT: "scout",
     CLAIM: "claim",
+    SIEGE_CLEAR: "siege_clear",
+    SIEGE_CONTROLLER: "siege_controller",
     BOOTSTRAP_SPAWN: "bootstrap_spawn",
+};
+
+const STRATEGIES = {
+    PEACEFUL: "peaceful",
+    MILITARY: "military",
 };
 
 const MAX_SCOUT_DEPTH = 5;
 const MAX_SCOUTS = 2;
 const MAX_COLONIZERS = 2;
+const MAX_SIEGE_STALL = 1500;
+const SCOUT_RETRY_DELAY = 500;
+const INVALID_FOREVER_TICK = 9007199254740991;
 const EXPANSION_ROLES = {};
+const SIEGE_ROLES = [
+    constants.roles.ATTACKER,
+    constants.roles.HEALER,
+    constants.roles.DISMANTLER,
+];
+const MILITARY_ROLES = SIEGE_ROLES.concat([
+    constants.roles.LIBERATOR,
+]);
 
 EXPANSION_ROLES[constants.roles.SCOUT] = true;
 EXPANSION_ROLES[constants.roles.CLAIMER] = true;
 EXPANSION_ROLES[constants.roles.COLONIZER] = true;
+EXPANSION_ROLES[constants.roles.ATTACKER] = true;
+EXPANSION_ROLES[constants.roles.HEALER] = true;
+EXPANSION_ROLES[constants.roles.DISMANTLER] = true;
+EXPANSION_ROLES[constants.roles.LIBERATOR] = true;
 
 function reconcile(room, ctx) {
     const store = getStore();
@@ -64,6 +86,12 @@ function reconcile(room, ctx) {
     }
     else if (campaign.stage === STAGES.CLAIM) {
         reconcileClaimStage(store, campaign, ctx, ownedRoomNames);
+    }
+    else if (campaign.stage === STAGES.SIEGE_CLEAR) {
+        reconcileSiegeClearStage(store, campaign, ctx, ownedRoomNames);
+    }
+    else if (campaign.stage === STAGES.SIEGE_CONTROLLER) {
+        reconcileSiegeControllerStage(store, campaign, ctx, ownedRoomNames);
     }
     else if (campaign.stage === STAGES.BOOTSTRAP_SPAWN) {
         reconcileBootstrapStage(store, campaign, ctx, ownedRoomNames);
@@ -213,6 +241,7 @@ function recordScoutedRoom(roomName, scoutData) {
         : (nextDepth === 1 ? roomName : null);
 
     store.scoutedRooms[roomName] = {
+        combat: getCombatState(room),
         controllerState: getControllerState(room.controller),
         depth: nextDepth,
         exits: exits,
@@ -292,39 +321,68 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
         return;
     }
 
-    const selection = selectTargetRoom(store, campaign, ownedRoomNames);
+    const peacefulSelection = selectTargetRoom(store, campaign, ownedRoomNames);
 
-    if (!selection) {
+    if (peacefulSelection) {
+        campaign.stage = STAGES.CLAIM;
+        campaign.strategy = STRATEGIES.PEACEFUL;
+        campaign.originRoomName = peacefulSelection.originRoomName;
+        campaign.targetRoomName = peacefulSelection.targetRoomName;
+        campaign.stagingRoomNames = [];
+        campaign.siegeStartedAt = null;
+        campaign.scoutCooldownUntil = null;
+        store.spawnSite = null;
+
+        cleanupRoleActions(constants.roles.SCOUT, campaign.campaignId, "expansion-stage-claim");
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.SCOUT);
+
+        ctx.log(
+            `[expansion] target ${peacefulSelection.targetRoomName} from ${peacefulSelection.originRoomName} (enemy distance=${formatEnemyDistance(peacefulSelection.enemyDistance)})`
+        );
         return;
     }
 
-    campaign.stage = STAGES.CLAIM;
-    campaign.originRoomName = selection.originRoomName;
-    campaign.targetRoomName = selection.targetRoomName;
-    store.spawnSite = null;
+    const militarySelection = selectMilitaryTargetRoom(store, campaign, ownedRoomNames);
 
-    cleanupRoleActions(constants.roles.SCOUT, campaign.campaignId, "expansion-stage-claim");
-    removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.SCOUT);
+    if (militarySelection) {
+        campaign.originRoomName = militarySelection.originRoomName;
+        campaign.scoutCooldownUntil = null;
+        campaign.siegeStartedAt = Game.time;
+        campaign.stage = STAGES.SIEGE_CLEAR;
+        campaign.stagingRoomNames = militarySelection.stagingRoomNames;
+        campaign.strategy = STRATEGIES.MILITARY;
+        campaign.targetRoomName = militarySelection.targetRoomName;
+        store.spawnSite = null;
 
-    ctx.log(
-        `[expansion] target ${selection.targetRoomName} from ${selection.originRoomName} (enemy distance=${formatEnemyDistance(selection.enemyDistance)})`
+        ctx.log(
+            `[expansion] military target ${militarySelection.targetRoomName} from ${militarySelection.stagingRoomNames.join(",")}`
+        );
+        return;
+    }
+
+    scheduleScoutRetry(
+        store,
+        campaign,
+        ctx,
+        `no viable peaceful or military targets`,
+        SCOUT_RETRY_DELAY
     );
 }
 
 function reconcileClaimStage(store, campaign, ctx, ownedRoomNames) {
     if (isEnemyOwnedRoomName(campaign.targetRoomName)) {
-        restartScoutStage(store, campaign, ctx, `target ${campaign.targetRoomName} became enemy-owned`, true);
+        restartScoutStage(
+            store,
+            campaign,
+            ctx,
+            `target ${campaign.targetRoomName} became enemy-owned`,
+            Game.time + SCOUT_RETRY_DELAY
+        );
         return;
     }
 
     if (isRoomClaimedByMe(campaign.targetRoomName)) {
-        campaign.stage = STAGES.BOOTSTRAP_SPAWN;
-        campaign.originRoomName = pickOriginSpawnRoom(store, ownedRoomNames, campaign.targetRoomName, campaign)
-            || campaign.originRoomName
-            || campaign.coordinatorRoomName;
-        cleanupRoleActions(constants.roles.CLAIMER, campaign.campaignId, "expansion-stage-bootstrap");
-        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
-        ctx.log(`[expansion] claimed ${campaign.targetRoomName}, bootstrap from ${campaign.originRoomName}`);
+        enterBootstrapStage(store, campaign, ctx, ownedRoomNames, "claimed");
         return;
     }
 
@@ -333,16 +391,75 @@ function reconcileClaimStage(store, campaign, ctx, ownedRoomNames) {
         || campaign.coordinatorRoomName;
 }
 
+function reconcileSiegeClearStage(store, campaign, ctx, ownedRoomNames) {
+    if (!refreshMilitaryCampaign(store, campaign, ctx, ownedRoomNames)) {
+        return;
+    }
+
+    const targetRoom = Game.rooms[campaign.targetRoomName];
+
+    if (targetRoom && targetRoom.controller && targetRoom.controller.my) {
+        enterBootstrapStage(store, campaign, ctx, ownedRoomNames, "seized");
+        return;
+    }
+
+    if (!targetRoom) {
+        return;
+    }
+
+    if (!findSiegeTarget(targetRoom)) {
+        campaign.stage = STAGES.SIEGE_CONTROLLER;
+        ctx.log(`[expansion] cleared defenses in ${campaign.targetRoomName}`);
+    }
+}
+
+function reconcileSiegeControllerStage(store, campaign, ctx, ownedRoomNames) {
+    if (!refreshMilitaryCampaign(store, campaign, ctx, ownedRoomNames)) {
+        return;
+    }
+
+    const targetRoom = Game.rooms[campaign.targetRoomName];
+
+    if (targetRoom && targetRoom.controller && targetRoom.controller.my) {
+        enterBootstrapStage(store, campaign, ctx, ownedRoomNames, "seized");
+        return;
+    }
+
+    if (!targetRoom) {
+        return;
+    }
+
+    if (findSiegeTarget(targetRoom)) {
+        campaign.stage = STAGES.SIEGE_CLEAR;
+        ctx.log(`[expansion] threat returned in ${campaign.targetRoomName}, resuming siege clear`);
+    }
+}
+
 function reconcileBootstrapStage(store, campaign, ctx, ownedRoomNames) {
     if (isEnemyOwnedRoomName(campaign.targetRoomName)) {
-        restartScoutStage(store, campaign, ctx, `target ${campaign.targetRoomName} lost before spawn`, true);
+        restartScoutStage(
+            store,
+            campaign,
+            ctx,
+            `target ${campaign.targetRoomName} lost before spawn`,
+            Game.time + SCOUT_RETRY_DELAY
+        );
         return;
     }
 
     if (!isRoomClaimedByMe(campaign.targetRoomName)) {
-        campaign.stage = STAGES.CLAIM;
+        campaign.stage = campaign.strategy === STRATEGIES.MILITARY
+            ? STAGES.SIEGE_CONTROLLER
+            : STAGES.CLAIM;
+        if (campaign.strategy === STRATEGIES.MILITARY) {
+            campaign.siegeStartedAt = Game.time;
+        }
         store.spawnSite = null;
-        ctx.log(`[expansion] lost claim on ${campaign.targetRoomName}, back to claim`);
+        ctx.log(
+            campaign.strategy === STRATEGIES.MILITARY
+                ? `[expansion] lost claim on ${campaign.targetRoomName}, back to siege controller`
+                : `[expansion] lost claim on ${campaign.targetRoomName}, back to claim`
+        );
         return;
     }
 
@@ -381,7 +498,7 @@ function reconcileBootstrapStage(store, campaign, ctx, ownedRoomNames) {
                 campaign,
                 ctx,
                 `no valid spawn tile in ${campaign.targetRoomName}`,
-                true
+                INVALID_FOREVER_TICK
             );
             return;
         }
@@ -401,7 +518,14 @@ function completeCampaign(store, campaign, ctx) {
 
     removeExpansionTasks(ctx, campaignId);
     removeQueuedSpawnTasks(ctx, campaignId);
-    retireLiveExpansionCreeps(campaignId, [constants.roles.SCOUT, constants.roles.CLAIMER]);
+    retireLiveExpansionCreeps(campaignId, [
+        constants.roles.SCOUT,
+        constants.roles.CLAIMER,
+        constants.roles.ATTACKER,
+        constants.roles.HEALER,
+        constants.roles.DISMANTLER,
+        constants.roles.LIBERATOR,
+    ]);
     convertColonizers(campaignId, targetRoomName);
     ensureRoomStartupTasks(targetRoomName, ctx);
     clearCampaign(store);
@@ -409,31 +533,97 @@ function completeCampaign(store, campaign, ctx) {
     ctx.log(`[expansion] completed ${campaignId} into ${targetRoomName}`);
 }
 
-function restartScoutStage(store, campaign, ctx, reason, markTargetInvalid) {
-    if (markTargetInvalid && campaign.targetRoomName) {
-        if (!campaign.invalidTargetRoomNames) {
-            campaign.invalidTargetRoomNames = {};
-        }
-
-        campaign.invalidTargetRoomNames[campaign.targetRoomName] = true;
+function restartScoutStage(store, campaign, ctx, reason, invalidUntilTick) {
+    if (campaign.targetRoomName && Number.isFinite(invalidUntilTick)) {
+        setInvalidTargetUntil(campaign, campaign.targetRoomName, invalidUntilTick);
     }
 
+    cleanupRoleActions(constants.roles.SCOUT, campaign.campaignId, "expansion-restart");
     cleanupRoleActions(constants.roles.CLAIMER, campaign.campaignId, "expansion-restart");
     cleanupRoleActions(constants.roles.COLONIZER, campaign.campaignId, "expansion-restart");
+
+    for (const role of MILITARY_ROLES) {
+        cleanupRoleActions(role, campaign.campaignId, "expansion-restart");
+    }
+
+    removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.SCOUT);
     removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
     removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.COLONIZER);
+
+    for (const role of MILITARY_ROLES) {
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+    }
+
     retireLiveExpansionCreeps(campaign.campaignId, [
         constants.roles.CLAIMER,
         constants.roles.COLONIZER,
+        constants.roles.ATTACKER,
+        constants.roles.HEALER,
+        constants.roles.DISMANTLER,
+        constants.roles.LIBERATOR,
     ]);
 
     campaign.stage = STAGES.SCOUT;
+    campaign.strategy = STRATEGIES.PEACEFUL;
     campaign.originRoomName = null;
+    campaign.scoutCooldownUntil = null;
     campaign.scoutSearchComplete = false;
+    campaign.siegeStartedAt = null;
+    campaign.stagingRoomNames = [];
     campaign.targetRoomName = null;
     store.spawnSite = null;
 
     ctx.log(`[expansion] restart scouting (${reason})`);
+}
+
+function scheduleScoutRetry(store, campaign, ctx, reason, delay) {
+    clearDiscoveryState(store);
+
+    campaign.originRoomName = null;
+    campaign.scoutCooldownUntil = Game.time + delay;
+    campaign.scoutSearchComplete = false;
+    campaign.siegeStartedAt = null;
+    campaign.stage = STAGES.SCOUT;
+    campaign.stagingRoomNames = [];
+    campaign.strategy = STRATEGIES.PEACEFUL;
+    campaign.targetRoomName = null;
+    store.spawnSite = null;
+
+    ctx.log(`[expansion] rescan scheduled in ${delay} ticks (${reason})`);
+}
+
+function enterBootstrapStage(store, campaign, ctx, ownedRoomNames, reason) {
+    if (campaign.strategy === STRATEGIES.MILITARY) {
+        cleanupRoleActions(constants.roles.SCOUT, campaign.campaignId, "expansion-stage-bootstrap");
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.SCOUT);
+
+        for (const role of MILITARY_ROLES) {
+            cleanupRoleActions(role, campaign.campaignId, "expansion-stage-bootstrap");
+            removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+        }
+
+        retireLiveExpansionCreeps(campaign.campaignId, [
+            constants.roles.SCOUT,
+            constants.roles.ATTACKER,
+            constants.roles.HEALER,
+            constants.roles.DISMANTLER,
+            constants.roles.LIBERATOR,
+        ]);
+    }
+    else {
+        cleanupRoleActions(constants.roles.CLAIMER, campaign.campaignId, "expansion-stage-bootstrap");
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
+    }
+
+    campaign.stage = STAGES.BOOTSTRAP_SPAWN;
+    campaign.originRoomName = pickOriginSpawnRoom(store, ownedRoomNames, campaign.targetRoomName, campaign)
+        || campaign.originRoomName
+        || campaign.coordinatorRoomName;
+    campaign.siegeStartedAt = null;
+    campaign.stagingRoomNames = [];
+    store.spawnSite = null;
+
+    ctx.log(`[expansion] ${reason} ${campaign.targetRoomName}, bootstrap from ${campaign.originRoomName}`);
 }
 
 function syncExpansionTasks(ctx, campaign) {
@@ -441,8 +631,22 @@ function syncExpansionTasks(ctx, campaign) {
     const liveScouts = countLiveExpansionCreeps(campaign.campaignId, constants.roles.SCOUT);
     const liveClaimers = countLiveExpansionCreeps(campaign.campaignId, constants.roles.CLAIMER);
     const liveColonizers = countLiveExpansionCreeps(campaign.campaignId, constants.roles.COLONIZER);
+    const liveAttackers = countLiveExpansionCreeps(campaign.campaignId, constants.roles.ATTACKER);
+    const liveHealers = countLiveExpansionCreeps(campaign.campaignId, constants.roles.HEALER);
+    const liveDismantlers = countLiveExpansionCreeps(campaign.campaignId, constants.roles.DISMANTLER);
+    const liveLiberators = countLiveExpansionCreeps(campaign.campaignId, constants.roles.LIBERATOR);
 
-    if (campaign.stage === STAGES.SCOUT || liveScouts > 0) {
+    if (
+        campaign.stage === STAGES.SCOUT ||
+        (
+            campaign.strategy === STRATEGIES.MILITARY &&
+            (
+                campaign.stage === STAGES.SIEGE_CLEAR ||
+                campaign.stage === STAGES.SIEGE_CONTROLLER
+            )
+        ) ||
+        liveScouts > 0
+    ) {
         desiredRooms[campaign.coordinatorRoomName] = true;
     }
 
@@ -456,6 +660,22 @@ function syncExpansionTasks(ctx, campaign) {
         )
     ) {
         desiredRooms[campaign.originRoomName] = true;
+    }
+
+    if (
+        campaign.stagingRoomNames &&
+        (
+            campaign.stage === STAGES.SIEGE_CLEAR ||
+            campaign.stage === STAGES.SIEGE_CONTROLLER ||
+            liveAttackers > 0 ||
+            liveHealers > 0 ||
+            liveDismantlers > 0 ||
+            liveLiberators > 0
+        )
+    ) {
+        for (const roomName of campaign.stagingRoomNames) {
+            desiredRooms[roomName] = true;
+        }
     }
 
     const allTasks = ctx.listTasks();
@@ -497,10 +717,63 @@ function syncSpawnTasks(ctx, store, campaign) {
         );
         removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
         removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.COLONIZER);
+        for (const role of MILITARY_ROLES) {
+            removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+        }
+        return;
+    }
+
+    if (
+        campaign.strategy === STRATEGIES.MILITARY &&
+        (
+            campaign.stage === STAGES.SIEGE_CLEAR ||
+            campaign.stage === STAGES.SIEGE_CONTROLLER
+        )
+    ) {
+        syncRoleSpawnTasks(
+            ctx,
+            campaign,
+            constants.roles.SCOUT,
+            1,
+            campaign.coordinatorRoomName
+        );
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.COLONIZER);
+        syncRoleSpawnTasksByRoom(
+            ctx,
+            campaign,
+            constants.roles.ATTACKER,
+            1,
+            campaign.stagingRoomNames
+        );
+        syncRoleSpawnTasksByRoom(
+            ctx,
+            campaign,
+            constants.roles.HEALER,
+            1,
+            campaign.stagingRoomNames
+        );
+        syncRoleSpawnTasksByRoom(
+            ctx,
+            campaign,
+            constants.roles.DISMANTLER,
+            1,
+            campaign.stagingRoomNames
+        );
+        syncRoleSpawnTasks(
+            ctx,
+            campaign,
+            constants.roles.LIBERATOR,
+            campaign.stage === STAGES.SIEGE_CONTROLLER ? 1 : 0,
+            campaign.originRoomName
+        );
         return;
     }
 
     removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.SCOUT);
+    for (const role of MILITARY_ROLES) {
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+    }
 
     if (campaign.stage === STAGES.CLAIM) {
         syncRoleSpawnTasks(ctx, campaign, constants.roles.CLAIMER, 1, campaign.originRoomName);
@@ -513,6 +786,11 @@ function syncSpawnTasks(ctx, store, campaign) {
 }
 
 function syncRoleSpawnTasks(ctx, campaign, role, desiredCount, roomName) {
+    if (!roomName) {
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+        return;
+    }
+
     const allTasks = ctx.listTasks();
     const matchingTasks = [];
     let existingCount = countLiveExpansionCreeps(campaign.campaignId, role);
@@ -547,6 +825,53 @@ function syncRoleSpawnTasks(ctx, campaign, role, desiredCount, roomName) {
             role: role,
         });
         existingCount += 1;
+    }
+}
+
+function syncRoleSpawnTasksByRoom(ctx, campaign, role, desiredCountPerRoom, roomNames) {
+    const desiredRoomNames = Array.isArray(roomNames)
+        ? roomNames.filter(Boolean)
+        : [];
+    const allTasks = ctx.listTasks();
+    const queuedByRoom = {};
+
+    for (const task of allTasks) {
+        if (!isMatchingExpansionSpawnTask(task, campaign.campaignId, role)) {
+            continue;
+        }
+
+        if (!desiredRoomNames.includes(task.room)) {
+            ctx.removeTask(task.id);
+            continue;
+        }
+
+        if (!queuedByRoom[task.room]) {
+            queuedByRoom[task.room] = [];
+        }
+
+        queuedByRoom[task.room].push(task);
+    }
+
+    for (const roomName of desiredRoomNames) {
+        const matchingTasks = queuedByRoom[roomName] || [];
+        let existingCount = countLiveExpansionCreeps(campaign.campaignId, role, roomName) + matchingTasks.length;
+
+        while (existingCount > desiredCountPerRoom && matchingTasks.length > 0) {
+            const task = matchingTasks.pop();
+            ctx.removeTask(task.id);
+            existingCount -= 1;
+        }
+
+        while (existingCount < desiredCountPerRoom) {
+            ctx.addTask(constants.taskTypes.SPAWN_CREEP, roomName, {
+                memory: {
+                    expansionCampaignId: campaign.campaignId,
+                    expansionTargetRoomName: campaign.targetRoomName || null,
+                },
+                role: role,
+            });
+            existingCount += 1;
+        }
     }
 }
 
@@ -591,6 +916,10 @@ function cleanupInactiveExpansion(ctx) {
         constants.roles.SCOUT,
         constants.roles.CLAIMER,
         constants.roles.COLONIZER,
+        constants.roles.ATTACKER,
+        constants.roles.HEALER,
+        constants.roles.DISMANTLER,
+        constants.roles.LIBERATOR,
     ]);
 }
 
@@ -736,7 +1065,11 @@ function createCampaign(store, coordinatorRoomName) {
         invalidTargetRoomNames: {},
         originRoomName: null,
         scoutSearchComplete: false,
+        scoutCooldownUntil: null,
+        siegeStartedAt: null,
         stage: STAGES.SCOUT,
+        stagingRoomNames: [],
+        strategy: STRATEGIES.PEACEFUL,
         targetRoomName: null,
     };
 }
@@ -755,6 +1088,12 @@ function clearDiscoveryState(store) {
 }
 
 function primeOwnedRooms(store, ownedRoomNames, campaign) {
+    const skipFrontierExpansion = !!(
+        campaign &&
+        Number.isFinite(campaign.scoutCooldownUntil) &&
+        campaign.scoutCooldownUntil > Game.time
+    );
+
     for (const roomName of ownedRoomNames) {
         const room = Game.rooms[roomName];
 
@@ -765,6 +1104,7 @@ function primeOwnedRooms(store, ownedRoomNames, campaign) {
         const existing = store.scoutedRooms[roomName];
 
         store.scoutedRooms[roomName] = {
+            combat: getCombatState(room),
             controllerState: getControllerState(room.controller),
             depth: 0,
             exits: listRoomExits(roomName),
@@ -772,7 +1112,7 @@ function primeOwnedRooms(store, ownedRoomNames, campaign) {
             status: "owned",
         };
 
-        if (!existing || existing.status !== "enemy") {
+        if (!skipFrontierExpansion && (!existing || existing.status !== "enemy")) {
             for (const exitRoomName of store.scoutedRooms[roomName].exits) {
                 enqueueFrontierRoom(
                     store,
@@ -856,7 +1196,7 @@ function selectTargetRoom(store, campaign, ownedRoomNames) {
     });
     const validCandidateRoomNames = store.candidateRooms.filter(function (roomName) {
         return (
-            !campaign.invalidTargetRoomNames[roomName] &&
+            !isTargetInvalid(campaign, roomName) &&
             Number.isFinite(ownedDistances[roomName])
         );
     });
@@ -914,6 +1254,79 @@ function selectTargetRoom(store, campaign, ownedRoomNames) {
     return bestSelection;
 }
 
+function selectMilitaryTargetRoom(store, campaign, ownedRoomNames) {
+    const stagingRoomNames = getSpawnedOwnedRoomNames(ownedRoomNames);
+
+    if (stagingRoomNames.length === 0) {
+        return null;
+    }
+
+    const distances = computeGraphDistances(store.scoutedRooms, stagingRoomNames, {
+        blockedScoutDirections: campaign.blockedScoutDirections,
+        maxDepth: MAX_SCOUT_DEPTH,
+        sourceRoomNames: stagingRoomNames,
+        stopAtEnemy: true,
+    });
+    let bestSelection = null;
+
+    for (const roomName of store.enemyRooms) {
+        if (
+            isTargetInvalid(campaign, roomName) ||
+            !Number.isFinite(distances[roomName])
+        ) {
+            continue;
+        }
+
+        const roomState = store.scoutedRooms[roomName];
+        const controllerOwner = roomState &&
+            roomState.controllerState &&
+            roomState.controllerState.owner;
+
+        if (!controllerOwner || controllerOwner === getMyUsername()) {
+            continue;
+        }
+
+        const combat = roomState.combat || {};
+
+        if (
+            Number.isFinite(combat.safeModeUntil) &&
+            combat.safeModeUntil > Game.time
+        ) {
+            continue;
+        }
+
+        const reachableStagingRoomNames = getMilitaryStagingRoomNames(
+            store,
+            stagingRoomNames,
+            roomName,
+            campaign
+        );
+
+        if (reachableStagingRoomNames.length === 0) {
+            continue;
+        }
+
+        const selection = {
+            armedHostileCreepCount: combat.armedHostileCreepCount || 0,
+            originDistance: distances[roomName],
+            originRoomName: reachableStagingRoomNames[0],
+            spawnCount: combat.spawnCount || 0,
+            stagingRoomNames: reachableStagingRoomNames,
+            targetRoomName: roomName,
+            towerCount: combat.towerCount || 0,
+        };
+
+        if (
+            !bestSelection ||
+            compareMilitarySelection(selection, bestSelection) < 0
+        ) {
+            bestSelection = selection;
+        }
+    }
+
+    return bestSelection;
+}
+
 function pickOriginRoom(store, ownedRoomNames, targetRoomName, campaign) {
     let bestRoomName = null;
     let bestDistance = Infinity;
@@ -957,6 +1370,71 @@ function pickOriginSpawnRoom(store, ownedRoomNames, targetRoomName, campaign) {
     });
 
     return pickOriginRoom(store, nonTargetRoomNames, targetRoomName, campaign);
+}
+
+function getSpawnedOwnedRoomNames(ownedRoomNames) {
+    return ownedRoomNames.filter(function (roomName) {
+        return roomHasOwnedSpawn(roomName);
+    });
+}
+
+function getMilitaryStagingRoomNames(store, stagedRoomNames, targetRoomName, campaign) {
+    const entries = [];
+
+    for (const roomName of stagedRoomNames) {
+        if (roomName === targetRoomName) {
+            continue;
+        }
+
+        const distances = computeGraphDistances(store.scoutedRooms, [roomName], {
+            blockedScoutDirections: campaign ? campaign.blockedScoutDirections : null,
+            maxDepth: MAX_SCOUT_DEPTH,
+            sourceRoomNames: [roomName],
+            stopAtEnemy: true,
+        });
+        const distance = distances[targetRoomName];
+
+        if (!Number.isFinite(distance)) {
+            continue;
+        }
+
+        entries.push({
+            distance: distance,
+            roomName: roomName,
+        });
+    }
+
+    entries.sort(function (left, right) {
+        if (left.distance !== right.distance) {
+            return left.distance - right.distance;
+        }
+
+        return left.roomName.localeCompare(right.roomName);
+    });
+
+    return entries.map(function (entry) {
+        return entry.roomName;
+    });
+}
+
+function compareMilitarySelection(left, right) {
+    if (left.towerCount !== right.towerCount) {
+        return left.towerCount - right.towerCount;
+    }
+
+    if (left.armedHostileCreepCount !== right.armedHostileCreepCount) {
+        return left.armedHostileCreepCount - right.armedHostileCreepCount;
+    }
+
+    if (left.spawnCount !== right.spawnCount) {
+        return left.spawnCount - right.spawnCount;
+    }
+
+    if (left.originDistance !== right.originDistance) {
+        return left.originDistance - right.originDistance;
+    }
+
+    return left.targetRoomName.localeCompare(right.targetRoomName);
 }
 
 function computeGraphDistances(scoutedRooms, sourceRoomNames, options) {
@@ -1072,11 +1550,13 @@ function normalizeDiscoveryState(store) {
 
         if (visibleRoom) {
             roomState.status = classifyRoom(visibleRoom).status;
+            roomState.combat = getCombatState(visibleRoom);
             roomState.controllerState = getControllerState(visibleRoom.controller);
             roomState.lastSeen = Game.time;
             continue;
         }
 
+        roomState.combat = inferStoredCombatState(roomState);
         roomState.status = inferStoredRoomStatus(roomName, roomState);
     }
 
@@ -1091,6 +1571,25 @@ function normalizeCampaignState(campaign) {
     if (!campaign.invalidTargetRoomNames) {
         campaign.invalidTargetRoomNames = {};
     }
+    else {
+        for (const roomName in campaign.invalidTargetRoomNames) {
+            const value = campaign.invalidTargetRoomNames[roomName];
+
+            if (value === true) {
+                campaign.invalidTargetRoomNames[roomName] = INVALID_FOREVER_TICK;
+                continue;
+            }
+
+            if (!Number.isFinite(value)) {
+                delete campaign.invalidTargetRoomNames[roomName];
+                continue;
+            }
+
+            if (value <= Game.time) {
+                delete campaign.invalidTargetRoomNames[roomName];
+            }
+        }
+    }
 
     if (!campaign.blockedScoutDirections) {
         campaign.blockedScoutDirections = {};
@@ -1098,6 +1597,22 @@ function normalizeCampaignState(campaign) {
 
     if (campaign.scoutSearchComplete === undefined) {
         campaign.scoutSearchComplete = false;
+    }
+
+    if (!Array.isArray(campaign.stagingRoomNames)) {
+        campaign.stagingRoomNames = [];
+    }
+
+    if (!campaign.strategy) {
+        campaign.strategy = STRATEGIES.PEACEFUL;
+    }
+
+    if (campaign.siegeStartedAt === undefined) {
+        campaign.siegeStartedAt = null;
+    }
+
+    if (campaign.scoutCooldownUntil === undefined) {
+        campaign.scoutCooldownUntil = null;
     }
 }
 
@@ -1262,7 +1777,7 @@ function isInvaderUsername(username) {
 }
 
 function hasHostileStructures(room) {
-    if (!room || typeof FIND_HOSTILE_STRUCTURES === "undefined") {
+    if (!room) {
         return false;
     }
 
@@ -1285,6 +1800,104 @@ function getControllerState(controller) {
         owner: controller.owner ? controller.owner.username : null,
         reservation: controller.reservation ? controller.reservation.username : null,
     };
+}
+
+function inferStoredCombatState(roomState) {
+    const controllerState = roomState && roomState.controllerState
+        ? roomState.controllerState
+        : {};
+    const combat = roomState && roomState.combat
+        ? roomState.combat
+        : {};
+
+    return {
+        armedHostileCreepCount: combat.armedHostileCreepCount || 0,
+        lastCombatSeen: combat.lastCombatSeen || roomState.lastSeen || null,
+        owner: combat.owner || controllerState.owner || null,
+        rampartCoverCount: combat.rampartCoverCount || 0,
+        safeModeUntil: Number.isFinite(combat.safeModeUntil) && combat.safeModeUntil > Game.time
+            ? combat.safeModeUntil
+            : null,
+        spawnCount: combat.spawnCount || 0,
+        towerCount: combat.towerCount || 0,
+    };
+}
+
+function getCombatState(room) {
+    const hostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
+    const controller = room.controller;
+
+    return {
+        armedHostileCreepCount: countArmedHostileCreeps(room),
+        lastCombatSeen: Game.time,
+        owner: controller && controller.owner ? controller.owner.username : null,
+        rampartCoverCount: countRampartsCoveringCriticalStructures(hostileStructures),
+        safeModeUntil: controller && controller.safeMode
+            ? Game.time + controller.safeMode
+            : null,
+        spawnCount: countHostileStructuresByType(hostileStructures, STRUCTURE_SPAWN),
+        towerCount: countHostileStructuresByType(hostileStructures, STRUCTURE_TOWER),
+    };
+}
+
+function countArmedHostileCreeps(room) {
+    let count = 0;
+
+    for (const creep of room.find(FIND_HOSTILE_CREEPS)) {
+        if (isArmedHostileCreep(creep)) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function isArmedHostileCreep(creep) {
+    return (
+        creep.getActiveBodyparts(ATTACK) > 0 ||
+        creep.getActiveBodyparts(RANGED_ATTACK) > 0 ||
+        creep.getActiveBodyparts(HEAL) > 0
+    );
+}
+
+function countHostileStructuresByType(hostileStructures, structureType) {
+    let count = 0;
+
+    for (const structure of hostileStructures) {
+        if (structure.structureType === structureType) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function countRampartsCoveringCriticalStructures(hostileStructures) {
+    const coveredKeys = {};
+
+    for (const structure of hostileStructures) {
+        if (
+            structure.structureType !== STRUCTURE_TOWER &&
+            structure.structureType !== STRUCTURE_SPAWN
+        ) {
+            continue;
+        }
+
+        const structuresAtPosition = structure.room.lookForAt(
+            LOOK_STRUCTURES,
+            structure.pos.x,
+            structure.pos.y
+        );
+        const hasRampart = structuresAtPosition.some(function (otherStructure) {
+            return otherStructure.structureType === STRUCTURE_RAMPART;
+        });
+
+        if (hasRampart) {
+            coveredKeys[`${structure.pos.x}:${structure.pos.y}`] = true;
+        }
+    }
+
+    return Object.keys(coveredKeys).length;
 }
 
 function getOwnedSpawn(room) {
@@ -1331,7 +1944,7 @@ function isMatchingExpansionSpawnTask(task, campaignId, role) {
     return true;
 }
 
-function countLiveExpansionCreeps(campaignId, role) {
+function countLiveExpansionCreeps(campaignId, role, originRoomName) {
     let count = 0;
 
     for (const creepName in Game.creeps) {
@@ -1349,10 +1962,219 @@ function countLiveExpansionCreeps(campaignId, role) {
             continue;
         }
 
+        if (originRoomName && creep.memory.originRoomName !== originRoomName) {
+            continue;
+        }
+
         count += 1;
     }
 
     return count;
+}
+
+function refreshMilitaryCampaign(store, campaign, ctx, ownedRoomNames) {
+    const targetRoomName = campaign.targetRoomName;
+    const roomState = targetRoomName ? store.scoutedRooms[targetRoomName] : null;
+    const safeModeUntil = getSafeModeUntil(roomState);
+    const invalidUntilTick = Math.max(
+        Number.isFinite(safeModeUntil) ? safeModeUntil : 0,
+        Game.time + MAX_SIEGE_STALL
+    );
+
+    if (!targetRoomName) {
+        restartScoutStage(store, campaign, ctx, "missing military target", Game.time + SCOUT_RETRY_DELAY);
+        return false;
+    }
+
+    if (
+        Number.isFinite(campaign.siegeStartedAt) &&
+        Game.time - campaign.siegeStartedAt >= MAX_SIEGE_STALL
+    ) {
+        restartScoutStage(store, campaign, ctx, `siege stalled in ${targetRoomName}`, invalidUntilTick);
+        return false;
+    }
+
+    if (safeModeUntil && safeModeUntil > Game.time) {
+        restartScoutStage(store, campaign, ctx, `target ${targetRoomName} entered safe mode`, invalidUntilTick);
+        return false;
+    }
+
+    const stagingRoomNames = getMilitaryStagingRoomNames(
+        store,
+        getSpawnedOwnedRoomNames(ownedRoomNames),
+        targetRoomName,
+        campaign
+    );
+
+    if (stagingRoomNames.length === 0) {
+        restartScoutStage(store, campaign, ctx, `target ${targetRoomName} became unreachable`, invalidUntilTick);
+        return false;
+    }
+
+    campaign.originRoomName = stagingRoomNames[0];
+    campaign.stagingRoomNames = stagingRoomNames;
+    return true;
+}
+
+function isTargetInvalid(campaign, roomName) {
+    if (!campaign || !campaign.invalidTargetRoomNames) {
+        return false;
+    }
+
+    const invalidUntilTick = campaign.invalidTargetRoomNames[roomName];
+
+    return Number.isFinite(invalidUntilTick) && invalidUntilTick > Game.time;
+}
+
+function setInvalidTargetUntil(campaign, roomName, untilTick) {
+    if (
+        !campaign ||
+        !roomName ||
+        !Number.isFinite(untilTick)
+    ) {
+        return;
+    }
+
+    if (!campaign.invalidTargetRoomNames) {
+        campaign.invalidTargetRoomNames = {};
+    }
+
+    campaign.invalidTargetRoomNames[roomName] = Math.max(
+        campaign.invalidTargetRoomNames[roomName] || 0,
+        untilTick
+    );
+}
+
+function getSafeModeUntil(roomState) {
+    const combat = roomState && roomState.combat
+        ? roomState.combat
+        : null;
+
+    if (
+        combat &&
+        Number.isFinite(combat.safeModeUntil) &&
+        combat.safeModeUntil > Game.time
+    ) {
+        return combat.safeModeUntil;
+    }
+
+    return null;
+}
+
+function findSiegeTarget(room) {
+    return (
+        findPriorityHostileCreep(room) ||
+        findCoveredCriticalRampart(room) ||
+        findPriorityHostileStructure(room)
+    );
+}
+
+function findPriorityHostileCreep(room) {
+    const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+
+    if (hostileCreeps.length === 0) {
+        return null;
+    }
+
+    const healers = hostileCreeps.filter(function (creep) {
+        return creep.getActiveBodyparts(HEAL) > 0;
+    });
+
+    if (healers.length > 0) {
+        return pickCombatTargetByRange(room, healers);
+    }
+
+    return pickCombatTargetByRange(room, hostileCreeps);
+}
+
+function findCoveredCriticalRampart(room) {
+    const hostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
+    const ramparts = [];
+
+    for (const structure of hostileStructures) {
+        if (
+            structure.structureType !== STRUCTURE_TOWER &&
+            structure.structureType !== STRUCTURE_SPAWN
+        ) {
+            continue;
+        }
+
+        const structuresAtPosition = room.lookForAt(LOOK_STRUCTURES, structure.pos.x, structure.pos.y);
+
+        for (const otherStructure of structuresAtPosition) {
+            if (otherStructure.structureType === STRUCTURE_RAMPART) {
+                ramparts.push(otherStructure);
+            }
+        }
+    }
+
+    if (ramparts.length === 0) {
+        return null;
+    }
+
+    return pickCombatTargetByRange(room, ramparts);
+}
+
+function findPriorityHostileStructure(room) {
+    const hostileStructures = room.find(FIND_HOSTILE_STRUCTURES).filter(function (structure) {
+        return structure.structureType !== STRUCTURE_CONTROLLER;
+    });
+    const towers = hostileStructures.filter(function (structure) {
+        return structure.structureType === STRUCTURE_TOWER;
+    });
+    const spawns = hostileStructures.filter(function (structure) {
+        return structure.structureType === STRUCTURE_SPAWN;
+    });
+    const others = hostileStructures.filter(function (structure) {
+        return (
+            structure.structureType !== STRUCTURE_TOWER &&
+            structure.structureType !== STRUCTURE_SPAWN
+        );
+    });
+
+    return (
+        pickCombatTargetByRange(room, towers) ||
+        pickCombatTargetByRange(room, spawns) ||
+        pickCombatTargetByRange(room, others)
+    );
+}
+
+function pickCombatTargetByRange(room, targets) {
+    if (!targets || targets.length === 0) {
+        return null;
+    }
+
+    targets.sort(function (left, right) {
+        const leftRange = room.controller
+            ? room.controller.pos.getRangeTo(left)
+            : getRangeToCenter(left);
+        const rightRange = room.controller
+            ? room.controller.pos.getRangeTo(right)
+            : getRangeToCenter(right);
+
+        if (leftRange !== rightRange) {
+            return leftRange - rightRange;
+        }
+
+        if (left.pos.x !== right.pos.x) {
+            return left.pos.x - right.pos.x;
+        }
+
+        if (left.pos.y !== right.pos.y) {
+            return left.pos.y - right.pos.y;
+        }
+
+        return String(left.id || left.name || "").localeCompare(String(right.id || right.name || ""));
+    });
+
+    return targets[0];
+}
+
+function getRangeToCenter(target) {
+    return Math.max(
+        Math.abs(target.pos.x - 25),
+        Math.abs(target.pos.y - 25)
+    );
 }
 
 function blockScoutDirection(action) {
@@ -1538,6 +2360,14 @@ function pickKnownDepth(existing, queuedDepth) {
 }
 
 function isScoutSearchComplete(store, campaign) {
+    if (
+        campaign &&
+        Number.isFinite(campaign.scoutCooldownUntil) &&
+        campaign.scoutCooldownUntil > Game.time
+    ) {
+        return false;
+    }
+
     normalizeFrontierQueue(store, campaign);
     return store.frontierQueue.length === 0;
 }
@@ -1682,6 +2512,7 @@ function getMyUsername() {
 module.exports = {
     blockScoutDirection,
     STAGES,
+    STRATEGIES,
     getActiveCampaign,
     getEnemyDistanceHeatmap,
     getSpawnSiteObject,

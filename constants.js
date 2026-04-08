@@ -34,6 +34,10 @@ module.exports = {
         MINE: "mine",
         PICKUP_RESOURCE: "pickup_resource",
         TAKE_RESOURCE: "take_resource",
+        ATTACK_TARGET: "attack_target",
+        HEAL_TARGET: "heal_target",
+        DISMANTLE_TARGET: "dismantle_target",
+        ATTACK_CONTROLLER: "attack_controller",
         BUILD: "build",
         REPAIR: "repair",
         SCOUT_ROOM: "scout_room",
@@ -73,6 +77,10 @@ module.exports = {
         CLAIMER: "claimer",
         COLONIZER: "colonizer",
         HAULER: "hauler",
+        ATTACKER: "attacker",
+        HEALER: "healer",
+        DISMANTLER: "dismantler",
+        LIBERATOR: "liberator",
     },
 
     eventScopes: {

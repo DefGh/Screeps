@@ -6,18 +6,25 @@ const events = require("./events");
 const init = require("./init");
 
 module.exports.loop = function () {
-    Memory.cpu = Math.max(Game.cpu.getUsed(), Memory.cpu);
-    
+    init();
+
     //Game.map.visual.circle(new RoomPosition(25,25,'W7N3'));
 
-    init();
     fireRclChangeEvents();
     fireCreepDeathEvents();
     dispatcherState.reconcileDispatcherState();
     executorRunner.run();
 
-    debug.visuals(); 
+    debug.visuals();
+    updateCpuPeak();
 };
+
+function updateCpuPeak() {
+    const currentCpu = Game.cpu.getUsed();
+    const previousCpu = Number.isFinite(Memory.cpu) ? Memory.cpu : 0;
+
+    Memory.cpu = Math.max(currentCpu, previousCpu);
+}
 
 function fireRclChangeEvents() {
     if (!Memory.rooms) {

@@ -10,6 +10,7 @@ const UNIVERSAL_TARGET_BUFFER = 3000;
 const UNIVERSAL_TARGET_DEADBAND = 500;
 const UNIVERSAL_TARGET_MIN = 3;
 const UNIVERSAL_TARGET_MAX = 6;
+const DEFAULT_UNIVERSAL_TARGET_COUNT = 3;
 const HAULER_RENEW_TARGET_TTL = 1400;
 const cycleActionTypes = [
     constants.actionTypes.SYNC_MINING_OPERATIONS,
@@ -24,6 +25,8 @@ const cycleActionTypes = [
     constants.actionTypes.CHECK_UPGRADE_CONTROLLER,
     constants.actionTypes.RECALCULATE_UNIVERSALS_COUNT,
 ];
+const MAX_LEVEL_UPGRADE_TASK_TOTAL =
+    CONTROLLER_MAX_UPGRADE_PER_TICK * CHECK_INTERVAL * cycleActionTypes.length;
 
 function getCycleActionType(index) {
     return cycleActionTypes[index] || cycleActionTypes[0];
@@ -158,6 +161,25 @@ function checkUpgradeController(room, ctx) {
         return task.type === constants.taskTypes.UPGRADE_CONTROLLER;
     });
 
+    if (isMaxLevelController(room.controller)) {
+        const task = ensureUpgradeTask(room, matchedTasks, ctx);
+
+        if (!task) {
+            return;
+        }
+
+        if (!task.data.isMaxLevel) {
+            task.donePercent = 0;
+            task.assignedPercent = 0;
+        }
+
+        task.data.isMaxLevel = true;
+        task.data.total = getUpgradeTaskTotal(room.controller);
+
+        require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+        return;
+    }
+
     if (!hasControllerUpgradeTotal(room.controller)) {
         for (const task of matchedTasks) {
             ctx.removeTask(task.id);
@@ -174,6 +196,7 @@ function checkUpgradeController(room, ctx) {
     }
 
     task.data.total = room.controller.progressTotal;
+    delete task.data.isMaxLevel;
     task.donePercent = getControllerProgressPercent(room.controller);
 
     require("./dispatcher.cleanup").normalizeTaskAssignments(task);
@@ -467,7 +490,8 @@ function syncEnergyTasks(roomName, taskType, targets, ctx) {
 function ensureUpgradeTask(room, matchedTasks, ctx) {
     if (matchedTasks.length === 0) {
         const result = ctx.addTask(constants.taskTypes.UPGRADE_CONTROLLER, room.name, {
-            total: room.controller.progressTotal,
+            isMaxLevel: isMaxLevelController(room.controller),
+            total: getUpgradeTaskTotal(room.controller),
         });
 
         if (result && result.task) {
@@ -480,6 +504,14 @@ function ensureUpgradeTask(room, matchedTasks, ctx) {
 
     removeExtraTasks(matchedTasks, ctx);
     return matchedTasks[0];
+}
+
+function getUpgradeTaskTotal(controller) {
+    if (isMaxLevelController(controller)) {
+        return MAX_LEVEL_UPGRADE_TASK_TOTAL;
+    }
+
+    return controller.progressTotal;
 }
 
 function isValidRenewTask(task, targetCount, currentCount, roomGeneration) {
@@ -622,6 +654,13 @@ function hasControllerUpgradeTotal(controller) {
         controller &&
         Number.isFinite(controller.progressTotal) &&
         controller.progressTotal > 0
+    );
+}
+
+function isMaxLevelController(controller) {
+    return !!(
+        controller &&
+        controller.level === 8
     );
 }
 
@@ -1008,13 +1047,29 @@ function getRoomEnergyBuffer(room) {
 }
 
 function getRoomState(roomName) {
+    if (!isOwnedRoomName(roomName) && !Memory.Checker.rooms[roomName]) {
+        return {
+            universalTargetCount: DEFAULT_UNIVERSAL_TARGET_COUNT,
+        };
+    }
+
     if (!Memory.Checker.rooms[roomName]) {
         Memory.Checker.rooms[roomName] = {
-            universalTargetCount: 3,
+            universalTargetCount: DEFAULT_UNIVERSAL_TARGET_COUNT,
         };
     }
 
     return Memory.Checker.rooms[roomName];
+}
+
+function isOwnedRoomName(roomName) {
+    const room = Game.rooms[roomName];
+
+    return !!(
+        room &&
+        room.controller &&
+        room.controller.my
+    );
 }
 
 module.exports = {

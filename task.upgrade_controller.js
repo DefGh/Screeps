@@ -1,12 +1,16 @@
 const constants = require("./constants");
+const checker = require("./checker");
 const resourceManager = require("./resource.manager");
+const MAX_LEVEL_UPGRADE_TASK_TOTAL =
+    CONTROLLER_MAX_UPGRADE_PER_TICK * checker.CHECK_INTERVAL * checker.getCycleLength();
 
 function onCompleted(task, action, ctx) {
     const room = Game.rooms[task.room];
 
     if (room && room.controller && room.controller.my) {
         ctx.addTask(constants.taskTypes.UPGRADE_CONTROLLER, task.room, {
-            total: room.controller.progressTotal,
+            isMaxLevel: isMaxLevelController(room.controller),
+            total: getUpgradeTaskTotal(room.controller),
         });
     }
 
@@ -56,6 +60,21 @@ function tryDispatch(task, creep) {
 
 function getAssignedAmount(task, total) {
     return (task.assignedPercent / 100) * total;
+}
+
+function getUpgradeTaskTotal(controller) {
+    if (isMaxLevelController(controller)) {
+        return MAX_LEVEL_UPGRADE_TASK_TOTAL;
+    }
+
+    return controller.progressTotal;
+}
+
+function isMaxLevelController(controller) {
+    return !!(
+        controller &&
+        controller.level === 8
+    );
 }
 
 module.exports = {

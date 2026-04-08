@@ -122,7 +122,9 @@ function visuals() {
 
     drawEnemyDistanceHeatmap();
 
-    const roomNames = Object.keys(Game.rooms);
+    const roomNames = Object.keys(Game.rooms).filter(function (roomName) {
+        return isOwnedRoom(Game.rooms[roomName]);
+    });
 
     for (const roomName of roomNames) {
         const room = Game.rooms[roomName];
@@ -176,6 +178,14 @@ function visuals() {
 
         drawCreepActionLines(roomName, visual);
     }
+}
+
+function isOwnedRoom(room) {
+    return !!(
+        room &&
+        room.controller &&
+        room.controller.my
+    );
 }
 
 function drawEnemyDistanceHeatmap() {
@@ -672,6 +682,14 @@ function getActionLabel(actionType) {
         return "pickup";
     case constants.actionTypes.TAKE_RESOURCE:
         return "take";
+    case constants.actionTypes.ATTACK_TARGET:
+        return "attack";
+    case constants.actionTypes.HEAL_TARGET:
+        return "heal";
+    case constants.actionTypes.DISMANTLE_TARGET:
+        return "dismantle";
+    case constants.actionTypes.ATTACK_CONTROLLER:
+        return "atk ctrl";
     case constants.actionTypes.BUILD:
         return "build";
     case constants.actionTypes.MOVE_TO_RENEW:

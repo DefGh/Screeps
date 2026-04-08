@@ -70,7 +70,6 @@ module.exports = function () {
         return;
     }
     Memory.initialized = true;
-    Memory.debug = true;
 
     const roomNames = Object.keys(Game.rooms);
 

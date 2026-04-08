@@ -9,7 +9,7 @@ function reserve(creep, amount) {
 
     const container = findContainerTarget(room, creep, amount);
 
-    if (hasEstablishedMiner(room.name)) {
+    if (hasEstablishedLocalMiner(room.name)) {
         if (!container) {
             return null;
         }
@@ -133,13 +133,13 @@ function findMineTarget(room, creep) {
     return pickClosestTarget(creep, room.find(FIND_SOURCES));
 }
 
-function hasEstablishedMiner(roomName) {
+function hasEstablishedLocalMiner(roomName) {
     for (const creepName in Game.creeps) {
         const creep = Game.creeps[creepName];
 
         if (
             creep.memory.role !== constants.roles.MINER ||
-            creep.memory.originRoomName !== roomName
+            getMinerSourceRoomName(creep) !== roomName
         ) {
             continue;
         }
@@ -158,6 +158,20 @@ function hasEstablishedMiner(roomName) {
     }
 
     return false;
+}
+
+function getMinerSourceRoomName(creep) {
+    if (
+        creep &&
+        creep.memory &&
+        creep.memory.sourceRoomName
+    ) {
+        return creep.memory.sourceRoomName;
+    }
+
+    return creep && creep.room
+        ? creep.room.name
+        : null;
 }
 
 function isReservablePile(resource, roomName, amount) {

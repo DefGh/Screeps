@@ -198,6 +198,9 @@ function completeAction(state, action) {
 
 function isTerminalAction(actionType) {
     return (
+        actionType === constants.actionTypes.ATTACK_CONTROLLER ||
+        actionType === constants.actionTypes.ATTACK_TARGET ||
+        actionType === constants.actionTypes.DISMANTLE_TARGET ||
         actionType === constants.actionTypes.BUILD ||
         actionType === constants.actionTypes.REPAIR ||
         actionType === constants.actionTypes.CLAIM_CONTROLLER ||
@@ -223,6 +226,7 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.SYNC_ROOM_BUILDER ||
         actionType === constants.actionTypes.SYNC_TOWER_OPERATIONS ||
         actionType === constants.actionTypes.TAXI ||
+        actionType === constants.actionTypes.HEAL_TARGET ||
         actionType === constants.actionTypes.TOWER_ATTACK ||
         actionType === constants.actionTypes.TOWER_HEAL ||
         actionType === constants.actionTypes.TOWER_REPAIR ||

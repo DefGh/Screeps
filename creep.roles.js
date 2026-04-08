@@ -53,6 +53,37 @@ function getBodyPartCost(part) {
     return BODYPART_COST[part];
 }
 
+function getCycleCost(cycle) {
+    let total = 0;
+
+    for (const part of cycle) {
+        total += getBodyPartCost(part);
+    }
+
+    return total;
+}
+
+function buildRepeatingBody(spawn, cycle, minimumCost) {
+    const body = [];
+    const budget = Math.max(minimumCost || 0, spawn.room.energyCapacityAvailable);
+    const cycleCost = getCycleCost(cycle);
+    let spent = 0;
+
+    while (body.length + cycle.length <= MAX_CREEP_SIZE) {
+        if (spent + cycleCost > budget) {
+            break;
+        }
+
+        for (const part of cycle) {
+            body.push(part);
+        }
+
+        spent += cycleCost;
+    }
+
+    return body;
+}
+
 function buildMinerBody(spawn, action) {
     const body = [];
     const isRemoteMiner = !!(
@@ -123,6 +154,38 @@ function buildColonizerBody(spawn) {
     return buildUniversalBody(spawn);
 }
 
+function buildAttackerBody(spawn) {
+    return buildRepeatingBody(
+        spawn,
+        [MOVE, ATTACK],
+        BODYPART_COST[MOVE] + BODYPART_COST[ATTACK]
+    );
+}
+
+function buildHealerBody(spawn) {
+    return buildRepeatingBody(
+        spawn,
+        [MOVE, HEAL],
+        BODYPART_COST[MOVE] + BODYPART_COST[HEAL]
+    );
+}
+
+function buildDismantlerBody(spawn) {
+    return buildRepeatingBody(
+        spawn,
+        [MOVE, WORK],
+        BODYPART_COST[MOVE] + BODYPART_COST[WORK]
+    );
+}
+
+function buildLiberatorBody(spawn) {
+    return buildRepeatingBody(
+        spawn,
+        [MOVE, CLAIM],
+        BODYPART_COST[MOVE] + BODYPART_COST[CLAIM]
+    );
+}
+
 function getUniversalGenerationForRoom(room) {
     if (!room) {
         return 0;
@@ -189,6 +252,30 @@ const roles = {
     },
     [constants.roles.HAULER]: {
         buildBody: buildHaulerBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
+    [constants.roles.ATTACKER]: {
+        buildBody: buildAttackerBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
+    [constants.roles.HEALER]: {
+        buildBody: buildHealerBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
+    [constants.roles.DISMANTLER]: {
+        buildBody: buildDismantlerBody,
+        buildMemory: function () {
+            return {};
+        },
+    },
+    [constants.roles.LIBERATOR]: {
+        buildBody: buildLiberatorBody,
         buildMemory: function () {
             return {};
         },
