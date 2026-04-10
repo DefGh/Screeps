@@ -1329,6 +1329,7 @@ function applyPendingScoutReset(store, campaign) {
 
     clearDiscoveryState(store);
     campaign.blockedScoutDirections = {};
+    campaign.scoutCooldownUntil = null;
     campaign.scoutResetPending = false;
     campaign.scoutSearchComplete = false;
 }
@@ -2708,6 +2709,11 @@ function pickKnownDepth(existing, queuedDepth) {
 
 function isScoutSearchComplete(store, campaign) {
     normalizeFrontierQueue(store, campaign);
+
+    if (campaign && campaign.scoutResetPending) {
+        return false;
+    }
+
     return store.frontierQueue.length === 0;
 }
 
