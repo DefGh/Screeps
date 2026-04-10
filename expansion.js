@@ -535,7 +535,10 @@ function getSpawnSiteObject(targetRoomName) {
 function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
     campaign.scoutSearchComplete = isScoutSearchComplete(store, campaign);
 
-    if (!campaign.scoutSearchComplete) {
+    if (
+        isScoutCoolingDown(campaign) ||
+        !campaign.scoutSearchComplete
+    ) {
         return;
     }
 
@@ -932,7 +935,7 @@ function syncSpawnTasks(ctx, store, campaign) {
             ctx,
             campaign,
             constants.roles.SCOUT,
-            campaign.scoutSearchComplete ? 0 : MAX_SCOUTS,
+            campaign.scoutSearchComplete || isScoutCoolingDown(campaign) ? 0 : MAX_SCOUTS,
             campaign.coordinatorRoomName
         );
         removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
@@ -2704,16 +2707,16 @@ function pickKnownDepth(existing, queuedDepth) {
 }
 
 function isScoutSearchComplete(store, campaign) {
-    if (
+    normalizeFrontierQueue(store, campaign);
+    return store.frontierQueue.length === 0;
+}
+
+function isScoutCoolingDown(campaign) {
+    return !!(
         campaign &&
         Number.isFinite(campaign.scoutCooldownUntil) &&
         campaign.scoutCooldownUntil > Game.time
-    ) {
-        return false;
-    }
-
-    normalizeFrontierQueue(store, campaign);
-    return store.frontierQueue.length === 0;
+    );
 }
 
 function isBlockedScoutDirection(campaign, sourceRoomName, firstHopRoomName) {
