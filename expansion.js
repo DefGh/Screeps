@@ -20,6 +20,7 @@ const MAX_SCOUTS = 2;
 const MAX_COLONIZERS = 2;
 const MAX_SIEGE_STALL = 1500;
 const SCOUT_RETRY_DELAY = 500;
+const HOSTILE_ROOM_MEMORY_TTL = SCOUT_RETRY_DELAY;
 const INVALID_FOREVER_TICK = 9007199254740991;
 const EXPANSION_ROLES = {};
 const SIEGE_ROLES = [
@@ -68,6 +69,7 @@ function reconcile(room, ctx) {
 
     normalizeCampaignState(campaign);
     campaign.coordinatorRoomName = coordinatorRoomName;
+    applyPendingScoutReset(store, campaign);
     primeOwnedRooms(store, ownedRoomNames, campaign);
     normalizeFrontierQueue(store, campaign);
 
@@ -226,49 +228,265 @@ function recordScoutedRoom(roomName, scoutData) {
     }
 
     const store = getStore();
+    const combat = getCombatState(room);
+    const classification = classifyRoom(room, combat);
+
+    return setScoutedRoomState(
+        store,
+        roomName,
+        {
+            combat: combat,
+            controllerState: getControllerState(room.controller),
+            exits: listRoomExits(roomName),
+            hostileUntil: classification.hostileUntil,
+            lastSeen: Game.time,
+            status: classification.status,
+            statusReason: classification.statusReason,
+        },
+        scoutData
+    );
+}
+
+function rememberScoutRoomSnapshot(creep, action) {
+    if (!creep || !creep.memory || !action || !action.data) {
+        return false;
+    }
+
+    const roomName = action.data.roomName;
+
+    if (!roomName || creep.pos.roomName !== roomName) {
+        return false;
+    }
+
+    const room = Game.rooms[roomName];
+
+    if (!room) {
+        return false;
+    }
+
+    creep.memory.scoutRoomSnapshot = createScoutRoomSnapshot(room, action.data);
+    return true;
+}
+
+function recordScoutDeath(event, action) {
+    const creepMemory = event && event.data && Memory.creeps
+        ? Memory.creeps[event.data.name]
+        : null;
+    const snapshot = getMatchingScoutRoomSnapshot(creepMemory, action);
+    let recorded = false;
+
+    if (snapshot) {
+        recorded = recordScoutRoomSnapshot(snapshot);
+    }
+
+    if (!recorded) {
+        recorded = recordSyntheticScoutRoom(action);
+    }
+
+    if (creepMemory && creepMemory.scoutRoomSnapshot) {
+        delete creepMemory.scoutRoomSnapshot;
+    }
+
+    blockScoutDirection(action);
+    return recorded;
+}
+
+function createScoutRoomSnapshot(room, scoutData) {
+    const combat = getCombatState(room);
+    const classification = classifyRoom(room, combat);
     const depth = Number.isFinite(scoutData && scoutData.depth)
         ? scoutData.depth
-        : getQueuedDepth(store.frontierQueue, roomName);
-    const existing = store.scoutedRooms[roomName];
-    const nextDepth = pickKnownDepth(existing, depth);
-    const classification = classifyRoom(room);
-    const exits = listRoomExits(roomName);
-    const sourceRoomName = scoutData && scoutData.sourceRoomName
-        ? scoutData.sourceRoomName
         : null;
-    const firstHopRoomName = scoutData && scoutData.firstHopRoomName
-        ? scoutData.firstHopRoomName
-        : (nextDepth === 1 ? roomName : null);
 
-    store.scoutedRooms[roomName] = {
-        combat: getCombatState(room),
+    return {
+        combat: combat,
         controllerState: getControllerState(room.controller),
-        depth: nextDepth,
-        exits: exits,
+        depth: depth,
+        exits: listRoomExits(room.name),
+        firstHopRoomName: scoutData && scoutData.firstHopRoomName
+            ? scoutData.firstHopRoomName
+            : (depth === 1 ? room.name : null),
+        hostileUntil: classification.hostileUntil,
         lastSeen: Game.time,
+        roomName: room.name,
+        sourceRoomName: scoutData && scoutData.sourceRoomName
+            ? scoutData.sourceRoomName
+            : null,
         status: classification.status,
+        statusReason: classification.statusReason,
+        tick: Game.time,
+    };
+}
+
+function getMatchingScoutRoomSnapshot(creepMemory, action) {
+    if (
+        !creepMemory ||
+        !creepMemory.scoutRoomSnapshot ||
+        !action ||
+        !action.data
+    ) {
+        return null;
+    }
+
+    const snapshot = creepMemory.scoutRoomSnapshot;
+    const firstHopRoomName = action.data.firstHopRoomName
+        || (action.data.depth === 1 ? action.data.roomName : null);
+
+    if (snapshot.roomName !== action.data.roomName) {
+        return null;
+    }
+
+    if ((snapshot.sourceRoomName || null) !== (action.data.sourceRoomName || null)) {
+        return null;
+    }
+
+    if ((snapshot.firstHopRoomName || null) !== (firstHopRoomName || null)) {
+        return null;
+    }
+
+    if (
+        Number.isFinite(action.createdAt) &&
+        Number.isFinite(snapshot.tick) &&
+        snapshot.tick < action.createdAt
+    ) {
+        return null;
+    }
+
+    return snapshot;
+}
+
+function recordScoutRoomSnapshot(snapshot) {
+    if (!snapshot || !snapshot.roomName) {
+        return false;
+    }
+
+    return setScoutedRoomState(
+        getStore(),
+        snapshot.roomName,
+        {
+            combat: snapshot.combat,
+            controllerState: snapshot.controllerState,
+            exits: snapshot.exits,
+            hostileUntil: snapshot.hostileUntil,
+            lastSeen: snapshot.lastSeen,
+            status: snapshot.status,
+            statusReason: snapshot.statusReason,
+        },
+        snapshot
+    );
+}
+
+function recordSyntheticScoutRoom(action) {
+    if (!action || !action.data || !action.data.roomName) {
+        return false;
+    }
+
+    const roomName = action.data.roomName;
+    const firstHopRoomName = action.data.firstHopRoomName
+        || (action.data.depth === 1 ? roomName : null);
+
+    if (firstHopRoomName !== roomName) {
+        return false;
+    }
+
+    return setScoutedRoomState(
+        getStore(),
+        roomName,
+        {
+            combat: {
+                armedHostileCreepCount: 1,
+                lastCombatSeen: Game.time,
+                owner: null,
+                rampartCoverCount: 0,
+                safeModeUntil: null,
+                spawnCount: 0,
+                towerCount: 0,
+            },
+            controllerState: getControllerState(null),
+            exits: listRoomExits(roomName),
+            hostileUntil: Game.time + HOSTILE_ROOM_MEMORY_TTL,
+            lastSeen: Game.time,
+            status: "enemy",
+            statusReason: "synthetic_blocked_scout",
+        },
+        action.data
+    );
+}
+
+function setScoutedRoomState(store, roomName, roomState, scoutData) {
+    const routeState = getScoutRouteState(store, roomName, scoutData);
+    const controllerState = normalizeControllerState(roomState && roomState.controllerState);
+    const nextState = {
+        combat: inferStoredCombatState({
+            combat: roomState ? roomState.combat : null,
+            controllerState: controllerState,
+            lastSeen: roomState && roomState.lastSeen,
+        }),
+        controllerState: controllerState,
+        depth: routeState.depth,
+        exits: Array.isArray(roomState && roomState.exits)
+            ? roomState.exits.slice().sort()
+            : listRoomExits(roomName),
+        hostileUntil: Number.isFinite(roomState && roomState.hostileUntil) &&
+            roomState.hostileUntil > Game.time
+            ? roomState.hostileUntil
+            : null,
+        lastSeen: Number.isFinite(roomState && roomState.lastSeen)
+            ? roomState.lastSeen
+            : Game.time,
+        status: roomState && roomState.status
+            ? roomState.status
+            : null,
+        statusReason: roomState && roomState.statusReason
+            ? roomState.statusReason
+            : null,
     };
 
+    normalizeStoredTemporaryHostility(nextState);
+
+    if (!nextState.status) {
+        nextState.status = inferStoredRoomStatus(roomName, nextState);
+    }
+
+    store.scoutedRooms[roomName] = nextState;
     store.frontierQueue = store.frontierQueue.filter(function (entry) {
         return entry.roomName !== roomName;
     });
 
     refreshDiscoveryIndexes(store);
 
-    if (classification.status !== "enemy" && nextDepth < MAX_SCOUT_DEPTH) {
-        for (const exitRoomName of exits) {
+    if (nextState.status !== "enemy" && routeState.depth < MAX_SCOUT_DEPTH) {
+        for (const exitRoomName of nextState.exits) {
             enqueueFrontierRoom(
                 store,
                 exitRoomName,
-                nextDepth + 1,
-                sourceRoomName,
-                firstHopRoomName,
+                routeState.depth + 1,
+                routeState.sourceRoomName,
+                routeState.firstHopRoomName,
                 store.activeCampaign
             );
         }
     }
 
     return true;
+}
+
+function getScoutRouteState(store, roomName, scoutData) {
+    const depth = Number.isFinite(scoutData && scoutData.depth)
+        ? scoutData.depth
+        : getQueuedDepth(store.frontierQueue, roomName);
+    const existing = store.scoutedRooms[roomName];
+    const nextDepth = pickKnownDepth(existing, depth);
+
+    return {
+        depth: nextDepth,
+        firstHopRoomName: scoutData && scoutData.firstHopRoomName
+            ? scoutData.firstHopRoomName
+            : (nextDepth === 1 ? roomName : null),
+        sourceRoomName: scoutData && scoutData.sourceRoomName
+            ? scoutData.sourceRoomName
+            : null,
+    };
 }
 
 function getSpawnSitePlan(targetRoomName) {
@@ -327,6 +545,7 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
         campaign.stage = STAGES.CLAIM;
         campaign.strategy = STRATEGIES.PEACEFUL;
         campaign.originRoomName = peacefulSelection.originRoomName;
+        campaign.scoutResetPending = false;
         campaign.targetRoomName = peacefulSelection.targetRoomName;
         campaign.stagingRoomNames = [];
         campaign.siegeStartedAt = null;
@@ -346,6 +565,7 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
 
     if (militarySelection) {
         campaign.originRoomName = militarySelection.originRoomName;
+        campaign.scoutResetPending = false;
         campaign.scoutCooldownUntil = null;
         campaign.siegeStartedAt = Game.time;
         campaign.stage = STAGES.SIEGE_CLEAR;
@@ -566,6 +786,7 @@ function restartScoutStage(store, campaign, ctx, reason, invalidUntilTick) {
     campaign.stage = STAGES.SCOUT;
     campaign.strategy = STRATEGIES.PEACEFUL;
     campaign.originRoomName = null;
+    campaign.scoutResetPending = false;
     campaign.scoutCooldownUntil = null;
     campaign.scoutSearchComplete = false;
     campaign.siegeStartedAt = null;
@@ -577,9 +798,8 @@ function restartScoutStage(store, campaign, ctx, reason, invalidUntilTick) {
 }
 
 function scheduleScoutRetry(store, campaign, ctx, reason, delay) {
-    clearDiscoveryState(store);
-
     campaign.originRoomName = null;
+    campaign.scoutResetPending = true;
     campaign.scoutCooldownUntil = Game.time + delay;
     campaign.scoutSearchComplete = false;
     campaign.siegeStartedAt = null;
@@ -1064,6 +1284,7 @@ function createCampaign(store, coordinatorRoomName) {
         coordinatorRoomName: coordinatorRoomName,
         invalidTargetRoomNames: {},
         originRoomName: null,
+        scoutResetPending: false,
         scoutSearchComplete: false,
         scoutCooldownUntil: null,
         siegeStartedAt: null,
@@ -1085,6 +1306,28 @@ function clearDiscoveryState(store) {
     store.enemyRooms = [];
     store.frontierQueue = [];
     store.scoutedRooms = {};
+}
+
+function applyPendingScoutReset(store, campaign) {
+    if (
+        !store ||
+        !campaign ||
+        !campaign.scoutResetPending
+    ) {
+        return;
+    }
+
+    if (
+        Number.isFinite(campaign.scoutCooldownUntil) &&
+        campaign.scoutCooldownUntil > Game.time
+    ) {
+        return;
+    }
+
+    clearDiscoveryState(store);
+    campaign.blockedScoutDirections = {};
+    campaign.scoutResetPending = false;
+    campaign.scoutSearchComplete = false;
 }
 
 function primeOwnedRooms(store, ownedRoomNames, campaign) {
@@ -1549,14 +1792,21 @@ function normalizeDiscoveryState(store) {
         const visibleRoom = Game.rooms[roomName];
 
         if (visibleRoom) {
-            roomState.status = classifyRoom(visibleRoom).status;
-            roomState.combat = getCombatState(visibleRoom);
+            const combat = getCombatState(visibleRoom);
+            const classification = classifyRoom(visibleRoom, combat);
+
+            roomState.status = classification.status;
+            roomState.combat = combat;
             roomState.controllerState = getControllerState(visibleRoom.controller);
+            roomState.hostileUntil = classification.hostileUntil;
             roomState.lastSeen = Game.time;
+            roomState.statusReason = classification.statusReason;
             continue;
         }
 
+        roomState.controllerState = normalizeControllerState(roomState.controllerState);
         roomState.combat = inferStoredCombatState(roomState);
+        normalizeStoredTemporaryHostility(roomState);
         roomState.status = inferStoredRoomStatus(roomName, roomState);
     }
 
@@ -1597,6 +1847,10 @@ function normalizeCampaignState(campaign) {
 
     if (campaign.scoutSearchComplete === undefined) {
         campaign.scoutSearchComplete = false;
+    }
+
+    if (campaign.scoutResetPending === undefined) {
+        campaign.scoutResetPending = false;
     }
 
     if (!Array.isArray(campaign.stagingRoomNames)) {
@@ -1677,34 +1931,35 @@ function normalizeFrontierEntry(entry) {
     };
 }
 
-function classifyRoom(room) {
+function classifyRoom(room, combatState) {
     const controller = room.controller;
+    const combat = combatState || getCombatState(room);
 
     if (controller && controller.my) {
         return {
+            hostileUntil: null,
             status: "owned",
+            statusReason: null,
         };
     }
 
     if (hasHostileStructures(room)) {
         return {
+            hostileUntil: null,
             status: "enemy",
+            statusReason: null,
         };
     }
 
-    if (!controller) {
+    if (controller && controller.owner && !controller.my) {
         return {
-            status: "transit",
-        };
-    }
-
-    if (controller.owner && !controller.my) {
-        return {
+            hostileUntil: null,
             status: "enemy",
+            statusReason: null,
         };
     }
 
-    const reservation = controller.reservation;
+    const reservation = controller ? controller.reservation : null;
     const myUsername = getMyUsername();
 
     if (
@@ -1713,7 +1968,25 @@ function classifyRoom(room) {
         isInvaderUsername(reservation.username)
     ) {
         return {
+            hostileUntil: null,
             status: "enemy",
+            statusReason: null,
+        };
+    }
+
+    if (combat.armedHostileCreepCount > 0) {
+        return {
+            hostileUntil: Game.time + HOSTILE_ROOM_MEMORY_TTL,
+            status: "enemy",
+            statusReason: "armed_hostile_creeps",
+        };
+    }
+
+    if (!controller) {
+        return {
+            hostileUntil: null,
+            status: "transit",
+            statusReason: null,
         };
     }
 
@@ -1723,23 +1996,29 @@ function classifyRoom(room) {
         reservation.username !== myUsername
     ) {
         return {
+            hostileUntil: null,
             status: "transit",
+            statusReason: null,
         };
     }
 
     if (isHighwayRoom(room.name) || isSourceKeeperRoom(room.name)) {
         return {
+            hostileUntil: null,
             status: "transit",
+            statusReason: null,
         };
     }
 
     return {
+        hostileUntil: null,
         status: "candidate",
+        statusReason: null,
     };
 }
 
 function inferStoredRoomStatus(roomName, roomState) {
-    const controllerState = roomState.controllerState || {};
+    const controllerState = normalizeControllerState(roomState && roomState.controllerState);
     const myUsername = getMyUsername();
 
     if (controllerState.owner === myUsername) {
@@ -1751,6 +2030,13 @@ function inferStoredRoomStatus(roomName, roomState) {
     }
 
     if (isInvaderUsername(controllerState.reservation)) {
+        return "enemy";
+    }
+
+    if (
+        Number.isFinite(roomState && roomState.hostileUntil) &&
+        roomState.hostileUntil > Game.time
+    ) {
         return "enemy";
     }
 
@@ -1802,6 +2088,20 @@ function getControllerState(controller) {
     };
 }
 
+function normalizeControllerState(controllerState) {
+    if (!controllerState) {
+        return getControllerState(null);
+    }
+
+    return {
+        level: controllerState.level === undefined
+            ? null
+            : controllerState.level,
+        owner: controllerState.owner || null,
+        reservation: controllerState.reservation || null,
+    };
+}
+
 function inferStoredCombatState(roomState) {
     const controllerState = roomState && roomState.controllerState
         ? roomState.controllerState
@@ -1821,6 +2121,38 @@ function inferStoredCombatState(roomState) {
         spawnCount: combat.spawnCount || 0,
         towerCount: combat.towerCount || 0,
     };
+}
+
+function normalizeStoredTemporaryHostility(roomState) {
+    if (!roomState) {
+        return;
+    }
+
+    if (
+        Number.isFinite(roomState.hostileUntil) &&
+        roomState.hostileUntil > Game.time
+    ) {
+        return;
+    }
+
+    roomState.hostileUntil = null;
+
+    if (!isTemporaryHostilityReason(roomState.statusReason)) {
+        return;
+    }
+
+    roomState.statusReason = null;
+
+    if (roomState.combat) {
+        roomState.combat.armedHostileCreepCount = 0;
+    }
+}
+
+function isTemporaryHostilityReason(statusReason) {
+    return (
+        statusReason === "armed_hostile_creeps" ||
+        statusReason === "synthetic_blocked_scout"
+    );
 }
 
 function getCombatState(room) {
@@ -1844,12 +2176,24 @@ function countArmedHostileCreeps(room) {
     let count = 0;
 
     for (const creep of room.find(FIND_HOSTILE_CREEPS)) {
+        if (isIgnoredScoutHostileCreep(creep)) {
+            continue;
+        }
+
         if (isArmedHostileCreep(creep)) {
             count += 1;
         }
     }
 
     return count;
+}
+
+function isIgnoredScoutHostileCreep(creep) {
+    return !!(
+        creep &&
+        creep.owner &&
+        creep.owner.username === "Source Keeper"
+    );
 }
 
 function isArmedHostileCreep(creep) {
@@ -2519,6 +2863,8 @@ module.exports = {
     getSpawnSitePlan,
     isExpansionRole,
     pickNextScoutRoom,
+    recordScoutDeath,
     recordScoutedRoom,
+    rememberScoutRoomSnapshot,
     reconcile,
 };

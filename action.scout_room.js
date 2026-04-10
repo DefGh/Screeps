@@ -1,4 +1,5 @@
 const tasks = require("./tasks");
+const expansion = require("./expansion");
 
 function execute(creep, action) {
     if (!tasks.getTask(action.taskId)) {
@@ -6,6 +7,7 @@ function execute(creep, action) {
     }
 
     if (creep.pos.roomName === action.data.roomName) {
+        expansion.rememberScoutRoomSnapshot(creep, action);
         return true;
     }
 
@@ -14,11 +16,11 @@ function execute(creep, action) {
 }
 
 function onCompleted(action) {
-    require("./expansion").recordScoutedRoom(action.data.roomName, action.data);
+    expansion.recordScoutedRoom(action.data.roomName, action.data);
 }
 
 function onCreepDeath(event, action) {
-    require("./expansion").blockScoutDirection(action);
+    expansion.recordScoutDeath(event, action);
 }
 
 module.exports = {
