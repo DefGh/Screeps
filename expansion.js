@@ -2714,7 +2714,7 @@ function isScoutSearchComplete(store, campaign) {
         return false;
     }
 
-    return store.frontierQueue.length === 0;
+    return store.frontierQueue.length === 0 || !store.frontierQueue;
 }
 
 function isScoutCoolingDown(campaign) {
