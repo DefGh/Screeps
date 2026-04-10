@@ -117,6 +117,23 @@ function tryDispatchScout(task, campaign) {
         return [];
     }
 
+    if (
+        campaign.stage === expansion.STAGES.BREACH_TRANSIT &&
+        campaign.breachRoomName
+    ) {
+        return [
+            {
+                type: constants.actionTypes.SCOUT_ROOM,
+                data: {
+                    depth: 1,
+                    firstHopRoomName: campaign.breachRoomName,
+                    roomName: campaign.breachRoomName,
+                    sourceRoomName: campaign.breachSourceRoomName || null,
+                },
+            },
+        ];
+    }
+
     if (isMilitaryStage(campaign) && campaign.targetRoomName) {
         return [
             {
@@ -226,10 +243,16 @@ function tryDispatchAttacker(task, creep, campaign) {
         return [];
     }
 
-    const targetRoom = Game.rooms[campaign.targetRoomName];
+    const targetRoomName = getCombatTargetRoomName(campaign);
+
+    if (!targetRoomName) {
+        return [];
+    }
+
+    const targetRoom = Game.rooms[targetRoomName];
 
     if (!targetRoom) {
-        return [createMoveTemplate(25, 25, campaign.targetRoomName)];
+        return [createMoveTemplate(25, 25, targetRoomName)];
     }
 
     const target = findAttackerTarget(targetRoom, creep);
@@ -238,10 +261,16 @@ function tryDispatchAttacker(task, creep, campaign) {
         return [createAttackTemplate(target.id)];
     }
 
-    return [createControllerHoldTemplate(targetRoom.controller, campaign.targetRoomName)];
+    return [createControllerHoldTemplate(targetRoom.controller, targetRoomName)];
 }
 
 function tryDispatchDismantler(task, creep, campaign) {
+    const expansion = getExpansion();
+
+    if (campaign.stage === expansion.STAGES.BREACH_TRANSIT) {
+        return [];
+    }
+
     if (!isAssignedToMilitaryRoom(task.room, campaign)) {
         return [];
     }
@@ -266,10 +295,16 @@ function tryDispatchHealer(task, creep, campaign) {
         return [];
     }
 
-    const targetRoom = Game.rooms[campaign.targetRoomName];
+    const targetRoomName = getCombatTargetRoomName(campaign);
+
+    if (!targetRoomName) {
+        return [];
+    }
+
+    const targetRoom = Game.rooms[targetRoomName];
 
     if (!targetRoom) {
-        return [createMoveTemplate(25, 25, campaign.targetRoomName)];
+        return [createMoveTemplate(25, 25, targetRoomName)];
     }
 
     const wounded = findMostWoundedSiegeCreep(campaign.campaignId, targetRoom.name);
@@ -284,11 +319,15 @@ function tryDispatchHealer(task, creep, campaign) {
         return [createHealTemplate(escort.id)];
     }
 
-    return [createControllerHoldTemplate(targetRoom.controller, campaign.targetRoomName)];
+    return [createControllerHoldTemplate(targetRoom.controller, targetRoomName)];
 }
 
 function tryDispatchLiberator(task, executor, campaign) {
     const expansion = getExpansion();
+
+    if (campaign.stage === expansion.STAGES.BREACH_TRANSIT) {
+        return [];
+    }
 
     if (task.room !== campaign.originRoomName) {
         return [];
@@ -433,6 +472,16 @@ function isMilitaryStage(campaign) {
             campaign.stage === expansion.STAGES.SIEGE_CONTROLLER
         )
     );
+}
+
+function getCombatTargetRoomName(campaign) {
+    const expansion = getExpansion();
+
+    if (campaign.stage === expansion.STAGES.BREACH_TRANSIT) {
+        return campaign.breachRoomName || null;
+    }
+
+    return campaign.targetRoomName || null;
 }
 
 function isAssignedToMilitaryRoom(roomName, campaign) {

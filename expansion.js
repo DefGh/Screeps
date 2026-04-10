@@ -4,6 +4,7 @@ const firstSpawnPlanner = require("./planner.first_spawn");
 
 const STAGES = {
     SCOUT: "scout",
+    BREACH_TRANSIT: "breach_transit",
     CLAIM: "claim",
     SIEGE_CLEAR: "siege_clear",
     SIEGE_CONTROLLER: "siege_controller",
@@ -85,6 +86,9 @@ function reconcile(room, ctx) {
 
     if (campaign.stage === STAGES.SCOUT) {
         reconcileScoutStage(store, campaign, ctx, ownedRoomNames);
+    }
+    else if (campaign.stage === STAGES.BREACH_TRANSIT) {
+        reconcileBreachTransitStage(store, campaign, ctx, ownedRoomNames);
     }
     else if (campaign.stage === STAGES.CLAIM) {
         reconcileClaimStage(store, campaign, ctx, ownedRoomNames);
@@ -545,6 +549,7 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
     const peacefulSelection = selectTargetRoom(store, campaign, ownedRoomNames);
 
     if (peacefulSelection) {
+        clearTransitBreachState(campaign);
         campaign.stage = STAGES.CLAIM;
         campaign.strategy = STRATEGIES.PEACEFUL;
         campaign.originRoomName = peacefulSelection.originRoomName;
@@ -567,6 +572,7 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
     const militarySelection = selectMilitaryTargetRoom(store, campaign, ownedRoomNames);
 
     if (militarySelection) {
+        clearTransitBreachState(campaign);
         campaign.originRoomName = militarySelection.originRoomName;
         campaign.scoutResetPending = false;
         campaign.scoutCooldownUntil = null;
@@ -583,6 +589,13 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
         return;
     }
 
+    const transitBreachSelection = selectTransitBreachRoom(store, campaign, ownedRoomNames);
+
+    if (transitBreachSelection) {
+        enterTransitBreachStage(store, campaign, ctx, transitBreachSelection);
+        return;
+    }
+
     scheduleScoutRetry(
         store,
         campaign,
@@ -590,6 +603,89 @@ function reconcileScoutStage(store, campaign, ctx, ownedRoomNames) {
         `no viable peaceful or military targets`,
         SCOUT_RETRY_DELAY
     );
+}
+
+function reconcileBreachTransitStage(store, campaign, ctx, ownedRoomNames) {
+    const breachRoomName = campaign.breachRoomName;
+    const breachSourceRoomName = campaign.breachSourceRoomName;
+
+    if (!breachRoomName || !breachSourceRoomName) {
+        cleanupTransitBreachMilitary(ctx, campaign, "expansion-breach-missing-room");
+        scheduleScoutRetry(
+            store,
+            campaign,
+            ctx,
+            "missing transit breach room",
+            SCOUT_RETRY_DELAY
+        );
+        return;
+    }
+
+    if (
+        Number.isFinite(campaign.siegeStartedAt) &&
+        Game.time - campaign.siegeStartedAt >= MAX_SIEGE_STALL
+    ) {
+        cleanupTransitBreachMilitary(ctx, campaign, `expansion-breach-stalled:${breachRoomName}`);
+        scheduleScoutRetry(
+            store,
+            campaign,
+            ctx,
+            `transit breach stalled at ${breachRoomName}`,
+            SCOUT_RETRY_DELAY
+        );
+        return;
+    }
+
+    const roomState = store.scoutedRooms[breachRoomName] || null;
+    const controllerOwner = roomState &&
+        roomState.controllerState &&
+        roomState.controllerState.owner;
+
+    if (controllerOwner && controllerOwner !== getMyUsername()) {
+        clearBlockedScoutDirection(campaign, breachSourceRoomName, breachRoomName);
+
+        campaign.originRoomName = breachSourceRoomName;
+        campaign.scoutCooldownUntil = null;
+        campaign.scoutResetPending = false;
+        campaign.scoutSearchComplete = false;
+        campaign.siegeStartedAt = Game.time;
+        campaign.stage = STAGES.SIEGE_CLEAR;
+        campaign.stagingRoomNames = [breachSourceRoomName];
+        campaign.strategy = STRATEGIES.MILITARY;
+        campaign.targetRoomName = breachRoomName;
+        clearTransitBreachState(campaign);
+        store.spawnSite = null;
+
+        ctx.log(`[expansion] transit breach escalated into siege ${breachRoomName} from ${breachSourceRoomName}`);
+        return;
+    }
+
+    const breachRoom = Game.rooms[breachRoomName];
+
+    if (!breachRoom) {
+        return;
+    }
+
+    if (findSiegeTarget(breachRoom)) {
+        return;
+    }
+
+    cleanupTransitBreachMilitary(ctx, campaign, `expansion-breach-cleared:${breachRoomName}`);
+    clearBlockedScoutDirection(campaign, breachSourceRoomName, breachRoomName);
+    clearTransitBreachState(campaign);
+    campaign.originRoomName = null;
+    campaign.scoutCooldownUntil = null;
+    campaign.scoutResetPending = false;
+    campaign.scoutSearchComplete = false;
+    campaign.siegeStartedAt = null;
+    campaign.stage = STAGES.SCOUT;
+    campaign.stagingRoomNames = [];
+    campaign.strategy = STRATEGIES.PEACEFUL;
+    campaign.targetRoomName = null;
+    store.spawnSite = null;
+    rebuildFrontierQueueFromKnownRooms(store, campaign, ownedRoomNames);
+
+    ctx.log(`[expansion] cleared transit breach ${breachRoomName}, resuming scout`);
 }
 
 function reconcileClaimStage(store, campaign, ctx, ownedRoomNames) {
@@ -795,6 +891,7 @@ function restartScoutStage(store, campaign, ctx, reason, invalidUntilTick) {
     campaign.siegeStartedAt = null;
     campaign.stagingRoomNames = [];
     campaign.targetRoomName = null;
+    clearTransitBreachState(campaign);
     store.spawnSite = null;
 
     ctx.log(`[expansion] restart scouting (${reason})`);
@@ -810,6 +907,7 @@ function scheduleScoutRetry(store, campaign, ctx, reason, delay) {
     campaign.stagingRoomNames = [];
     campaign.strategy = STRATEGIES.PEACEFUL;
     campaign.targetRoomName = null;
+    clearTransitBreachState(campaign);
     store.spawnSite = null;
 
     ctx.log(`[expansion] rescan scheduled in ${delay} ticks (${reason})`);
@@ -861,6 +959,7 @@ function syncExpansionTasks(ctx, campaign) {
 
     if (
         campaign.stage === STAGES.SCOUT ||
+        campaign.stage === STAGES.BREACH_TRANSIT ||
         (
             campaign.strategy === STRATEGIES.MILITARY &&
             (
@@ -888,6 +987,7 @@ function syncExpansionTasks(ctx, campaign) {
     if (
         campaign.stagingRoomNames &&
         (
+            campaign.stage === STAGES.BREACH_TRANSIT ||
             campaign.stage === STAGES.SIEGE_CLEAR ||
             campaign.stage === STAGES.SIEGE_CONTROLLER ||
             liveAttackers > 0 ||
@@ -943,6 +1043,35 @@ function syncSpawnTasks(ctx, store, campaign) {
         for (const role of MILITARY_ROLES) {
             removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
         }
+        return;
+    }
+
+    if (campaign.stage === STAGES.BREACH_TRANSIT) {
+        syncRoleSpawnTasks(
+            ctx,
+            campaign,
+            constants.roles.SCOUT,
+            1,
+            campaign.coordinatorRoomName
+        );
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.CLAIMER);
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.COLONIZER);
+        syncRoleSpawnTasksByRoom(
+            ctx,
+            campaign,
+            constants.roles.ATTACKER,
+            1,
+            campaign.stagingRoomNames
+        );
+        syncRoleSpawnTasksByRoom(
+            ctx,
+            campaign,
+            constants.roles.HEALER,
+            1,
+            campaign.stagingRoomNames
+        );
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.DISMANTLER);
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, constants.roles.LIBERATOR);
         return;
     }
 
@@ -1285,6 +1414,8 @@ function createCampaign(store, coordinatorRoomName) {
         blockedScoutDirections: {},
         campaignId: `expansion:${store.sequence}`,
         coordinatorRoomName: coordinatorRoomName,
+        breachRoomName: null,
+        breachSourceRoomName: null,
         invalidTargetRoomNames: {},
         originRoomName: null,
         scoutResetPending: false,
@@ -1329,6 +1460,7 @@ function applyPendingScoutReset(store, campaign) {
 
     clearDiscoveryState(store);
     campaign.blockedScoutDirections = {};
+    clearTransitBreachState(campaign);
     campaign.scoutCooldownUntil = null;
     campaign.scoutResetPending = false;
     campaign.scoutSearchComplete = false;
@@ -1374,6 +1506,126 @@ function primeOwnedRooms(store, ownedRoomNames, campaign) {
     }
 
     refreshDiscoveryIndexes(store);
+}
+
+function rebuildFrontierQueueFromKnownRooms(store, campaign, ownedRoomNames) {
+    store.frontierQueue = [];
+
+    const routes = computeKnownScoutRoutes(store, ownedRoomNames, campaign);
+
+    for (const roomName in routes) {
+        const route = routes[roomName];
+        const roomState = store.scoutedRooms[roomName];
+
+        if (
+            !route ||
+            !roomState ||
+            roomState.status === "enemy" ||
+            !Array.isArray(roomState.exits) ||
+            route.depth >= MAX_SCOUT_DEPTH
+        ) {
+            continue;
+        }
+
+        for (const exitRoomName of roomState.exits) {
+            enqueueFrontierRoom(
+                store,
+                exitRoomName,
+                route.depth + 1,
+                route.sourceRoomName,
+                route.firstHopRoomName || exitRoomName,
+                campaign
+            );
+        }
+    }
+
+    normalizeFrontierQueue(store, campaign);
+    refreshDiscoveryIndexes(store);
+}
+
+function computeKnownScoutRoutes(store, ownedRoomNames, campaign) {
+    const routes = {};
+    const queue = [];
+
+    for (const roomName of ownedRoomNames) {
+        const roomState = store.scoutedRooms[roomName];
+
+        if (!roomState || roomState.status === "enemy") {
+            continue;
+        }
+
+        routes[roomName] = {
+            depth: 0,
+            firstHopRoomName: null,
+            sourceRoomName: roomName,
+        };
+        queue.push(roomName);
+    }
+
+    while (queue.length > 0) {
+        const roomName = queue.shift();
+        const route = routes[roomName];
+        const roomState = store.scoutedRooms[roomName];
+
+        if (
+            !route ||
+            !roomState ||
+            !Array.isArray(roomState.exits) ||
+            route.depth >= MAX_SCOUT_DEPTH
+        ) {
+            continue;
+        }
+
+        for (const nextRoomName of roomState.exits) {
+            const nextRoomState = store.scoutedRooms[nextRoomName];
+
+            if (!nextRoomState || nextRoomState.status === "enemy") {
+                continue;
+            }
+
+            const nextRoute = {
+                depth: route.depth + 1,
+                firstHopRoomName: route.firstHopRoomName || nextRoomName,
+                sourceRoomName: route.sourceRoomName,
+            };
+
+            if (
+                isBlockedScoutDirection(
+                    campaign,
+                    nextRoute.sourceRoomName,
+                    nextRoute.firstHopRoomName
+                )
+            ) {
+                continue;
+            }
+
+            const existing = routes[nextRoomName];
+
+            if (
+                existing &&
+                compareKnownScoutRoute(existing, nextRoute) <= 0
+            ) {
+                continue;
+            }
+
+            routes[nextRoomName] = nextRoute;
+            queue.push(nextRoomName);
+        }
+    }
+
+    return routes;
+}
+
+function compareKnownScoutRoute(left, right) {
+    if (left.depth !== right.depth) {
+        return left.depth - right.depth;
+    }
+
+    if (left.sourceRoomName !== right.sourceRoomName) {
+        return String(left.sourceRoomName || "").localeCompare(String(right.sourceRoomName || ""));
+    }
+
+    return String(left.firstHopRoomName || "").localeCompare(String(right.firstHopRoomName || ""));
 }
 
 function enqueueFrontierRoom(
@@ -1568,6 +1820,64 @@ function selectMilitaryTargetRoom(store, campaign, ownedRoomNames) {
             compareMilitarySelection(selection, bestSelection) < 0
         ) {
             bestSelection = selection;
+        }
+    }
+
+    return bestSelection;
+}
+
+function selectTransitBreachRoom(store, campaign, ownedRoomNames) {
+    let bestSelection = null;
+
+    for (const sourceRoomName of ownedRoomNames) {
+        const sourceRoomState = store.scoutedRooms[sourceRoomName];
+        const blockedDirections = campaign.blockedScoutDirections[sourceRoomName];
+
+        if (
+            !sourceRoomState ||
+            sourceRoomState.status !== "owned" ||
+            !blockedDirections
+        ) {
+            continue;
+        }
+
+        for (const breachRoomName in blockedDirections) {
+            if (!blockedDirections[breachRoomName]) {
+                continue;
+            }
+
+            const roomState = store.scoutedRooms[breachRoomName];
+            const controllerOwner = roomState &&
+                roomState.controllerState &&
+                roomState.controllerState.owner;
+
+            if (
+                !roomState ||
+                roomState.depth !== 1 ||
+                roomState.status !== "enemy" ||
+                controllerOwner ||
+                !isTemporaryHostilityReason(roomState.statusReason) ||
+                !Array.isArray(sourceRoomState.exits) ||
+                !sourceRoomState.exits.includes(breachRoomName)
+            ) {
+                continue;
+            }
+
+            const selection = {
+                breachRoomName: breachRoomName,
+                sourceRoomName: sourceRoomName,
+            };
+
+            if (
+                !bestSelection ||
+                selection.sourceRoomName.localeCompare(bestSelection.sourceRoomName) < 0 ||
+                (
+                    selection.sourceRoomName === bestSelection.sourceRoomName &&
+                    selection.breachRoomName.localeCompare(bestSelection.breachRoomName) < 0
+                )
+            ) {
+                bestSelection = selection;
+            }
         }
     }
 
@@ -1847,6 +2157,14 @@ function normalizeCampaignState(campaign) {
 
     if (!campaign.blockedScoutDirections) {
         campaign.blockedScoutDirections = {};
+    }
+
+    if (campaign.breachRoomName === undefined) {
+        campaign.breachRoomName = null;
+    }
+
+    if (campaign.breachSourceRoomName === undefined) {
+        campaign.breachSourceRoomName = null;
     }
 
     if (campaign.scoutSearchComplete === undefined) {
@@ -2407,6 +2725,60 @@ function getSafeModeUntil(roomState) {
     }
 
     return null;
+}
+
+function enterTransitBreachStage(store, campaign, ctx, selection) {
+    clearTransitBreachState(campaign);
+    campaign.breachRoomName = selection.breachRoomName;
+    campaign.breachSourceRoomName = selection.sourceRoomName;
+    campaign.originRoomName = selection.sourceRoomName;
+    campaign.scoutCooldownUntil = null;
+    campaign.scoutResetPending = false;
+    campaign.scoutSearchComplete = false;
+    campaign.siegeStartedAt = Game.time;
+    campaign.stage = STAGES.BREACH_TRANSIT;
+    campaign.stagingRoomNames = [selection.sourceRoomName];
+    campaign.strategy = STRATEGIES.MILITARY;
+    campaign.targetRoomName = null;
+    store.spawnSite = null;
+
+    ctx.log(`[expansion] breach transit ${selection.breachRoomName} from ${selection.sourceRoomName}`);
+}
+
+function cleanupTransitBreachMilitary(ctx, campaign, reason) {
+    for (const role of MILITARY_ROLES) {
+        cleanupRoleActions(role, campaign.campaignId, reason || "expansion-breach-cleanup");
+        removeQueuedSpawnTasks(ctx, campaign.campaignId, role);
+    }
+
+    retireLiveExpansionCreeps(campaign.campaignId, MILITARY_ROLES);
+}
+
+function clearTransitBreachState(campaign) {
+    if (!campaign) {
+        return;
+    }
+
+    campaign.breachRoomName = null;
+    campaign.breachSourceRoomName = null;
+}
+
+function clearBlockedScoutDirection(campaign, sourceRoomName, firstHopRoomName) {
+    if (
+        !campaign ||
+        !campaign.blockedScoutDirections ||
+        !sourceRoomName ||
+        !firstHopRoomName ||
+        !campaign.blockedScoutDirections[sourceRoomName]
+    ) {
+        return;
+    }
+
+    delete campaign.blockedScoutDirections[sourceRoomName][firstHopRoomName];
+
+    if (Object.keys(campaign.blockedScoutDirections[sourceRoomName]).length === 0) {
+        delete campaign.blockedScoutDirections[sourceRoomName];
+    }
 }
 
 function findSiegeTarget(room) {
