@@ -106,6 +106,9 @@ const PANEL_OFFSET_Y = 0.6;
 const PANEL_PADDING_RIGHT = 0.2;
 const PANEL_PADDING_BOTTOM = 0.2;
 const ENERGY_SNAPSHOT_INTERVAL = 50;
+const MAP_SCOUT_MARKER_SOURCE_Y = 12;
+const MAP_SCOUT_MARKER_TARGET_Y = 42;
+const MAP_SCOUT_MARKER_SPACING_X = 8;
 
 function log(message) {
     if (!Memory.debug) {
@@ -121,6 +124,7 @@ function visuals() {
     }
 
     drawEnemyDistanceHeatmap();
+    drawScoutTargetsOnMap();
 
     const roomNames = Object.keys(Game.rooms).filter(function (roomName) {
         return isOwnedRoom(Game.rooms[roomName]);
@@ -209,6 +213,177 @@ function drawEnemyDistanceHeatmap() {
             heatmap.maxDistance
         );
     }
+}
+
+function drawScoutTargetsOnMap() {
+    if (!Game.map || !Game.map.visual) {
+        return;
+    }
+
+    const overlays = collectScoutMapOverlays();
+
+    if (overlays.length === 0) {
+        return;
+    }
+
+    for (const overlay of overlays) {
+        drawScoutRouteLine(Game.map.visual, overlay);
+    }
+
+    drawScoutRoomMarkers(Game.map.visual, overlays, "source");
+    drawScoutRoomMarkers(Game.map.visual, overlays, "target");
+}
+
+function collectScoutMapOverlays() {
+    const overlays = [];
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+        const action = getCurrentCreepAction(creep);
+
+        if (!action || !isScoutMapActionType(action.type)) {
+            continue;
+        }
+
+        const targetPosition = getActionTargetPosition(action, creep);
+
+        if (
+            !creep.pos ||
+            !creep.pos.roomName ||
+            !targetPosition ||
+            !targetPosition.roomName
+        ) {
+            continue;
+        }
+
+        overlays.push({
+            actionType: action.type,
+            creepName: creep.name,
+            sourceRoomName: creep.pos.roomName,
+            targetRoomName: targetPosition.roomName,
+        });
+    }
+
+    overlays.sort(function (left, right) {
+        if (left.sourceRoomName !== right.sourceRoomName) {
+            return left.sourceRoomName.localeCompare(right.sourceRoomName);
+        }
+
+        if (left.targetRoomName !== right.targetRoomName) {
+            return left.targetRoomName.localeCompare(right.targetRoomName);
+        }
+
+        if (left.actionType !== right.actionType) {
+            return left.actionType.localeCompare(right.actionType);
+        }
+
+        return left.creepName.localeCompare(right.creepName);
+    });
+
+    return overlays;
+}
+
+function isScoutMapActionType(actionType) {
+    return (
+        actionType === constants.actionTypes.SCOUT_ROOM ||
+        actionType === constants.actionTypes.SCOUT_OUTPOST_ROOM
+    );
+}
+
+function drawScoutRouteLine(visual, overlay) {
+    const color = actionLineColors[overlay.actionType] || "#c7d0d9";
+
+    visual.line(
+        new RoomPosition(25, 25, overlay.sourceRoomName),
+        new RoomPosition(25, 25, overlay.targetRoomName),
+        {
+            color: color,
+            lineStyle: "dashed",
+            opacity: 0.45,
+            width: 1.1,
+        }
+    );
+}
+
+function drawScoutRoomMarkers(visual, overlays, markerType) {
+    const groupsByRoom = {};
+
+    for (const overlay of overlays) {
+        const roomName = markerType === "source"
+            ? overlay.sourceRoomName
+            : overlay.targetRoomName;
+        const key = `${roomName}:${overlay.actionType}`;
+
+        if (!groupsByRoom[roomName]) {
+            groupsByRoom[roomName] = {};
+        }
+
+        if (!groupsByRoom[roomName][key]) {
+            groupsByRoom[roomName][key] = {
+                actionType: overlay.actionType,
+                count: 0,
+                roomName: roomName,
+            };
+        }
+
+        groupsByRoom[roomName][key].count += 1;
+    }
+
+    for (const roomName in groupsByRoom) {
+        const groups = Object.values(groupsByRoom[roomName]).sort(function (left, right) {
+            return left.actionType.localeCompare(right.actionType);
+        });
+
+        for (let index = 0; index < groups.length; index += 1) {
+            drawScoutRoomMarker(
+                visual,
+                groups[index],
+                markerType,
+                index,
+                groups.length
+            );
+        }
+    }
+}
+
+function drawScoutRoomMarker(visual, group, markerType, index, total) {
+    const position = getScoutMarkerPosition(group.roomName, markerType, index, total);
+    const color = actionLineColors[group.actionType] || "#c7d0d9";
+    const labelPrefix = markerType === "source" ? "S" : "T";
+    const label = group.count > 1
+        ? `${labelPrefix}x${group.count}`
+        : labelPrefix;
+
+    visual.circle(position, {
+        fill: "#0f141b",
+        opacity: 0.8,
+        radius: 2.1,
+        stroke: color,
+        strokeWidth: 1.1,
+    });
+    visual.text(label, position, {
+        align: "center",
+        color: color,
+        fontFamily: "monospace",
+        fontSize: 7,
+        opacity: 0.95,
+        stroke: "#0f141b",
+        strokeWidth: 0.5,
+    });
+}
+
+function getScoutMarkerPosition(roomName, markerType, index, total) {
+    const offsetIndex = index - ((total - 1) / 2);
+    const x = clamp(
+        Math.round(25 + (offsetIndex * MAP_SCOUT_MARKER_SPACING_X)),
+        8,
+        42
+    );
+    const y = markerType === "source"
+        ? MAP_SCOUT_MARKER_SOURCE_Y
+        : MAP_SCOUT_MARKER_TARGET_Y;
+
+    return new RoomPosition(x, y, roomName);
 }
 
 function drawEnemyDistanceRoomTile(visual, roomName, roomState, distance, maxDistance) {
