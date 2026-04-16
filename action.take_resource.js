@@ -7,29 +7,30 @@ function execute(creep, action) {
         return complete(action, "task_missing");
     }
 
+    const resourceType = action.data.resourceType || RESOURCE_ENERGY;
     const targetAmount = action.data.amount || 0;
-    const currentEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-    const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    const currentAmount = creep.store.getUsedCapacity(resourceType);
+    const freeCapacity = creep.store.getFreeCapacity();
     const target = Game.getObjectById(action.data.fromId);
 
     if (targetAmount <= 0) {
         return complete(
             action,
-            `invalid_amount amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `invalid_amount amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
-    if (currentEnergy >= targetAmount) {
+    if (currentAmount >= targetAmount) {
         return complete(
             action,
-            `target_reached amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `target_reached amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
     if (freeCapacity <= 0) {
         return complete(
             action,
-            `no_free_capacity amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `no_free_capacity amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
@@ -49,10 +50,10 @@ function execute(creep, action) {
             return false;
         }
 
-        return complete(action, `target_missing pile=${action.data.fromId}`);
+        return complete(action, `target_missing from=${action.data.fromId}`);
     }
 
-    const result = creep.withdraw(target, RESOURCE_ENERGY);
+    const result = creep.withdraw(target, resourceType);
 
     log(result)
 
@@ -71,20 +72,24 @@ function execute(creep, action) {
     if (result === ERR_FULL) {
         return complete(
             action,
-            `err_full amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `err_full amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
+    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+        return complete(action, `err_not_enough_resources from=${action.data.fromId}`);
+    }
+
     if (result === ERR_INVALID_TARGET) {
-        return complete(action, `err_invalid_target pile=${action.data.pileId}`);
+        return complete(action, `err_invalid_target from=${action.data.fromId}`);
     }
 
     if (result === ERR_NOT_OWNER) {
-        return complete(action, `err_not_owner pile=${action.data.pileId}`);
+        return complete(action, `err_not_owner from=${action.data.fromId}`);
     }
 
     if (result === ERR_BUSY) {
-        return complete(action, `err_busy pile=${action.data.pileId}`);
+        return complete(action, `err_busy from=${action.data.fromId}`);
     }
 
     log(`[pickup_resource] progress unexpected_result=${result} ${describeAction(action)}`);
@@ -125,7 +130,7 @@ function complete(action, reason) {
 }
 
 function describeAction(action) {
-    return `action=${action.id} task=${action.taskId} creep=${action.executorName} pile=${action.data.pileId}`;
+    return `action=${action.id} task=${action.taskId} creep=${action.executorName} from=${action.data.fromId}`;
 }
 
 module.exports = {

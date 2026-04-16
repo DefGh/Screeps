@@ -12,6 +12,8 @@ const spawnCreepTask = require("./task.spawn_creep");
 const renewHaulerTask = require("./task.renew_hauler");
 const renewUniversalTask = require("./task.renew_universal");
 const fillEnergyTask = require("./task.fill_energy");
+const collectDroppedResourceTask = require("./task.collect_dropped_resource");
+const exportResourceToCapitalTask = require("./task.export_resource_to_capital");
 const fillSpawnTask = require("./task.fill_spawn");
 const fillExtensionTask = require("./task.fill_extension");
 const fillTowerTask = require("./task.fill_tower");
@@ -32,6 +34,8 @@ const handlers = {
     [constants.taskTypes.SYNC_ROADS]: syncRoadsTask,
     [constants.taskTypes.SYNC_FORTIFICATIONS]: syncFortificationsTask,
     [constants.taskTypes.FILL_ENERGY]: fillEnergyTask,
+    [constants.taskTypes.COLLECT_DROPPED_RESOURCE]: collectDroppedResourceTask,
+    [constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL]: exportResourceToCapitalTask,
     [constants.taskTypes.FILL_SPAWN]: fillSpawnTask,
     [constants.taskTypes.FILL_EXTENSION]: fillExtensionTask,
     [constants.taskTypes.FILL_TOWER]: fillTowerTask,

@@ -7,29 +7,30 @@ function execute(creep, action) {
         return complete(action, "task_missing");
     }
 
+    const resourceType = action.data.resourceType || RESOURCE_ENERGY;
     const targetAmount = action.data.amount || 0;
-    const currentEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-    const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    const currentAmount = creep.store.getUsedCapacity(resourceType);
+    const freeCapacity = creep.store.getFreeCapacity();
     const target = Game.getObjectById(action.data.pileId);
 
     if (targetAmount <= 0) {
         return complete(
             action,
-            `invalid_amount amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `invalid_amount amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
-    if (currentEnergy >= targetAmount) {
+    if (currentAmount >= targetAmount) {
         return complete(
             action,
-            `target_reached amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `target_reached amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
     if (freeCapacity <= 0) {
         return complete(
             action,
-            `no_free_capacity amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `no_free_capacity amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 
@@ -56,7 +57,7 @@ function execute(creep, action) {
     if (result === ERR_FULL) {
         return complete(
             action,
-            `err_full amount=${targetAmount} current=${currentEnergy} free=${freeCapacity}`
+            `err_full amount=${targetAmount} current=${currentAmount} free=${freeCapacity}`
         );
     }
 

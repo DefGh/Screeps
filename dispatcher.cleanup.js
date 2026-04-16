@@ -112,9 +112,11 @@ function normalizeTaskAssignments(task) {
         const changed = fillEnergy.normalizeTask(task);
 
         if (shouldLogNormalization(task, previousAssignedPercent, previousDonePercent)) {
-            debug.log(
-                `[dispatcher] normalized ${task.type} ${task.id} assigned=${formatPercent(previousAssignedPercent)}->${formatPercent(task.assignedPercent)} done=${formatPercent(previousDonePercent)}->${formatPercent(task.donePercent)} active=${task.actionIds.length}`
-            );
+            // debug.log(
+            //     `[dispatcher] normalized ${task.type} ${task.id} 
+            //     assigned=${formatPercent(previousAssignedPercent)}->${formatPercent(task.assignedPercent)}
+            //      done=${formatPercent(previousDonePercent)}->${formatPercent(task.donePercent)} active=${task.actionIds.length}`
+            // );
         }
 
         return changed;
@@ -137,9 +139,9 @@ function normalizeTaskAssignments(task) {
     task.assignedPercent = Math.max(nextDonePercent, nextAssignedPercent);
 
     if (shouldLogNormalization(task, previousAssignedPercent, previousDonePercent)) {
-        debug.log(
-            `[dispatcher] normalized ${task.type} ${task.id} assigned=${formatPercent(previousAssignedPercent)}->${formatPercent(task.assignedPercent)} done=${formatPercent(previousDonePercent)}->${formatPercent(task.donePercent)} active=${task.actionIds.length}`
-        );
+        // debug.log(
+        //     `[dispatcher] normalized ${task.type} ${task.id} assigned=${formatPercent(previousAssignedPercent)}->${formatPercent(task.assignedPercent)} done=${formatPercent(previousDonePercent)}->${formatPercent(task.donePercent)} active=${task.actionIds.length}`
+        // );
     }
 
     return changed;

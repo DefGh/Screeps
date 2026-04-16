@@ -1,5 +1,5 @@
 const FORTIFICATION_REPAIR_CAP = 100000;
-const TOWER_REPAIR_CAP_RATIO = 0.15;
+const TOWER_REPAIR_CAP_RATIO = 0.95;
 const CREEP_REPAIR_START_RATIO = 0.7;
 
 function selectTowerRepairTarget(executor, structures) {

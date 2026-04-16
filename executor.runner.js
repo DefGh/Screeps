@@ -3,6 +3,7 @@ const constants = require("./constants");
 const dispatcher = require("./dispatcher");
 const dispatcherCleanup = require("./dispatcher.cleanup");
 const tasks = require("./tasks");
+const renewUniversal = require("./renew.universal");
 
 function run() {
     runRooms();
@@ -29,11 +30,7 @@ function runRooms() {
 
 function runSpawns() {
     for (const spawnName in Game.spawns) {
-        runExecutor(
-            Game.spawns[spawnName],
-            getSpawnState(Game.spawns[spawnName]),
-            dispatcher.askSpawn
-        );
+        runSpawnExecutor(Game.spawns[spawnName]);
     }
 }
 
@@ -95,6 +92,33 @@ function runExecutor(executor, state, askForActions) {
 
     handler.onCompleted(action);
     completeAction(state, action);
+}
+
+function runSpawnExecutor(spawn) {
+    const state = getSpawnState(spawn);
+
+    if (renewUniversal.hasActiveRenewTaskForSpawn(spawn.room.name, spawn.name, tasks.listTasks)) {
+        let action = peekAction(state);
+
+        if (action && action.type === constants.actionTypes.SPAWN_CREEP) {
+            const renewActions = dispatcher.askSpawn(spawn).filter(function (queuedAction) {
+                return queuedAction.type === constants.actionTypes.RENEW_CREEP;
+            });
+
+            if (renewActions.length > 0) {
+                queueActionsFront(state, renewActions);
+            }
+            else {
+                return;
+            }
+        }
+    }
+
+    runExecutor(
+        spawn,
+        state,
+        dispatcher.askSpawn
+    );
 }
 
 function getRoomState(room) {
@@ -178,6 +202,18 @@ function queueActions(state, actionsToQueue) {
     }
 }
 
+function queueActionsFront(state, actionsToQueue) {
+    if (!actionsToQueue || actionsToQueue.length === 0) {
+        return;
+    }
+
+    const actionIds = actionsToQueue.map(function (action) {
+        return action.id;
+    });
+
+    state.actionIds = actionIds.concat(state.actionIds);
+}
+
 function completeAction(state, action) {
     const task = tasks.getTask(action.taskId);
 
@@ -206,6 +242,7 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.CLAIM_CONTROLLER ||
         actionType === constants.actionTypes.CHECK_UNIVERSAL_RENEW ||
         actionType === constants.actionTypes.CHECK_FILL_ENERGY ||
+        actionType === constants.actionTypes.CHECK_NON_ENERGY_LOGISTICS ||
         actionType === constants.actionTypes.CHECK_FILL_EXTENSION ||
         actionType === constants.actionTypes.CHECK_FILL_SPAWN ||
         actionType === constants.actionTypes.CHECK_FILL_TOWER ||
@@ -231,6 +268,7 @@ function isTerminalAction(actionType) {
         actionType === constants.actionTypes.TOWER_HEAL ||
         actionType === constants.actionTypes.TOWER_REPAIR ||
         actionType === constants.actionTypes.TRANSFER_ENERGY ||
+        actionType === constants.actionTypes.TRANSFER_RESOURCE ||
         actionType === constants.actionTypes.UPGRADE_CONTROLLER
     );
 }

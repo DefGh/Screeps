@@ -22,10 +22,12 @@ const towerRepairAction = require("./action.tower_repair");
 const towerHealAction = require("./action.tower_heal");
 const placeConstructionSiteAction = require("./action.place_construction_site");
 const transferEnergyAction = require("./action.transfer_energy");
+const transferResourceAction = require("./action.transfer_resource");
 const upgradeControllerAction = require("./action.upgrade_controller");
 const checkUniversalsAction = require("./action.check_universals");
 const checkUniversalRenewAction = require("./action.check_universal_renew");
 const checkFillEnergyAction = require("./action.check_fill_energy");
+const checkNonEnergyLogisticsAction = require("./action.check_non_energy_logistics");
 const checkFillSpawnAction = require("./action.check_fill_spawn");
 const checkFillExtensionAction = require("./action.check_fill_extension");
 const checkFillTowerAction = require("./action.check_fill_tower");
@@ -61,10 +63,12 @@ const handlers = {
     [constants.actionTypes.TOWER_HEAL]: towerHealAction,
     [constants.actionTypes.PLACE_CONSTRUCTION_SITE]: placeConstructionSiteAction,
     [constants.actionTypes.TRANSFER_ENERGY]: transferEnergyAction,
+    [constants.actionTypes.TRANSFER_RESOURCE]: transferResourceAction,
     [constants.actionTypes.UPGRADE_CONTROLLER]: upgradeControllerAction,
     [constants.actionTypes.CHECK_UNIVERSALS]: checkUniversalsAction,
     [constants.actionTypes.CHECK_UNIVERSAL_RENEW]: checkUniversalRenewAction,
     [constants.actionTypes.CHECK_FILL_ENERGY]: checkFillEnergyAction,
+    [constants.actionTypes.CHECK_NON_ENERGY_LOGISTICS]: checkNonEnergyLogisticsAction,
     [constants.actionTypes.CHECK_FILL_SPAWN]: checkFillSpawnAction,
     [constants.actionTypes.CHECK_FILL_EXTENSION]: checkFillExtensionAction,
     [constants.actionTypes.CHECK_FILL_TOWER]: checkFillTowerAction,

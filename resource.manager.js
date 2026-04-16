@@ -49,6 +49,56 @@ function reserve(creep, amount) {
     };
 }
 
+function reserveInRoom(creep, amount, roomName) {
+    const room = Game.rooms[roomName];
+
+    if (!room || amount <= 0) {
+        return null;
+    }
+
+    const pile = findClosestReservablePile(room, creep);
+
+    if (pile) {
+        const reservableAmount = Math.min(
+            amount,
+            getPileReservableAmount(pile, room.name)
+        );
+
+        return {
+            type: constants.actionTypes.PICKUP_RESOURCE,
+            data: {
+                pileId: pile.id,
+                amount: reservableAmount,
+                reservationId: createReservation(room.name, pile.id, reservableAmount),
+            },
+        };
+    }
+
+    const container = findClosestReservableContainer(room, creep);
+
+    if (container) {
+        return createTakeResourceAction(
+            room.name,
+            container.id,
+            Math.min(amount, getContainerReservableAmount(container, room.name))
+        );
+    }
+
+    const source = findMineTarget(room, creep);
+
+    if (!source) {
+        return null;
+    }
+
+    return {
+        type: constants.actionTypes.MINE,
+        data: {
+            sourceId: source.id,
+            amount: amount,
+        },
+    };
+}
+
 function reserveContainer(creep, amount, excludedTargetIds) {
     const room = Game.rooms[creep.memory.originRoomName];
 
@@ -110,12 +160,33 @@ function findPileTarget(room, creep, amount) {
     return pickClosestTarget(creep, piles);
 }
 
+function findClosestReservablePile(room, creep) {
+    const piles = room.find(FIND_DROPPED_RESOURCES).filter(function (resource) {
+        return getPileReservableAmount(resource, room.name) > 0;
+    });
+
+    return pickClosestTarget(creep, piles);
+}
+
 function findContainerTarget(room, creep, amount, excludedTargetIds) {
     const excludedIds = excludedTargetIds || [];
     const containers = room.find(FIND_STRUCTURES).filter(function (structure) {
         return (
             !excludedIds.includes(structure.id) &&
             isReservableContainer(structure, room.name, amount)
+        );
+    });
+
+    return pickClosestTarget(creep, containers);
+}
+
+function findClosestReservableContainer(room, creep, excludedTargetIds) {
+    const excludedIds = excludedTargetIds || [];
+    const containers = room.find(FIND_STRUCTURES).filter(function (structure) {
+        return (
+            !excludedIds.includes(structure.id) &&
+            isReservableEnergyStore(structure) &&
+            getContainerReservableAmount(structure, room.name) > 0
         );
     });
 
@@ -245,6 +316,7 @@ function pickClosestTarget(creep, targets) {
 
 module.exports = {
     reserve,
+    reserveInRoom,
     reserveContainer,
     release,
 };

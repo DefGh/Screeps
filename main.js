@@ -6,8 +6,8 @@ const events = require("./events");
 const init = require("./init");
 
 module.exports.loop = function () {
+    reset();
     init();
-
     //Game.map.visual.circle(new RoomPosition(25,25,'W7N3'));
 
     fireRclChangeEvents();
@@ -18,6 +18,74 @@ module.exports.loop = function () {
     debug.visuals();
     updateCpuPeak();
 };
+
+function reset() {
+
+    if (!Memory.reset) {
+        return;
+    }
+    Memory.reset = false;
+    const tasks = require("tasks");
+    const cleanup = require("dispatcher.cleanup");
+
+
+
+    for (const taskId of Object.keys((Memory.Tasks && Memory.Tasks.byId) || {})) {
+        tasks.removeTask(taskId);
+    }
+
+    for (const actionId of Object.keys((Memory.Dispatcher && Memory.Dispatcher.actionsById) || {})) {
+        const action = Memory.Dispatcher.actionsById[actionId];
+
+        if (action) {
+            cleanup.cleanupAssignedAction(action, {
+                invokeCancel: true,
+                reason: "console-reset",
+                log: console.log,
+            });
+        }
+    }
+
+    if (Memory.Tasks) {
+        Memory.Tasks.byId = {};
+        Memory.Tasks.rooms = {};
+    }
+
+    if (Memory.Dispatcher) {
+        Memory.Dispatcher.actionsById = {};
+    }
+
+    if (Memory.Resources) {
+        Memory.Resources.byId = {};
+        Memory.Resources.rooms = {};
+    }
+
+    for (const creepName in (Memory.creeps || {})) {
+        if (Memory.creeps[creepName]) {
+            Memory.creeps[creepName].actionIds = [];
+        }
+    }
+
+    for (const roomName in (Memory.rooms || {})) {
+        if (Memory.rooms[roomName]) {
+            Memory.rooms[roomName].actionIds = [];
+        }
+    }
+
+    for (const spawnName in (Memory.spawns || {})) {
+        if (Memory.spawns[spawnName]) {
+            Memory.spawns[spawnName].actionIds = [];
+        }
+    }
+
+    for (const towerId in (Memory.towers || {})) {
+        if (Memory.towers[towerId]) {
+            Memory.towers[towerId].actionIds = [];
+        }
+    }
+
+    console.log("[reset] tasks, actions, queues and reservations cleared");
+}
 
 function updateCpuPeak() {
     const currentCpu = Game.cpu.getUsed();

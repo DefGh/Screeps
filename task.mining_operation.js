@@ -18,7 +18,7 @@ function tryDispatch(task, executor, ctx) {
     }
 
     if (ctx.executorType === "spawn") {
-        return tryDispatchSpawn(task, executor);
+        return tryDispatchSpawn(task, executor, ctx);
     }
 
     if (ctx.executorType === "room") {
@@ -56,8 +56,16 @@ function isPausedByNearbyEnemy(task) {
     return true;
 }
 
-function tryDispatchSpawn(task, spawn) {
+function tryDispatchSpawn(task, spawn, ctx) {
     if (spawn.room.name !== task.room) {
+        return [];
+    }
+
+    if (
+        ctx &&
+        ctx.listTasks &&
+        renewUniversal.hasActiveRenewTaskForSpawn(task.room, spawn.name, ctx.listTasks)
+    ) {
         return [];
     }
 
@@ -251,7 +259,11 @@ function tryDispatchRemoteBuilder(task, creep) {
         creep.store.getCapacity(RESOURCE_ENERGY),
         remainingAmount
     );
-    const energyAction = resourceManager.reserve(creep, assignedAmount);
+    const energyAction = resourceManager.reserveInRoom(
+        creep,
+        assignedAmount,
+        task.data.anchor.roomName
+    );
 
     if (!energyAction) {
         return [];

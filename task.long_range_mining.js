@@ -124,7 +124,17 @@ function tryDispatchRemoteRepair(task, creep, ctx) {
         creep.store.getCapacity(RESOURCE_ENERGY),
         remainingAmount
     );
-    const energyAction = resourceManager.reserve(creep, assignedAmount);
+    const targetRoomName = target.pos.roomName;
+
+    if (!targetRoomName) {
+        return [];
+    }
+
+    const energyAction = resourceManager.reserveInRoom(
+        creep,
+        assignedAmount,
+        targetRoomName
+    );
 
     if (!energyAction) {
         return [];

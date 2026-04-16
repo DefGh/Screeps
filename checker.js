@@ -1,5 +1,6 @@
 const constants = require("./constants");
 const fillEnergy = require("./fill.energy");
+const logistics = require("./logistics");
 const longRangeMining = require("./long_range_mining");
 const miningAnchors = require("./planner.mining_anchors");
 const renewUniversal = require("./renew.universal");
@@ -20,6 +21,7 @@ const cycleActionTypes = [
     constants.actionTypes.CHECK_UNIVERSALS,
     constants.actionTypes.CHECK_UNIVERSAL_RENEW,
     constants.actionTypes.CHECK_FILL_ENERGY,
+    constants.actionTypes.CHECK_NON_ENERGY_LOGISTICS,
     constants.actionTypes.CHECK_FILL_TOWER,
     constants.actionTypes.CHECK_EXPANSION,
     constants.actionTypes.CHECK_UPGRADE_CONTROLLER,
@@ -135,13 +137,21 @@ function checkFillEnergy(room, ctx) {
         return;
     }
 
-    require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+    normalizeTaskAssignments(task);
     fillEnergy.syncTask(task, room);
 
     if (!fillEnergy.hasOutstandingDemand(task) && task.actionIds.length === 0) {
         ctx.removeTask(task.id);
         ctx.log(`[checker] remove ${constants.taskTypes.FILL_ENERGY} for ${room.name}`);
     }
+}
+
+function checkNonEnergyLogistics(room, ctx) {
+    const storage = longRangeMining.getOwnedStorage(room);
+
+    syncCollectDroppedResourceTasks(room, storage, ctx);
+    syncExportResourceTasks(room, storage, ctx);
+    syncCapitalExportHauler(room, storage, ctx);
 }
 
 function checkTowerEnergy(room, ctx) {
@@ -176,7 +186,7 @@ function checkUpgradeController(room, ctx) {
         task.data.isMaxLevel = true;
         task.data.total = getUpgradeTaskTotal(room.controller);
 
-        require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+        normalizeTaskAssignments(task);
         return;
     }
 
@@ -199,7 +209,7 @@ function checkUpgradeController(room, ctx) {
     delete task.data.isMaxLevel;
     task.donePercent = getControllerProgressPercent(room.controller);
 
-    require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+    normalizeTaskAssignments(task);
 }
 
 function checkExpansion(room, ctx) {
@@ -285,6 +295,287 @@ function cleanupLegacyFillTasks(roomName, ctx) {
         ctx.removeTask(task.id);
         ctx.log(`[checker] remove legacy ${task.type} for ${roomName}`);
     }
+}
+
+function syncCollectDroppedResourceTasks(room, storage, ctx) {
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.COLLECT_DROPPED_RESOURCE;
+    });
+    const livePilesById = {};
+    const livePiles = storage
+        ? logistics.getNonEnergyDroppedResources(room)
+        : [];
+
+    for (const pile of livePiles) {
+        livePilesById[pile.id] = pile;
+    }
+
+    const seenPileIds = {};
+
+    for (const task of matchedTasks) {
+        normalizeTaskAssignments(task);
+
+        const pile = livePilesById[task.data.pileId];
+        const keepDetachedTask = (
+            task.actionIds.length > 0 ||
+            hasUniversalCargo(room.name, task.data.resourceType)
+        );
+
+        if (
+            !storage ||
+            (
+                !pile &&
+                !keepDetachedTask
+            ) ||
+            (
+                pile &&
+                pile.resourceType !== task.data.resourceType
+            ) ||
+            seenPileIds[task.data.pileId]
+        ) {
+            ctx.removeTask(task.id);
+            ctx.log(`[checker] remove ${constants.taskTypes.COLLECT_DROPPED_RESOURCE} for ${room.name}:${task.data.pileId}`);
+            continue;
+        }
+
+        seenPileIds[task.data.pileId] = true;
+
+        if (pile) {
+            task.data.resourceType = pile.resourceType;
+
+            if (task.actionIds.length === 0) {
+                task.data.total = pile.amount;
+            }
+        }
+    }
+
+    if (!storage) {
+        return;
+    }
+
+    for (const pile of livePiles) {
+        if (seenPileIds[pile.id]) {
+            continue;
+        }
+
+        const result = ctx.addTask(constants.taskTypes.COLLECT_DROPPED_RESOURCE, room.name, {
+            pileId: pile.id,
+            resourceType: pile.resourceType,
+            total: pile.amount,
+        });
+
+        if (!result || !result.task) {
+            continue;
+        }
+
+        seenPileIds[pile.id] = true;
+        ctx.log(`[checker] add ${constants.taskTypes.COLLECT_DROPPED_RESOURCE} for ${room.name}:${pile.id}`);
+    }
+}
+
+function syncExportResourceTasks(room, storage, ctx) {
+    const matchedTasks = ctx.listTasks(room.name).filter(function (task) {
+        return task.type === constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL;
+    });
+    const capitalStorage = logistics.getCapitalStorage();
+    const isCapitalRoom = logistics.isCapitalRoom(room.name);
+    const liveEntries = (
+        storage &&
+        capitalStorage &&
+        !isCapitalRoom
+    )
+        ? logistics.getStorageNonEnergyResources(storage)
+        : [];
+    const liveEntriesByResourceType = {};
+
+    for (const entry of liveEntries) {
+        liveEntriesByResourceType[entry.resourceType] = entry;
+    }
+
+    const seenResourceTypes = {};
+
+    for (const task of matchedTasks) {
+        normalizeTaskAssignments(task);
+
+        const resourceType = task.data.resourceType;
+        const entry = liveEntriesByResourceType[resourceType];
+        const keepDetachedTask = (
+            task.actionIds.length > 0 ||
+            hasExportHaulerCargo(room.name, resourceType)
+        );
+
+        if (
+            isCapitalRoom ||
+            (
+                !storage &&
+                !keepDetachedTask
+            ) ||
+            (
+                !capitalStorage &&
+                !keepDetachedTask
+            ) ||
+            (
+                !entry &&
+                !keepDetachedTask
+            ) ||
+            seenResourceTypes[resourceType]
+        ) {
+            ctx.removeTask(task.id);
+            ctx.log(`[checker] remove ${constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL} for ${room.name}:${resourceType}`);
+            continue;
+        }
+
+        seenResourceTypes[resourceType] = true;
+        task.data.capitalRoomName = logistics.getCapitalRoomName();
+
+        if (capitalStorage) {
+            task.data.capitalStorageId = capitalStorage.id;
+        }
+        else {
+            delete task.data.capitalStorageId;
+        }
+
+        if (storage) {
+            task.data.sourceStorageId = storage.id;
+        }
+        else {
+            delete task.data.sourceStorageId;
+        }
+
+        if (entry && task.actionIds.length === 0) {
+            task.data.total = entry.amount;
+        }
+    }
+
+    if (!storage || !capitalStorage || isCapitalRoom) {
+        return;
+    }
+
+    for (const entry of liveEntries) {
+        if (seenResourceTypes[entry.resourceType]) {
+            continue;
+        }
+
+        const result = ctx.addTask(constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL, room.name, {
+            capitalRoomName: logistics.getCapitalRoomName(),
+            capitalStorageId: capitalStorage.id,
+            resourceType: entry.resourceType,
+            sourceStorageId: storage.id,
+            total: entry.amount,
+        });
+
+        if (!result || !result.task) {
+            continue;
+        }
+
+        seenResourceTypes[entry.resourceType] = true;
+        ctx.log(`[checker] add ${constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL} for ${room.name}:${entry.resourceType}`);
+    }
+}
+
+function syncCapitalExportHauler(room, storage, ctx) {
+    const roomName = room.name;
+    const spawn = renewUniversal.getPrimarySpawn(roomName);
+    const queuedTasks = ctx.listTasks(roomName).filter(isExportHaulerSpawnTask);
+    const currentCount = countLiveExportHaulers(roomName);
+    const desiredCount = shouldHaveExportHauler(room, storage, ctx) && spawn
+        ? 1
+        : 0;
+
+    while (currentCount + queuedTasks.length > desiredCount && queuedTasks.length > 0) {
+        ctx.removeTask(queuedTasks.pop().id);
+    }
+
+    while (currentCount + queuedTasks.length < desiredCount) {
+        const result = ctx.addTask(constants.taskTypes.SPAWN_CREEP, roomName, {
+            memory: {
+                haulerMode: "capital_export",
+            },
+            role: constants.roles.HAULER,
+        });
+
+        if (!result || !result.task) {
+            break;
+        }
+
+        queuedTasks.push(result.task);
+        ctx.log(`[checker] add ${constants.taskTypes.SPAWN_CREEP} for ${roomName}:capital_export`);
+    }
+}
+
+function shouldHaveExportHauler(room, storage, ctx) {
+    if (
+        !storage ||
+        logistics.isCapitalRoom(room.name) ||
+        !logistics.getCapitalStorage()
+    ) {
+        return false;
+    }
+
+    return ctx.listTasks(room.name).some(function (task) {
+        return task.type === constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL;
+    });
+}
+
+function countLiveExportHaulers(roomName) {
+    let count = 0;
+
+    for (const creepName in Game.creeps) {
+        if (logistics.isExportHauler(Game.creeps[creepName], roomName)) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function isExportHaulerSpawnTask(task) {
+    return !!(
+        task &&
+        task.type === constants.taskTypes.SPAWN_CREEP &&
+        task.data.role === constants.roles.HAULER &&
+        task.data.memory &&
+        task.data.memory.haulerMode === "capital_export"
+    );
+}
+
+function hasUniversalCargo(roomName, resourceType) {
+    if (!resourceType) {
+        return false;
+    }
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            creep.memory.role === constants.roles.UNIVERSAL &&
+            creep.memory.originRoomName === roomName &&
+            creep.store.getUsedCapacity(resourceType) > 0
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function hasExportHaulerCargo(roomName, resourceType) {
+    if (!resourceType) {
+        return false;
+    }
+
+    for (const creepName in Game.creeps) {
+        const creep = Game.creeps[creepName];
+
+        if (
+            logistics.isExportHauler(creep, roomName) &&
+            creep.store.getUsedCapacity(resourceType) > 0
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function recalculateUniversalsCount(room, ctx) {
@@ -1046,6 +1337,10 @@ function getRoomEnergyBuffer(room) {
     return total;
 }
 
+function normalizeTaskAssignments(task) {
+    require("./dispatcher.cleanup").normalizeTaskAssignments(task);
+}
+
 function getRoomState(roomName) {
     if (!isOwnedRoomName(roomName) && !Memory.Checker.rooms[roomName]) {
         return {
@@ -1076,6 +1371,7 @@ module.exports = {
     CHECK_INTERVAL,
     checkExpansion,
     checkFillEnergy,
+    checkNonEnergyLogistics,
     checkExtensionEnergy,
     checkLongRangeMining,
     checkSpawnEnergy,

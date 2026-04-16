@@ -26,12 +26,13 @@ const towerPriority = [
 
 const universalPriority = [
     constants.taskTypes.RENEW_UNIVERSAL,
+    constants.taskTypes.COLLECT_DROPPED_RESOURCE,
     constants.taskTypes.FILL_ENERGY,
+    constants.taskTypes.BUILD,
     constants.taskTypes.MINING_OPERATION,
     constants.taskTypes.LONG_RANGE_MINING,
     constants.taskTypes.FILL_TOWER,
     constants.taskTypes.REPAIR,
-    constants.taskTypes.BUILD,
     constants.taskTypes.UPGRADE_CONTROLLER,
 ];
 
@@ -49,6 +50,7 @@ const outpostScoutPriority = [
 
 const haulerPriority = [
     constants.taskTypes.RENEW_HAULER,
+    constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL,
     constants.taskTypes.MINING_OPERATION,
 ];
 

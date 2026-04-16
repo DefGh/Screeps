@@ -85,7 +85,6 @@ function buildRepeatingBody(spawn, cycle, minimumCost) {
 }
 
 function buildMinerBody(spawn, action) {
-    const body = [];
     const isRemoteMiner = !!(
         action &&
         action.data &&
@@ -94,6 +93,16 @@ function buildMinerBody(spawn, action) {
         action.data.memory.anchor.roomName &&
         action.data.memory.anchor.roomName !== spawn.room.name
     );
+
+    if (isRemoteMiner) {
+        if (spawn.room.energyCapacityAvailable < 350) {
+            return [];
+        }
+
+        return [WORK, WORK, WORK, MOVE, MOVE];
+    }
+
+    const body = [];
     const moveParts = isRemoteMiner ? 2 : 0;
     const reservedBudget = moveParts * getBodyPartCost(MOVE);
     const workBudget = Math.max(0, spawn.room.energyCapacityAvailable - reservedBudget);

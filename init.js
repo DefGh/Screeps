@@ -60,6 +60,15 @@ function ensureMemory() {
             spawnSite: null,
         };
     }
+
+    if (!Memory.Logistics) {
+        Memory.Logistics = {
+            capitalRoomName: null,
+        };
+    }
+    else if (Memory.Logistics.capitalRoomName === undefined) {
+        Memory.Logistics.capitalRoomName = null;
+    }
 }
 
 module.exports = function () {

@@ -90,6 +90,43 @@ function getProgressPercent(creep, renewUntil) {
     return Math.max(0, Math.min(100, progress));
 }
 
+function hasActiveRenewTaskForSpawn(roomName, spawnName, listTasks) {
+    if (
+        !roomName ||
+        !spawnName ||
+        !listTasks
+    ) {
+        return false;
+    }
+
+    const roomTasks = listTasks(roomName);
+
+    for (const task of roomTasks) {
+        if (
+            !task ||
+            !task.data ||
+            task.data.spawnName !== spawnName
+        ) {
+            continue;
+        }
+
+        if (
+            task.type !== constants.taskTypes.RENEW_UNIVERSAL &&
+            task.type !== constants.taskTypes.RENEW_HAULER
+        ) {
+            continue;
+        }
+
+        if (Number.isFinite(task.donePercent) && task.donePercent >= 100) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 module.exports = {
     RENEW_START_TTL,
     RENEW_TARGET_TTL,
@@ -98,6 +135,7 @@ module.exports = {
     getProgressPercent,
     getRenewUntil,
     getRoomGeneration,
+    hasActiveRenewTaskForSpawn,
     isComplete,
     isEligibleToStart,
     isGenerationCurrent,

@@ -15,6 +15,8 @@ const taskIcons = {
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "🧱",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.taskTypes.FILL_ENERGY]: "⚡",
+    [constants.taskTypes.COLLECT_DROPPED_RESOURCE]: "🧲",
+    [constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL]: "📤",
     [constants.taskTypes.FILL_SPAWN]: "⚡",
     [constants.taskTypes.FILL_EXTENSION]: "🔌",
     [constants.taskTypes.FILL_TOWER]: "🛡️",
@@ -44,10 +46,12 @@ const actionIcons = {
     [constants.actionTypes.TOWER_HEAL]: "💚",
     [constants.actionTypes.PLACE_CONSTRUCTION_SITE]: "📍",
     [constants.actionTypes.TRANSFER_ENERGY]: "🔋",
+    [constants.actionTypes.TRANSFER_RESOURCE]: "📤",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "⬆️",
     [constants.actionTypes.CHECK_UNIVERSALS]: "👥",
     [constants.actionTypes.CHECK_UNIVERSAL_RENEW]: "♻️",
     [constants.actionTypes.CHECK_FILL_ENERGY]: "⚡",
+    [constants.actionTypes.CHECK_NON_ENERGY_LOGISTICS]: "📦",
     [constants.actionTypes.CHECK_FILL_SPAWN]: "⚡",
     [constants.actionTypes.CHECK_FILL_EXTENSION]: "🔌",
     [constants.actionTypes.CHECK_FILL_TOWER]: "🛡️",
@@ -73,6 +77,8 @@ const taskColors = {
     [constants.taskTypes.SYNC_FORTIFICATIONS]: "#c77dff",
     [constants.taskTypes.UPGRADE_CONTROLLER]: "#7ddc84",
     [constants.taskTypes.FILL_ENERGY]: "#58a6ff",
+    [constants.taskTypes.COLLECT_DROPPED_RESOURCE]: "#4ecdc4",
+    [constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL]: "#ffb703",
     [constants.taskTypes.FILL_SPAWN]: "#58a6ff",
     [constants.taskTypes.FILL_EXTENSION]: "#58a6ff",
     [constants.taskTypes.FILL_TOWER]: "#58a6ff",
@@ -96,6 +102,7 @@ const actionLineColors = {
     [constants.actionTypes.CLAIM_CONTROLLER]: "#f78c6c",
     [constants.actionTypes.TAXI]: "#c77dff",
     [constants.actionTypes.TRANSFER_ENERGY]: "#58a6ff",
+    [constants.actionTypes.TRANSFER_RESOURCE]: "#ffb703",
     [constants.actionTypes.UPGRADE_CONTROLLER]: "#7ddc84",
 };
 
@@ -728,7 +735,8 @@ function getActionTargetPosition(action, creep) {
         action.type === constants.actionTypes.TAKE_RESOURCE ||
         action.type === constants.actionTypes.BUILD ||
         action.type === constants.actionTypes.REPAIR ||
-        action.type === constants.actionTypes.TRANSFER_ENERGY
+        action.type === constants.actionTypes.TRANSFER_ENERGY ||
+        action.type === constants.actionTypes.TRANSFER_RESOURCE
     ) {
         return getObjectPosition(
             Game.getObjectById(
@@ -828,6 +836,10 @@ function getTaskLabel(taskType) {
         return "upgrade";
     case constants.taskTypes.FILL_ENERGY:
         return "fill energy";
+    case constants.taskTypes.COLLECT_DROPPED_RESOURCE:
+        return "collect drop";
+    case constants.taskTypes.EXPORT_RESOURCE_TO_CAPITAL:
+        return "export";
     case constants.taskTypes.FILL_SPAWN:
         return "fill spawn";
     case constants.taskTypes.FILL_EXTENSION:
@@ -895,6 +907,8 @@ function getActionLabel(actionType) {
         return "site";
     case constants.actionTypes.TRANSFER_ENERGY:
         return "transfer";
+    case constants.actionTypes.TRANSFER_RESOURCE:
+        return "transfer";
     case constants.actionTypes.UPGRADE_CONTROLLER:
         return "upgrade";
     case constants.actionTypes.CHECK_UNIVERSALS:
@@ -903,6 +917,8 @@ function getActionLabel(actionType) {
         return "check renew";
     case constants.actionTypes.CHECK_FILL_ENERGY:
         return "check energy";
+    case constants.actionTypes.CHECK_NON_ENERGY_LOGISTICS:
+        return "check cargo";
     case constants.actionTypes.CHECK_FILL_SPAWN:
         return "check spawn";
     case constants.actionTypes.CHECK_FILL_EXTENSION:
